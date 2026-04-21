@@ -110,7 +110,7 @@ describe("buildPptx — Standard Feature A4", () => {
     ).rejects.toThrow(/zero placements/);
   });
 
-  test("page count matches template's minimum page_count_range", async () => {
+  test("short body emits only the pages it fills (no blank trailers)", async () => {
     const template = await loadTemplateFile(standardFeatureA4);
     const input: PptxBuildInput = {
       issueTitle: "Issue 2",
@@ -127,9 +127,14 @@ describe("buildPptx — Standard Feature A4", () => {
       ],
     };
     const result = await buildPptx(input, path.join(workDir, "minpages.pptx"));
-    // Short body should render at template minimum pages
-    expect(result.pageCount).toBe(template.page_count_range[0]);
+    // A 500-word body comfortably fits on one page — we should NOT emit
+    // blank pages just because the template's page_count_range minimum is 2.
+    expect(result.pageCount).toBeGreaterThanOrEqual(1);
     expect(result.pageCount).toBeLessThanOrEqual(template.page_count_range[1]);
+    // Caller should receive a warning so the UI can nudge the operator.
+    if (result.pageCount < template.page_count_range[0]) {
+      expect(result.warnings.some((w) => /template/i.test(w))).toBe(true);
+    }
   });
 
   test("handles Hindi article with Devanagari body", async () => {

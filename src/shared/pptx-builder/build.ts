@@ -55,7 +55,7 @@ export async function buildPptx(
 
   let pageCount = 0;
   for (const placement of input.placements) {
-    const added = addPlacementSlides(pres, placement);
+    const added = addPlacementSlides(pres, placement, warnings);
     pageCount += added;
   }
 
@@ -71,7 +71,11 @@ export async function buildPptx(
   };
 }
 
-function addPlacementSlides(pres: pptxgen, placement: PptxPlacement): number {
+function addPlacementSlides(
+  pres: pptxgen,
+  placement: PptxPlacement,
+  warnings: string[]
+): number {
   const { template, article } = placement;
   const geo = template.geometry;
   const typ = template.typography;
@@ -124,30 +128,46 @@ function addPlacementSlides(pres: pptxgen, placement: PptxPlacement): number {
   const charsPerColFirstPage = charsPerLine * linesPerColFirstPage;
   const charsPerColOtherPages = charsPerLine * linesPerColOtherPages;
 
-  // Decide actual page count from body length
+  // Decide actual page count from body length. Allocate capacities for the
+  // template's MAX pages, distribute greedily, then truncate to the actual
+  // number of pages that received content. That way:
+  //   - short articles don't get a blank page 2 forced by template min
+  //   - long articles that finish early don't get a blank trailing page
+  // The template's page_count_range is a guideline, not a hard floor. If the
+  // body is too short for the recommended minimum, we emit fewer pages and
+  // surface a warning so the caller can show the operator.
   const body = article.body.trim();
-  const neededCols = Math.ceil(
-    estimateCharsNeeded(body) /
-      Math.min(charsPerColFirstPage, charsPerColOtherPages)
-  );
   const minPages = template.page_count_range[0];
   const maxPages = template.page_count_range[1];
-  let pagesNeeded = Math.max(minPages, Math.ceil(neededCols / columnCount));
-  pagesNeeded = Math.min(pagesNeeded, maxPages);
-  // If the body is very short (fits in one column), still use minPages per spec
-  if (estimateCharsNeeded(body) < charsPerColFirstPage && minPages === 1) {
-    pagesNeeded = 1;
-  }
 
-  // Build ordered capacity list (one slot per column of each page)
-  const capacities: number[] = [];
-  for (let p = 0; p < pagesNeeded; p += 1) {
+  const allCapacities: number[] = [];
+  for (let p = 0; p < maxPages; p += 1) {
     const per = p === 0 ? charsPerColFirstPage : charsPerColOtherPages;
-    for (let c = 0; c < columnCount; c += 1) capacities.push(per);
+    for (let c = 0; c < columnCount; c += 1) allCapacities.push(per);
+  }
+  const allSegments = distributeToColumns(body, allCapacities);
+
+  // Find the last column that actually got content; a page is used if any
+  // of its columns has text.
+  let lastFilledColIdx = -1;
+  for (let i = allSegments.length - 1; i >= 0; i -= 1) {
+    if ((allSegments[i] ?? "").length > 0) {
+      lastFilledColIdx = i;
+      break;
+    }
+  }
+  const pagesUsed =
+    lastFilledColIdx < 0
+      ? 1
+      : Math.floor(lastFilledColIdx / columnCount) + 1;
+  const pagesNeeded = Math.min(maxPages, Math.max(1, pagesUsed));
+  if (pagesNeeded < minPages) {
+    warnings.push(
+      `Article fills ${pagesNeeded} page${pagesNeeded === 1 ? "" : "s"} but this template is designed for ${minPages}–${maxPages}. Consider a shorter template or adding more copy.`
+    );
   }
 
-  // Distribute body across the capacity slots, snapping to word boundaries
-  const segments = distributeToColumns(body, capacities);
+  const segments = allSegments.slice(0, pagesNeeded * columnCount);
 
   // Emit slides
   for (let pageIdx = 0; pageIdx < pagesNeeded; pageIdx += 1) {
