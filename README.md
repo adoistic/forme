@@ -140,7 +140,7 @@ Three reasons:
 
 1. **Small regional publishers deserve better tools.** Paid options are expensive and complex. Free tools are either web-focused or not maintained. Forme is aimed at this gap.
 2. **Planning artifacts deserve scrutiny.** The CEO plan, engineering stack, and design decisions are public so anyone can poke at them before code is written. Disagreements become issues, not postmortems.
-3. **The planning method is the meta-product.** Forme was produced through a series of structured review passes (CEO review → engineering review → design review → design shotgun) using [gstack](https://garryslist.org/) by [Garry Tan](https://x.com/garrytan), running inside [Claude Code](https://claude.com/claude-code) by Anthropic. Coding behavior is constrained by the [Karpathy Guidelines](https://github.com/forrestchang/andrej-karpathy-skills) skill, derived from [Andrej Karpathy](https://x.com/karpathy)'s observations on LLM coding pitfalls. The artifacts in this repo are worth more than the app that will eventually be built on top of them, and they demonstrate a way of thinking about building software.
+3. **The planning method is the meta-product.** Forme was produced through a series of structured review passes (CEO review → engineering review → design review → design shotgun) using [gstack](https://garryslist.org/) by [@garrytan](https://github.com/garrytan), running inside [Claude Code](https://claude.com/claude-code) by [@anthropics](https://github.com/anthropics). Coding behavior is constrained by the [Karpathy Guidelines](https://github.com/forrestchang/andrej-karpathy-skills) skill by [@forrestchang](https://github.com/forrestchang), derived from [@karpathy](https://github.com/karpathy)'s [observations](https://x.com/karpathy/status/2015883857489522876) on LLM coding pitfalls. The artifacts in this repo are worth more than the app that will eventually be built on top of them, and they demonstrate a way of thinking about building software.
 
 ---
 
@@ -162,16 +162,18 @@ For now: open an issue if you see something wrong in the planning, design, or te
 
 ### The planning chassis
 
-- **[Garry Tan](https://x.com/garrytan)** — creator of [gstack](https://garryslist.org/), the open-source AI builder framework whose CEO/eng/design review passes produced every planning document in this repo. The "Boil the Lake" philosophy and structured review chain are his.
-- **[Claude Code](https://claude.com/claude-code)** (Anthropic) — the agent runtime that orchestrated the planning. Skills, subagents, tool use, plan mode, and the gstack plugin ecosystem run on top of it.
-- **[Andrej Karpathy](https://x.com/karpathy)** — his [observations on LLM coding pitfalls](https://x.com/karpathy/status/2015883857489522876) are the basis for the [Karpathy Guidelines skill](https://github.com/forrestchang/andrej-karpathy-skills) by [@forrestchang](https://github.com/forrestchang), which serves as Forme's default coding behavior contract. See `CLAUDE.md`.
+- **[@garrytan](https://github.com/garrytan)** ([Garry Tan](https://x.com/garrytan)) — creator of [gstack](https://garryslist.org/), the open-source AI builder framework whose CEO / eng / design review passes produced every planning document in this repo. The "Boil the Lake" philosophy and the structured review chain are his.
+- **[@anthropics](https://github.com/anthropics)** — [Claude Code](https://claude.com/claude-code) is the agent runtime that orchestrated the planning. Skills, subagents, tool use, plan mode, and the gstack plugin ecosystem run on top of it.
+- **[@karpathy](https://github.com/karpathy)** ([Andrej Karpathy](https://x.com/karpathy)) — his [observations on LLM coding pitfalls](https://x.com/karpathy/status/2015883857489522876) are the basis for Forme's default coding behavior contract.
+- **[@forrestchang](https://github.com/forrestchang)** (Jiayuan Zhang) — packaged Karpathy's observations into the [Karpathy Guidelines skill](https://github.com/forrestchang/andrej-karpathy-skills) that Forme uses. See `CLAUDE.md`.
+- **[@lackeyjb](https://github.com/lackeyjb)** (Bryan Lackey) — [playwright-skill](https://github.com/lackeyjb/playwright-skill), used by Forme's test harness for Electron E2E automation.
 
 ### Technical foundations
 
-- **[@chenglou](https://github.com/chenglou)** for [Pretext](https://github.com/chenglou/pretext), the text measurement library Forme vendors and depends on for pixel-perfect layout.
-- **[John Hudson](https://tiro.com/)** for Tiro Devanagari Hindi and the multi-script type family tradition — the reason bilingual typography is possible at all.
+- **[@chenglou](https://github.com/chenglou)** (Cheng Lou) — [Pretext](https://github.com/chenglou/pretext), the text measurement library Forme vendors and depends on for pixel-perfect layout.
+- **[John Hudson](https://tiro.com/)** — Tiro Devanagari Hindi and the multi-script type family tradition that makes bilingual typography possible.
 - **Radix UI, Tailwind CSS, Electron, Vite, Zustand, dnd-kit, Kysely, sharp, pptxgenjs, mammoth.js, papaparse, pino, Vitest, Playwright, ESLint, Prettier, electron-builder, Phosphor Icons** — Forme is almost entirely stitched from these teams' work.
-- **[Google Fonts](https://fonts.google.com/)** for hosting Fraunces (display), Inter (UI), Mukta (Devanagari), and the four print-side pairings.
+- **[Google Fonts](https://fonts.google.com/)** — hosting Fraunces (display), Inter (UI), Mukta (Devanagari), and the four print-side pairings.
 
 ### Human context
 
