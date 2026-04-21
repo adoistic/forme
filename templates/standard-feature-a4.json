@@ -1,0 +1,40 @@
+{
+  "schemaVersion": 1,
+  "id": "standard_feature_a4",
+  "family": "feature",
+  "page_size": "A4",
+  "page_count_range": [2, 3],
+  "word_count_range": {
+    "en": [900, 1800],
+    "hi": [700, 1400]
+  },
+  "required_images": 1,
+  "optional_images": [0, 2],
+  "image_aspect_preferences": ["landscape", "any"],
+  "supports_pull_quote": true,
+  "supports_sidebar": false,
+  "language_modes": ["en", "hi", "bilingual"],
+  "content_type": "Article",
+  "typography_pairing_default": "Editorial Serif",
+  "exposed_settings": ["include_pull_quote", "ad_slots_on_article"],
+  "typography": {
+    "body_pt": 10,
+    "body_leading_pt": 14,
+    "headline_pt": 36,
+    "deck_pt": 18,
+    "caption_pt": 9
+  },
+  "geometry": {
+    "trim_mm": [210, 297],
+    "bleed_mm": 3,
+    "safe_mm": 5,
+    "columns": 3,
+    "gutter_mm": 5,
+    "margins_mm": {
+      "top": 20,
+      "right": 15,
+      "bottom": 20,
+      "left": 15
+    }
+  }
+}
