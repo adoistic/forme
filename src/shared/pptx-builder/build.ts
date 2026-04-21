@@ -658,43 +658,6 @@ function addClassifiedsSection(
     const [type, entries] = typeEntries[t]!;
     const label = CLASSIFIED_TYPE_LABELS[type] ?? type;
 
-    // Type sub-heading — renders inline in the current column, advances y.
-    // If not enough room for heading + at least one entry, skip to next column.
-    const headingHeight = pt2in(20);
-    const minEntrySpace = pt2in(50);
-    if (y + headingHeight + minEntrySpace > bottomY) {
-      col += 1;
-      y = marginTop;
-      if (col >= columnCount) {
-        slide = pres.addSlide();
-        pageCount += 1;
-        col = 0;
-      }
-    }
-    const colX = marginLeft + col * (columnWidth + gutterIn);
-    slide.addText(label.toUpperCase(), {
-      x: colX,
-      y,
-      w: columnWidth,
-      h: headingHeight,
-      fontSize: 10,
-      fontFace: "Inter",
-      bold: true,
-      color: "C96E4E",
-      charSpacing: 3,
-    });
-    y += headingHeight + pt2in(4);
-
-    // Thin rust rule under heading
-    slide.addShape("line", {
-      x: colX,
-      y: y - pt2in(2),
-      w: columnWidth,
-      h: 0,
-      line: { color: "C96E4E", width: 0.5 },
-    });
-    y += pt2in(6);
-
     // Approximate chars per visual line at 8pt body font in a column of
     // columnWidth inches. 8pt avg-char width ≈ 0.42em → 3.36pt → 0.047 in
     const charsPerLine = Math.max(
@@ -702,12 +665,48 @@ function addClassifiedsSection(
       Math.floor((columnWidth * PT_PER_INCH) / (8 * 0.5))
     );
 
+    // Heading is emitted lazily — only when we're about to draw the first
+    // entry that actually fits. This prevents the orphan-heading bug where
+    // the heading emitted at the bottom of column N but the first entry
+    // had to spill to column N+1 with a "(CONT.)" duplicate, leaving a
+    // section heading with no content beneath it.
+    const headingHeight = pt2in(20);
+    const ENTRY_GAP = pt2in(14);
+    let headingNeeded = true;
+
+    const emitHeading = (continued: boolean): void => {
+      const colX = marginLeft + col * (columnWidth + gutterIn);
+      slide.addText(continued ? `${label.toUpperCase()} (CONT.)` : label.toUpperCase(), {
+        x: colX,
+        y,
+        w: columnWidth,
+        h: headingHeight,
+        fontSize: 10,
+        fontFace: "Inter",
+        bold: true,
+        color: "C96E4E",
+        charSpacing: 3,
+      });
+      y += headingHeight + pt2in(4);
+      slide.addShape("line", {
+        x: colX,
+        y: y - pt2in(2),
+        w: columnWidth,
+        h: 0,
+        line: { color: "C96E4E", width: 0.5 },
+      });
+      y += pt2in(6);
+    };
+
     for (let e = 0; e < entries.length; e += 1) {
       const entry = entries[e]!;
-      const ENTRY_GAP = pt2in(14);
       const entryHeight =
         estimateClassifiedHeight(entry, columnWidth, charsPerLine) + ENTRY_GAP;
-      if (y + entryHeight > bottomY) {
+      const headingChrome = headingNeeded ? headingHeight + pt2in(10) : 0;
+      // Does the (still-pending) heading + this entry fit in current column?
+      if (y + headingChrome + entryHeight > bottomY) {
+        // No room — advance to next column / page. The heading (if still
+        // pending) goes to the new column.
         col += 1;
         y = marginTop;
         if (col >= columnCount) {
@@ -715,29 +714,16 @@ function addClassifiedsSection(
           pageCount += 1;
           col = 0;
         }
-        // Re-emit a "(continued)" type heading at the top of the new
-        // column so readers know the section continues.
-        const ncolX = marginLeft + col * (columnWidth + gutterIn);
-        slide.addText(`${label.toUpperCase()} (CONT.)`, {
-          x: ncolX,
-          y,
-          w: columnWidth,
-          h: headingHeight,
-          fontSize: 10,
-          fontFace: "Inter",
-          bold: true,
-          color: "C96E4E",
-          charSpacing: 3,
-        });
-        y += headingHeight + pt2in(4);
-        slide.addShape("line", {
-          x: ncolX,
-          y: y - pt2in(2),
-          w: columnWidth,
-          h: 0,
-          line: { color: "C96E4E", width: 0.5 },
-        });
-        y += pt2in(6);
+        // After a forced advance, we always need a heading at the top of
+        // the new column — either the original (we never emitted) or a
+        // "(CONT.)" if we already showed one for this type before.
+        const isContinued = !headingNeeded;
+        headingNeeded = true;
+        emitHeading(isContinued);
+        headingNeeded = false;
+      } else if (headingNeeded) {
+        emitHeading(false);
+        headingNeeded = false;
       }
       const ex = marginLeft + col * (columnWidth + gutterIn);
       const drawnHeight = drawClassifiedEntry(slide, entry, ex, y, columnWidth, charsPerLine);
