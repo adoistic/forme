@@ -1,6 +1,10 @@
 import React from "react";
 import { useNavStore, useShallow } from "../stores/navigation.js";
 import { IssueBoardScreen } from "../screens/issue-board/IssueBoardScreen.js";
+import { ArticlesScreen } from "../screens/articles/ArticlesScreen.js";
+import { ClassifiedsScreen } from "../screens/classifieds/ClassifiedsScreen.js";
+import { AdsScreen } from "../screens/ads/AdsScreen.js";
+import { SettingsScreen } from "../screens/settings/SettingsScreen.js";
 import { EmptyScreen } from "./EmptyScreen.js";
 
 export function Canvas(): React.ReactElement {
@@ -9,55 +13,31 @@ export function Canvas(): React.ReactElement {
   return (
     <main className="flex h-full min-w-0 flex-1 flex-col overflow-hidden">
       {activeTab === "issue-board" && <IssueBoardScreen />}
-      {activeTab === "articles" && (
-        <EmptyScreen
-          label="NEW HERE"
-          headline="Drop your first article."
-          subline="Drag a .docx file here, or import multiple at once."
-        />
-      )}
-      {activeTab === "classifieds" && (
-        <EmptyScreen
-          label="NO CLASSIFIEDS YET"
-          headline="Add your first classified."
-          subline="Use the form to enter one, or import a CSV with many at once."
-        />
-      )}
-      {activeTab === "ads" && (
-        <EmptyScreen
-          label="NO ADS YET"
-          headline="Upload your first ad."
-          subline="Pick the position, then drop the creative. We'll check the dimensions."
-        />
-      )}
+      {activeTab === "articles" && <ArticlesScreen />}
+      {activeTab === "classifieds" && <ClassifiedsScreen />}
+      {activeTab === "ads" && <AdsScreen />}
       {activeTab === "images" && (
         <EmptyScreen
-          label="EMPTY LIBRARY"
-          headline="Drop photos here."
-          subline="Images you import appear here, ready to drag into any article or cover."
+          label="IMAGES"
+          headline="Image library lands with the photo-essay template."
+          subline="For now, embedded images from your .docx files live on disk in the blob store."
         />
       )}
       {activeTab === "templates" && (
         <EmptyScreen
           label="TEMPLATES"
-          headline="Template library."
-          subline="Coming in Phase 4. For now, templates apply automatically when you place articles."
+          headline="Template browser."
+          subline="The engine ships with Standard Feature A4. Additional templates arrive in Phases 4-10."
         />
       )}
       {activeTab === "history" && (
         <EmptyScreen
-          label="NO HISTORY YET"
-          headline="No saves to restore."
-          subline="Every 30 seconds while you edit, Forme saves a snapshot. They show up here."
+          label="HISTORY"
+          headline="Snapshot timeline."
+          subline="Every edit auto-saves. History UI wires this up in a later phase."
         />
       )}
-      {activeTab === "settings" && (
-        <EmptyScreen
-          label="SETTINGS"
-          headline="Publisher Profile."
-          subline="Coming in Phase 8. First-run wizard will land here first."
-        />
-      )}
+      {activeTab === "settings" && <SettingsScreen />}
     </main>
   );
 }

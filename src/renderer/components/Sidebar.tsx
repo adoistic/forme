@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useState } from "react";
 import {
   SquaresFour,
   FileText,
@@ -9,7 +9,11 @@ import {
   ClockCounterClockwise,
   GearSix,
 } from "@phosphor-icons/react";
-import { useNavStore, useShallow, type TabId } from "../stores/navigation.js";
+import { useNavStore, useShallow as useNavShallow, type TabId } from "../stores/navigation.js";
+import { useIssueStore, useShallow as useIssueShallow } from "../stores/issue.js";
+import { useToast } from "./Toast.js";
+import { invoke } from "../ipc/client.js";
+import { describeError } from "../lib/error-helpers.js";
 
 interface NavItem {
   id: TabId;
@@ -31,8 +35,31 @@ const NAV_ITEMS: readonly NavItem[] = [
 
 export function Sidebar(): React.ReactElement {
   const { activeTab, setActiveTab } = useNavStore(
-    useShallow((s) => ({ activeTab: s.activeTab, setActiveTab: s.setActiveTab }))
+    useNavShallow((s) => ({ activeTab: s.activeTab, setActiveTab: s.setActiveTab }))
   );
+  const { currentIssue, articles } = useIssueStore(
+    useIssueShallow((s) => ({ currentIssue: s.currentIssue, articles: s.articles }))
+  );
+  const toast = useToast();
+  const [exporting, setExporting] = useState(false);
+
+  async function handleExport(): Promise<void> {
+    if (!currentIssue) return;
+    setExporting(true);
+    try {
+      const result = await invoke("export:pptx", { issueId: currentIssue.id });
+      toast.push(
+        "success",
+        `Exported ${result.pageCount} pages → ${result.outputPath}`
+      );
+    } catch (err) {
+      toast.push("error", describeError(err));
+    } finally {
+      setExporting(false);
+    }
+  }
+
+  const canExport = !!currentIssue && articles.length > 0 && !exporting;
 
   return (
     <aside
@@ -80,16 +107,24 @@ export function Sidebar(): React.ReactElement {
         </ul>
       </nav>
 
-      {/* Bottom: page count + Export (filled rust per Pass 1 decision) */}
+      {/* Bottom: stats + Export (filled rust per Pass 1 decision) */}
       <div className="border-t border-border-default px-6 py-4">
-        <div className="mb-2 text-caption text-text-tertiary">0 pages</div>
+        <div className="mb-2 text-caption text-text-tertiary">
+          {currentIssue
+            ? `${currentIssue.articleCount} articles · ${currentIssue.classifiedCount} classifieds`
+            : "No issue yet"}
+        </div>
         <button
           type="button"
           data-testid="export-button"
-          disabled
-          className="flex w-full items-center justify-center gap-2 rounded-md bg-accent px-4 py-2.5 text-title-sm font-semibold text-text-inverse opacity-40 disabled:cursor-default"
+          onClick={handleExport}
+          disabled={!canExport}
+          className={[
+            "flex w-full items-center justify-center gap-2 rounded-md bg-accent px-4 py-2.5 text-title-sm font-semibold text-text-inverse transition-colors hover:bg-accent-hover",
+            !canExport ? "opacity-40" : "",
+          ].join(" ")}
         >
-          Export
+          {exporting ? "Exporting..." : "Export"}
         </button>
       </div>
     </aside>

@@ -2,7 +2,14 @@ import { app, BrowserWindow, ipcMain } from "electron";
 import path from "node:path";
 import { createLogger } from "./logger.js";
 import { registerIpcHandlers } from "./ipc/register.js";
+import { registerIssueHandlers } from "./ipc/handlers/issue.js";
+import { registerArticleHandlers } from "./ipc/handlers/article.js";
+import { registerClassifiedHandlers } from "./ipc/handlers/classified.js";
+import { registerAdHandlers } from "./ipc/handlers/ad.js";
+import { registerPublisherHandlers } from "./ipc/handlers/publisher.js";
+import { registerExportHandlers } from "./ipc/handlers/export.js";
 import { handleSecondInstance } from "./crash-recovery/single-instance.js";
+import { bootstrap } from "./app-state.js";
 
 // In CJS bundled output, __dirname is auto-injected by Node. Declare it for
 // TypeScript so strict mode doesn't choke.
@@ -59,8 +66,19 @@ function createMainWindow(): BrowserWindow {
   return win;
 }
 
-void app.whenReady().then(() => {
+void app.whenReady().then(async () => {
   logger.info({ version: app.getVersion(), platform: process.platform }, "Forme starting");
+
+  // Bootstrap DB + blob store + snapshots + templates
+  await bootstrap();
+
+  // Register domain handlers BEFORE the generic dispatcher is wired
+  registerIssueHandlers();
+  registerArticleHandlers();
+  registerClassifiedHandlers();
+  registerAdHandlers();
+  registerPublisherHandlers();
+  registerExportHandlers();
 
   registerIpcHandlers(ipcMain);
 
