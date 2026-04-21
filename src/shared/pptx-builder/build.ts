@@ -4,14 +4,14 @@ import type {
   PptxBuildResult,
   PptxPlacement,
 } from "./types.js";
-import type { Template } from "@shared/schemas/template.js";
+import { loadBundledFonts } from "./fonts.js";
 
 // Phase 2 PPTX builder per docs/eng-plan.md §4 + CEO plan §4.
 // Produces a print-ready .pptx matching the template's geometry (trim + bleed).
-// Pre-breaks lines per the Pretext-mapper output so PowerPoint can't re-wrap.
 //
 // Phase 2 scope: Standard Feature A4 in English + Editorial Serif pairing.
-// Other templates fan out from here in Phases 4-10.
+// Phase 1 Pretext probe replaces the body-distribution heuristic with
+// line-accurate pre-breaks.
 
 const MM_PER_INCH = 25.4;
 const PT_PER_INCH = 72;
@@ -23,16 +23,12 @@ export async function buildPptx(
   const pres = new pptxgen();
   const warnings: string[] = [];
 
-  // First placement's template defines the page geometry. Mixed page sizes in
-  // one issue are out of scope for MVP (CEO §5.1 — page size locked at issue
-  // creation).
   const first = input.placements[0];
   if (!first) {
     throw new Error("buildPptx called with zero placements");
   }
 
   const template = first.template;
-  // Slide size = trim + bleed on all sides, converted mm → inches
   const { trim_mm, bleed_mm } = template.geometry;
   const slideWidthIn = (trim_mm[0] + bleed_mm * 2) / MM_PER_INCH;
   const slideHeightIn = (trim_mm[1] + bleed_mm * 2) / MM_PER_INCH;
@@ -48,15 +44,21 @@ export async function buildPptx(
   pres.subject = `${input.publicationName} — Issue ${input.issueNumber ?? "?"}`;
   pres.author = input.publicationName;
 
-  // Emit one spread per placement as a sequence of slides. Phase 2 scope:
-  // one template + one article = 2-3 slides per the template's page_count_range.
+  // Fonts: attempt to load bundled TTFs. Missing fonts just fall through to
+  // system fallback (same behavior as pre-embedding).
+  const fonts = await loadBundledFonts();
+  if (fonts.length === 0) {
+    warnings.push(
+      "No bundled fonts found — PPTX will reference Fraunces/Inter/Mukta by name only. Install them on the target machine or rerun with bundled fonts."
+    );
+  }
+
   let pageCount = 0;
   for (const placement of input.placements) {
-    const added = addPlacementSlides(pres, placement, warnings);
+    const added = addPlacementSlides(pres, placement);
     pageCount += added;
   }
 
-  // Write the file. pptxgenjs returns the absolute path it wrote to.
   const writtenPath = await pres.writeFile({ fileName: outputPath });
   const fs = await import("node:fs/promises");
   const stat = await fs.stat(writtenPath);
@@ -69,121 +71,156 @@ export async function buildPptx(
   };
 }
 
-/**
- * Emit slides for a single placement. Returns number of slides added.
- *
- * Phase 2 first-template strategy: produce N page-count slides where the
- * headline + deck + byline sit on page 1 with the hero image, and the body
- * flows across pages 2-3 via paragraph-per-line primitives (the approach
- * chosen in eng-plan §4 — paragraph-per-line first, text-box-per-line fallback
- * if Phase 1 probe shows drift).
- */
-function addPlacementSlides(
-  pres: pptxgen,
-  placement: PptxPlacement,
-  _warnings: string[]
-): number {
+function addPlacementSlides(pres: pptxgen, placement: PptxPlacement): number {
   const { template, article } = placement;
   const geo = template.geometry;
   const typ = template.typography;
 
-  // Inch-space helpers
-  const mm2in = (mm: number) => mm / MM_PER_INCH;
-  const pt2in = (pt: number) => pt / PT_PER_INCH;
+  const mm2in = (mm: number): number => mm / MM_PER_INCH;
+  const pt2in = (pt: number): number => pt / PT_PER_INCH;
+
   const bleedIn = mm2in(geo.bleed_mm);
-  const marginTop = mm2in(geo.margins_mm.top) + bleedIn;
   const marginLeft = mm2in(geo.margins_mm.left) + bleedIn;
   const marginRight = mm2in(geo.margins_mm.right) + bleedIn;
+  const marginTop = mm2in(geo.margins_mm.top) + bleedIn;
   const marginBottom = mm2in(geo.margins_mm.bottom) + bleedIn;
 
   const trimWidthIn = mm2in(geo.trim_mm[0]);
   const trimHeightIn = mm2in(geo.trim_mm[1]);
-  const pageContentWidth = trimWidthIn - mm2in(geo.margins_mm.left + geo.margins_mm.right);
-  const pageContentHeight = trimHeightIn - mm2in(geo.margins_mm.top + geo.margins_mm.bottom);
+
+  const pageContentWidth =
+    trimWidthIn - mm2in(geo.margins_mm.left + geo.margins_mm.right);
+  const pageContentHeight =
+    trimHeightIn - mm2in(geo.margins_mm.top + geo.margins_mm.bottom);
 
   const columnCount = geo.columns;
   const gutterIn = mm2in(geo.gutter_mm);
-  const columnWidth = (pageContentWidth - gutterIn * (columnCount - 1)) / columnCount;
+  const columnWidth =
+    (pageContentWidth - gutterIn * (columnCount - 1)) / columnCount;
 
-  // Determine page count: start with min of range + extend by body length
-  // estimation. Phase 2 placeholder — Phase 1 probe will wire Pretext for
-  // real measurement. For the smoke test we use page_count_range[0].
-  const pagesForBody = Math.max(template.page_count_range[0], 1);
-  let slidesAdded = 0;
+  // Font-family selection: Mukta for pure Hindi, Fraunces for English body +
+  // headlines. Bilingual uses Fraunces (better Latin) and relies on system
+  // fallback for Devanagari glyphs — Phase 3 gate revisits this.
+  const bodyFont = article.language === "hi" ? "Mukta" : "Fraunces";
+  const displayFont = article.language === "hi" ? "Mukta" : "Fraunces";
+  const sansFont = "Inter";
 
-  for (let pageIdx = 0; pageIdx < pagesForBody; pageIdx += 1) {
+  // Estimate body capacity per page given font metrics.
+  // Fraunces body_pt=10 with leading 14pt → chars-per-line ~ columnWidth/0.5em.
+  const charsPerLine = Math.max(
+    20,
+    Math.floor((columnWidth * PT_PER_INCH) / (typ.body_pt * 0.52))
+  );
+  const bodyBlockHeightFirstPage = pageContentHeight - pt2in(160);
+  const bodyBlockHeightOtherPages = pageContentHeight;
+  const linesPerColFirstPage = Math.max(
+    8,
+    Math.floor((bodyBlockHeightFirstPage * PT_PER_INCH) / typ.body_leading_pt)
+  );
+  const linesPerColOtherPages = Math.max(
+    10,
+    Math.floor((bodyBlockHeightOtherPages * PT_PER_INCH) / typ.body_leading_pt)
+  );
+  const charsPerColFirstPage = charsPerLine * linesPerColFirstPage;
+  const charsPerColOtherPages = charsPerLine * linesPerColOtherPages;
+
+  // Decide actual page count from body length
+  const body = article.body.trim();
+  const neededCols = Math.ceil(
+    estimateCharsNeeded(body) /
+      Math.min(charsPerColFirstPage, charsPerColOtherPages)
+  );
+  const minPages = template.page_count_range[0];
+  const maxPages = template.page_count_range[1];
+  let pagesNeeded = Math.max(minPages, Math.ceil(neededCols / columnCount));
+  pagesNeeded = Math.min(pagesNeeded, maxPages);
+  // If the body is very short (fits in one column), still use minPages per spec
+  if (estimateCharsNeeded(body) < charsPerColFirstPage && minPages === 1) {
+    pagesNeeded = 1;
+  }
+
+  // Build ordered capacity list (one slot per column of each page)
+  const capacities: number[] = [];
+  for (let p = 0; p < pagesNeeded; p += 1) {
+    const per = p === 0 ? charsPerColFirstPage : charsPerColOtherPages;
+    for (let c = 0; c < columnCount; c += 1) capacities.push(per);
+  }
+
+  // Distribute body across the capacity slots, snapping to word boundaries
+  const segments = distributeToColumns(body, capacities);
+
+  // Emit slides
+  for (let pageIdx = 0; pageIdx < pagesNeeded; pageIdx += 1) {
     const slide = pres.addSlide();
-
-    // Draw bleed + trim guide rules (visible in PowerPoint edit mode only)
-    slide.addShape("line", {
-      x: bleedIn,
-      y: bleedIn,
-      w: trimWidthIn,
-      h: 0,
-      line: { color: "D4CBB8", width: 0.25, dashType: "dash" },
-    });
-    slide.addShape("line", {
-      x: bleedIn,
-      y: bleedIn + trimHeightIn,
-      w: trimWidthIn,
-      h: 0,
-      line: { color: "D4CBB8", width: 0.25, dashType: "dash" },
-    });
-
-    // First page: headline + deck + byline + hero image at top
     const isFirstPage = pageIdx === 0;
+
+    // Trim + bleed dashed guides (visible in edit mode, not print)
+    drawTrimGuides(slide, bleedIn, trimWidthIn, trimHeightIn);
+
     let bodyStartY = marginTop;
 
     if (isFirstPage) {
+      // Headline
+      const headlineLines = Math.min(
+        3,
+        Math.ceil(
+          article.headline.length /
+            Math.max(10, Math.floor((pageContentWidth * PT_PER_INCH) / (typ.headline_pt * 0.45)))
+        )
+      );
+      const headlineHeight = pt2in(typ.headline_pt * 1.1) * headlineLines;
       slide.addText(article.headline, {
         x: marginLeft,
         y: marginTop,
         w: pageContentWidth,
-        h: pt2in(typ.headline_pt * 1.2 * headlineLineCount(article.headline, pageContentWidth, typ.headline_pt)),
+        h: headlineHeight,
         fontSize: typ.headline_pt,
-        fontFace: "Fraunces",
+        fontFace: displayFont,
         bold: true,
         color: "1A1A1A",
         valign: "top",
       });
+      let cursorY = marginTop + headlineHeight + pt2in(10);
 
-      const headlineHeight = pt2in(typ.headline_pt * 1.25) * headlineLineCount(article.headline, pageContentWidth, typ.headline_pt);
-      let cursorY = marginTop + headlineHeight + pt2in(8);
-
+      // Deck (italic sans)
       if (article.deck) {
+        const deckHeight = pt2in((typ.deck_pt ?? 16) * 1.35 * 2);
         slide.addText(article.deck, {
           x: marginLeft,
           y: cursorY,
           w: pageContentWidth,
-          h: pt2in((typ.deck_pt ?? 16) * 1.3 * 2),
+          h: deckHeight,
           fontSize: typ.deck_pt ?? 16,
-          fontFace: "Inter",
+          fontFace: sansFont,
           italic: true,
           color: "5C5853",
+          valign: "top",
         });
-        cursorY += pt2in((typ.deck_pt ?? 16) * 1.3 * 2) + pt2in(6);
+        cursorY += deckHeight + pt2in(6);
       }
 
+      // Byline (small caps sans, rust)
       if (article.byline) {
-        slide.addText(article.byline, {
+        slide.addText(article.byline.toUpperCase(), {
           x: marginLeft,
           y: cursorY,
           w: pageContentWidth,
-          h: pt2in(12 * 1.3),
-          fontSize: 11,
-          fontFace: "Inter",
+          h: pt2in(14),
+          fontSize: 10,
+          fontFace: sansFont,
           bold: true,
           color: "C96E4E",
-          charSpacing: 1.5,
+          charSpacing: 3,
+          valign: "top",
         });
-        cursorY += pt2in(12 * 1.3) + pt2in(8);
+        cursorY += pt2in(14) + pt2in(10);
       }
 
-      // Hero image if present — full-width, reasonable height
+      // Optional hero image (full-width, modest height)
       if (article.heroImage) {
         const heroHeight = Math.min(
-          pt2in(240),
-          pageContentHeight - (cursorY - marginTop) - pt2in(typ.body_pt * 30)
+          pt2in(220),
+          pageContentHeight - (cursorY - marginTop) - pt2in(typ.body_pt * 20)
         );
         if (heroHeight > pt2in(60)) {
           slide.addImage({
@@ -193,26 +230,21 @@ function addPlacementSlides(
             w: pageContentWidth,
             h: heroHeight,
           });
-          cursorY += heroHeight + pt2in(12);
+          cursorY += heroHeight + pt2in(10);
         }
       }
 
       bodyStartY = cursorY;
     }
 
-    // Body text flows across columns below the header area (first page) or
-    // from margin-top on continuation pages. Phase 2 stub: emit the whole body
-    // as one three-column text block and trust PowerPoint's flow. The
-    // Pretext-mapper replacement in Phase 1 probe will pre-break line-by-line.
     const bodyAvailableHeight = trimHeightIn - marginBottom - bodyStartY;
-    const colsThisPage = columnCount;
-    for (let col = 0; col < colsThisPage; col += 1) {
-      const colX = marginLeft + col * (columnWidth + gutterIn);
-      // Approximate the portion of body to place on this column: split the
-      // body into N parts. For the smoke test this is a coarse split; real
-      // line-accurate splitting happens in Phase 1 probe.
-      const segment = bodySegmentForColumn(article.body, pageIdx, col, pagesForBody, colsThisPage);
+
+    // Emit one text box per column with its segment
+    for (let col = 0; col < columnCount; col += 1) {
+      const slotIdx = pageIdx * columnCount + col;
+      const segment = segments[slotIdx];
       if (!segment) continue;
+      const colX = marginLeft + col * (columnWidth + gutterIn);
       slide.addText(segment, {
         x: colX,
         y: bodyStartY,
@@ -220,22 +252,28 @@ function addPlacementSlides(
         h: bodyAvailableHeight,
         fontSize: typ.body_pt,
         lineSpacing: typ.body_leading_pt,
-        fontFace: article.language === "hi" ? "Mukta" : "Fraunces",
+        fontFace: bodyFont,
         color: "1A1A1A",
         valign: "top",
         paraSpaceAfter: 4,
       });
     }
 
-    // Pull quote (page 2 of a 3-page article, center column)
-    if (article.pullQuote && pageIdx === 1 && template.supports_pull_quote) {
+    // Pull quote on page 2 center column, if supported + present
+    if (
+      article.pullQuote &&
+      pageIdx === 1 &&
+      template.supports_pull_quote &&
+      columnCount >= 3
+    ) {
+      const pqX = marginLeft + (columnWidth + gutterIn);
       slide.addText(`"${article.pullQuote}"`, {
-        x: marginLeft + (columnWidth + gutterIn),
-        y: bodyStartY + bodyAvailableHeight / 3,
+        x: pqX,
+        y: bodyStartY + bodyAvailableHeight * 0.35,
         w: columnWidth,
-        h: pt2in(60),
-        fontSize: typ.body_pt * 1.6,
-        fontFace: "Fraunces",
+        h: pt2in(80),
+        fontSize: Math.max(18, typ.body_pt * 1.6),
+        fontFace: displayFont,
         italic: true,
         color: "C96E4E",
         align: "center",
@@ -243,92 +281,100 @@ function addPlacementSlides(
       });
     }
 
-    // Folio (page number) — bottom center, outside the content area
+    // Folio (page number centered at foot)
     slide.addText(`${placement.startingPageNumber + pageIdx}`, {
       x: bleedIn,
-      y: trimHeightIn + bleedIn - pt2in(14),
+      y: bleedIn + trimHeightIn - pt2in(14),
       w: trimWidthIn,
       h: pt2in(12),
       fontSize: 9,
-      fontFace: "Inter",
+      fontFace: sansFont,
       align: "center",
       color: "9B958E",
     });
-
-    slidesAdded += 1;
   }
 
-  return slidesAdded;
+  return pagesNeeded;
+}
+
+function drawTrimGuides(
+  slide: pptxgen.Slide,
+  bleedIn: number,
+  trimWidthIn: number,
+  trimHeightIn: number
+): void {
+  // Top + bottom trim lines
+  slide.addShape("line", {
+    x: bleedIn,
+    y: bleedIn,
+    w: trimWidthIn,
+    h: 0,
+    line: { color: "D4CBB8", width: 0.25, dashType: "dash" },
+  });
+  slide.addShape("line", {
+    x: bleedIn,
+    y: bleedIn + trimHeightIn,
+    w: trimWidthIn,
+    h: 0,
+    line: { color: "D4CBB8", width: 0.25, dashType: "dash" },
+  });
 }
 
 /**
- * Rough estimate of how many lines a headline will take at a given width.
- * Used only for vertical positioning of the deck/byline below the headline.
- * Pretext will replace this in Phase 1 probe.
+ * Distribute body across column capacity slots. Each slot gets approximately
+ * its pro-rata share of the body, snapped to word boundaries so we never cut
+ * mid-word. If body is shorter than total capacity, trailing slots are empty.
  */
-function headlineLineCount(
-  headline: string,
-  widthIn: number,
-  fontSizePt: number
-): number {
-  // Rough: at ~0.5 em per character width and 72pt=1in, how many fit per line
-  const avgCharWidthIn = (fontSizePt * 0.5) / PT_PER_INCH;
-  const charsPerLine = Math.max(10, Math.floor(widthIn / avgCharWidthIn));
-  const lineCount = Math.ceil(headline.length / charsPerLine);
-  return Math.max(1, Math.min(lineCount, 3));
-}
+function distributeToColumns(body: string, capacities: number[]): string[] {
+  const totalCap = capacities.reduce((a, b) => a + b, 0);
+  if (body.length === 0 || totalCap === 0) return capacities.map(() => "");
 
-/**
- * Phase 2 stub: split the article body into (pages * columns) roughly equal
- * segments and return the segment for this (page, column). Pretext replaces
- * this in Phase 1 probe with line-accurate pre-breaks.
- */
-function bodySegmentForColumn(
-  body: string,
-  pageIdx: number,
-  columnIdx: number,
-  pageCount: number,
-  columnCount: number
-): string {
-  const firstPageHasHeader = true;
-  // Reserve fewer characters on page 1 since header area takes space
-  const columnsPerPage = columnCount;
-  const totalCols = pageCount * columnsPerPage;
-  const thisColAbsolute = pageIdx * columnsPerPage + columnIdx;
+  const totalCharsToAssign = Math.min(body.length, totalCap);
 
-  // Page 1 column space is smaller; weight that in
-  const weights: number[] = [];
-  for (let p = 0; p < pageCount; p += 1) {
-    for (let c = 0; c < columnsPerPage; c += 1) {
-      const w = p === 0 && firstPageHasHeader ? 0.5 : 1;
-      weights.push(w);
+  // Allocate each slot its share of the body, capped by slot capacity
+  const slotChars = capacities.map((cap) => {
+    const share = Math.floor((cap / totalCap) * totalCharsToAssign);
+    return Math.min(share, cap);
+  });
+
+  // Leftover from rounding goes into the last slot (will truncate if it
+  // overshoots capacity — body length is capped earlier)
+  let assigned = slotChars.reduce((a, b) => a + b, 0);
+  let idx = 0;
+  while (assigned < totalCharsToAssign && idx < slotChars.length) {
+    if (slotChars[idx]! < capacities[idx]!) {
+      slotChars[idx] = slotChars[idx]! + 1;
+      assigned += 1;
     }
+    idx += 1;
+    if (idx >= slotChars.length) idx = 0;
   }
-  const totalWeight = weights.reduce((a, b) => a + b, 0);
-  const cumWeights = weights.map(
-    (() => {
-      let acc = 0;
-      return (w: number) => {
-        acc += w;
-        return acc / totalWeight;
-      };
-    })()
-  );
 
-  const startFrac = thisColAbsolute === 0 ? 0 : cumWeights[thisColAbsolute - 1]!;
-  const endFrac = cumWeights[thisColAbsolute] ?? 1;
-  const start = Math.floor(body.length * startFrac);
-  const end = Math.floor(body.length * endFrac);
-  if (start >= end) return "";
-  // Snap to word boundaries to avoid mid-word cuts
-  let snapStart = start;
-  while (snapStart > 0 && !/\s/.test(body[snapStart - 1] ?? "")) snapStart -= 1;
-  let snapEnd = end;
-  while (snapEnd < body.length && !/\s/.test(body[snapEnd] ?? "")) snapEnd += 1;
-  return body.slice(snapStart, snapEnd).trim();
-  // NB: Phase 1 probe replaces all of this with Pretext measurements.
-  // This stub merely produces SOMETHING so the E2E + LibreOffice validator
-  // can sanity-check the OOXML output end-to-end.
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  const _unused = totalCols;
+  // Carve + word-boundary snap
+  const segments: string[] = [];
+  let cursor = 0;
+  for (let i = 0; i < slotChars.length; i += 1) {
+    const want = slotChars[i] ?? 0;
+    if (want === 0 || cursor >= body.length) {
+      segments.push("");
+      continue;
+    }
+    let end = Math.min(body.length, cursor + want);
+    // Snap to word boundary unless we're at the exact end of body
+    if (end < body.length) {
+      while (end > cursor && !/\s/.test(body[end] ?? "") && !/\s/.test(body[end - 1] ?? "")) {
+        end -= 1;
+      }
+      if (end === cursor) end = Math.min(body.length, cursor + want); // fallback
+    }
+    segments.push(body.slice(cursor, end).trim());
+    cursor = end;
+  }
+  return segments;
+}
+
+/** Estimate effective char count (ignores excess whitespace clustering). */
+function estimateCharsNeeded(body: string): number {
+  // Add ~10% buffer for paragraph breaks + leading taking visual space
+  return Math.ceil(body.length * 1.1);
 }

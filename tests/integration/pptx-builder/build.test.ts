@@ -87,7 +87,9 @@ describe("buildPptx — Standard Feature A4", () => {
     const result = await buildPptx(input, outPath);
 
     expect(result.bytes).toBeGreaterThan(1000);
-    expect(result.pageCount).toBe(2); // page_count_range[0] for Standard Feature A4
+    // Page count is computed from body length; stays inside template range
+    expect(result.pageCount).toBeGreaterThanOrEqual(template.page_count_range[0]);
+    expect(result.pageCount).toBeLessThanOrEqual(template.page_count_range[1]);
     expect(result.outputPath).toBe(outPath);
 
     // Verify the file exists on disk
@@ -125,7 +127,9 @@ describe("buildPptx — Standard Feature A4", () => {
       ],
     };
     const result = await buildPptx(input, path.join(workDir, "minpages.pptx"));
+    // Short body should render at template minimum pages
     expect(result.pageCount).toBe(template.page_count_range[0]);
+    expect(result.pageCount).toBeLessThanOrEqual(template.page_count_range[1]);
   });
 
   test("handles Hindi article with Devanagari body", async () => {
