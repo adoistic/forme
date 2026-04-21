@@ -63,3 +63,18 @@ logs/
 
 # Vendor caches (but commit the vendored Pretext source once added)
 # /vendor/.cache/
+
+# Playwright test results + snapshots
+playwright-report/
+test-results/
+/screenshots/
+
+# Vite + Electron dev
+.vite/
+/out/
+
+# Typecheck cache
+*.tsbuildinfo
+
+# Bun cache (but commit bun.lock)
+.bun/
