@@ -160,15 +160,12 @@ function addPlacementSlides(pres: pptxgen, placement: PptxPlacement): number {
     let bodyStartY = marginTop;
 
     if (isFirstPage) {
-      // Headline
-      const headlineLines = Math.min(
-        3,
-        Math.ceil(
-          article.headline.length /
-            Math.max(10, Math.floor((pageContentWidth * PT_PER_INCH) / (typ.headline_pt * 0.45)))
-        )
-      );
-      const headlineHeight = pt2in(typ.headline_pt * 1.1) * headlineLines;
+      // Headline — always reserve space for up to 3 lines, even if the
+      // headline is short. Under-reserving (based on a character-width
+      // estimate) caused the deck to overlap the second headline line
+      // because Fraunces Display is wider than the 0.45em heuristic.
+      const HEADLINE_LINES = 3;
+      const headlineHeight = pt2in(typ.headline_pt * 1.15) * HEADLINE_LINES;
       slide.addText(article.headline, {
         x: marginLeft,
         y: marginTop,
@@ -182,9 +179,12 @@ function addPlacementSlides(pres: pptxgen, placement: PptxPlacement): number {
       });
       let cursorY = marginTop + headlineHeight + pt2in(10);
 
-      // Deck (italic sans)
+      // Deck (italic sans). Reserve 3 lines — long decks easily wrap to 3
+      // and a 2-line reserve caused the byline to collide with the last
+      // deck line. Short decks just leave a bit of whitespace below.
       if (article.deck) {
-        const deckHeight = pt2in((typ.deck_pt ?? 16) * 1.35 * 2);
+        const DECK_LINES = 3;
+        const deckHeight = pt2in((typ.deck_pt ?? 16) * 1.35 * DECK_LINES);
         slide.addText(article.deck, {
           x: marginLeft,
           y: cursorY,
@@ -321,51 +321,34 @@ function drawTrimGuides(
 }
 
 /**
- * Distribute body across column capacity slots. Each slot gets approximately
- * its pro-rata share of the body, snapped to word boundaries so we never cut
- * mid-word. If body is shorter than total capacity, trailing slots are empty.
+ * Distribute body across column capacity slots. Fills each slot to capacity
+ * before moving to the next, snapping to word boundaries so we never cut
+ * mid-word. Short bodies pack into the first columns; trailing slots are
+ * empty. (Pro-rata distribution was tried first and spread short bodies too
+ * thin, leaving every column 80% blank.)
  */
 function distributeToColumns(body: string, capacities: number[]): string[] {
-  const totalCap = capacities.reduce((a, b) => a + b, 0);
-  if (body.length === 0 || totalCap === 0) return capacities.map(() => "");
+  if (body.length === 0 || capacities.length === 0)
+    return capacities.map(() => "");
 
-  const totalCharsToAssign = Math.min(body.length, totalCap);
-
-  // Allocate each slot its share of the body, capped by slot capacity
-  const slotChars = capacities.map((cap) => {
-    const share = Math.floor((cap / totalCap) * totalCharsToAssign);
-    return Math.min(share, cap);
-  });
-
-  // Leftover from rounding goes into the last slot (will truncate if it
-  // overshoots capacity — body length is capped earlier)
-  let assigned = slotChars.reduce((a, b) => a + b, 0);
-  let idx = 0;
-  while (assigned < totalCharsToAssign && idx < slotChars.length) {
-    if (slotChars[idx]! < capacities[idx]!) {
-      slotChars[idx] = slotChars[idx]! + 1;
-      assigned += 1;
-    }
-    idx += 1;
-    if (idx >= slotChars.length) idx = 0;
-  }
-
-  // Carve + word-boundary snap
   const segments: string[] = [];
   let cursor = 0;
-  for (let i = 0; i < slotChars.length; i += 1) {
-    const want = slotChars[i] ?? 0;
-    if (want === 0 || cursor >= body.length) {
+  for (const cap of capacities) {
+    if (cursor >= body.length) {
       segments.push("");
       continue;
     }
-    let end = Math.min(body.length, cursor + want);
+    let end = Math.min(body.length, cursor + cap);
     // Snap to word boundary unless we're at the exact end of body
     if (end < body.length) {
-      while (end > cursor && !/\s/.test(body[end] ?? "") && !/\s/.test(body[end - 1] ?? "")) {
+      while (
+        end > cursor &&
+        !/\s/.test(body[end] ?? "") &&
+        !/\s/.test(body[end - 1] ?? "")
+      ) {
         end -= 1;
       }
-      if (end === cursor) end = Math.min(body.length, cursor + want); // fallback
+      if (end === cursor) end = Math.min(body.length, cursor + cap); // fallback
     }
     segments.push(body.slice(cursor, end).trim());
     cursor = end;
