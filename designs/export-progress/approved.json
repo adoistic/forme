@@ -1,0 +1,9 @@
+{
+  "approved_variant": "B",
+  "feedback": "Standalone 'Done.' success modal approved. The single word 'Done.' at maximum typographic weight (Fraunces bold ~72px) is the editorial payoff — matches the principle 'typographic weight IS the reward'.",
+  "direction": "Modal ~520x440px, 12px radius, shadow-lg, over dimmed app. Contents: 'EXPORT COMPLETE' small-caps rust label top-left, 'Done.' in massive Fraunces bold, 'Issue 47, March 15 is ready.' subline, '48 pages · 12.4 MB · saved to Desktop/Magazine/' caption, cream-tinted reminder box with printer delivery instructions, button row: Close (ghost with X icon) / Show in Finder (ghost with folder icon) / Open in PowerPoint (filled-rust primary with PPT icon).",
+  "ai_drift_notes": "The macOS desktop with Finder window + dock behind is stylistic context (nice real-world feel). For implementation, the modal itself is what matters — it sits over the dimmed Magazine CMS window, not actual macOS desktop. Progress-in-flight state (before completion) should use variant A's morph layout: show the same 'Export' label + progress bar + stage indicators (Checking fonts / Rendering / Embedding / Writing), morph to this success state when done. Use variant A's layout for PROGRESS state and this variant B's layout for SUCCESS state.",
+  "date": "2026-04-21",
+  "screen": "export-progress",
+  "branch": "unknown"
+}

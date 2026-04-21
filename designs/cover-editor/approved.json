@@ -1,0 +1,9 @@
+{
+  "approved_variant": "A",
+  "feedback": "Split-pane approved. Form on left ~40%, live cover preview on right ~60%. Clean, matches DESIGN.md exactly. Cover variant dropdown at top of preview; Preview-at-print-size toggle at bottom.",
+  "direction": "Left form: Issue title, Issue number+date (side-by-side), Cover lines (with +add and ×remove per line, rust 'Add cover line' button at end), Price, Barcode drop-zone. Right: sticky cover preview with masthead display serif, hero slot, 4 cover lines bottom-left.",
+  "ai_drift_notes": "Sidebar in the mockup shows all 8 tabs correctly. 'Templates' tab dimmed (OK, this mockup shows that state). No critical drift.",
+  "date": "2026-04-21",
+  "screen": "cover-editor",
+  "branch": "unknown"
+}

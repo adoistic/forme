@@ -1,0 +1,9 @@
+{
+  "approved_variant": "B",
+  "feedback": "Page-overlay layout approved. Main canvas shows spread grid with red-outlined error spreads + amber-outlined warning spreads. Right 400px panel with 'Before you export.' headline + findings grouped by severity + 'Focus page' rust links. Sticky 'Export Issue 47' primary button at bottom.",
+  "direction": "Spread grid visible behind/beside findings panel. Error spreads: 3px red border (--color-error #B84545). Warning spreads: 3px amber border (--color-warning #C9904E). Findings panel: error count + warning count + green 'All good' summary. Focus-page link scrolls grid + flashes affected page. Export button disabled (40% opacity) when errors exist, helper text 'N errors must be fixed'.",
+  "ai_drift_notes": "Sidebar drift ('Dashboard / Issue Board / Articles / Assets / Advertising / Settings / Team / Help / Help') + duplicated Help item + 'Alex D.' avatar at bottom. IGNORE — use locked 8-tab IA. Issue Board tab should be the active tab (user invoked Check-my-issue from there).",
+  "date": "2026-04-21",
+  "screen": "pre-export-check",
+  "branch": "unknown"
+}

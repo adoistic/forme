@@ -1,0 +1,9 @@
+{
+  "approved_variant": "B",
+  "feedback": "Grouped-by-publication-position approved. Matches operator mental model: they think 'Back cover is sold, Centerspread is sold, Page 3 is open.' Position sections (BACK COVER, INSIDE FRONT COVER, PAGE 3, CENTERSPREAD, COVER STRIP, RUN OF BOOK) with status chips (Filled/Open) at a glance.",
+  "direction": "Top section: named positions in a row, each showing a thumbnail at true aspect ratio + filename + advertiser + DPI/COLOR tags below thumb. Empty positions show dashed rust placeholder with 'No ad placed' + 'Place ad' ghost button. Bottom section: RUN OF BOOK with more ads in a row (half-pages, quarters) + empty slots mixed in. Filter top-right: 'House ads only' checkbox. Upload button filled-rust top-right.",
+  "ai_drift_notes": "Mockup shows macOS menu bar (Electron File Edit View...) at top — IGNORE, that's just how the designer rendered full-desktop context. Sidebar drift: 'Dashboard / Ads / Articles / Issues / Contributors / Assets / Settings / Help'. IGNORE, use locked 8 tabs. Also note: variant A's grouped-by-slot-type view is still useful as a SECONDARY filter (e.g., 'Show all Full Page ads across issues') but for MVP the primary view is position-based per this approved variant.",
+  "date": "2026-04-21",
+  "screen": "ads-tab",
+  "branch": "unknown"
+}

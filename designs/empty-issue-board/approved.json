@@ -1,0 +1,9 @@
+{
+  "approved_variant": "A",
+  "feedback": "Centered CTA approved. Single focused card on top-left spread position ('Let's put something on page 1.' with two buttons) is cleaner than 32 repeated drop zones. Editorial restraint.",
+  "direction": "Grid of 16 faint wireframe spread outlines (4×4 at ~25% opacity). Single large CTA card centered on spread 1-2 position: 'START' small-caps rust label + 'Let's put something on page 1.' display serif 28px + subline + two buttons: 'Go to Articles →' filled-rust primary + 'Pick a template first' outlined-rust ghost. Below card: 'Or start from a past issue's skeleton (soon)' italic strikethrough muted link. Bottom of sidebar: '0 pages' + disabled 'Export' button.",
+  "ai_drift_notes": "Sidebar in mockup shows 'Dashboard / Issue Board / Articles / Images / Templates / Styles / Team / Settings' — wrong ('Styles' and 'Team' aren't in our 8-tab IA). IGNORE — use locked 8 tabs. Masthead 'THE DAILY SAPTAHIK' is shown at TOP of SIDEBAR in the mockup but per Pass 1 IA decision, masthead should move to canvas header at 18/22 small-caps. When implementing, move masthead OUT of sidebar top and into canvas header row 'THE DAILY SAPTAHIK // Issue 47, March 15' in small caps. Sidebar top shows just the 8 nav tabs.",
+  "date": "2026-04-21",
+  "screen": "empty-issue-board",
+  "branch": "unknown"
+}

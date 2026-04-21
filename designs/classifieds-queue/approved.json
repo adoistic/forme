@@ -1,0 +1,9 @@
+{
+  "approved_variant": "A",
+  "feedback": "Grouped-by-type vertical list approved. Matches newspaper classifieds tradition (print compositors have organized classifieds by type-section for a century). Sections 'Matrimonial — with photo (12)' / 'Matrimonial — no photo (4)' / 'Obituary (3)' / 'Property sale (5)' / 'Public notice (4)' / 'Job vacancy (3)' — first two expanded, rest collapsed. Per-section sort-by dropdown on right.",
+  "direction": "Sections as collapsible groups. Each expanded shows compact rows (~48-56px) with drag handle + name + city + phone + 'Weeks to run: N' + three-dot menu. Selected row has cream-tinted hover bg. Collapsed sections show just header with count + chevron. Top of canvas: 'Classifieds' display serif + subline '31 queued for Issue 47 · 6 types' + 'Add classified' filled-rust primary + 'Import CSV' outlined ghost. Global sort top-right.",
+  "ai_drift_notes": "Sidebar drift: 'Dashboard / Articles / Media / Classifieds (active) / Users / Settings / Preview / Publish'. IGNORE. 'Preview' and 'Publish' aren't in our 8-tab IA. Use locked 8 tabs.",
+  "date": "2026-04-21",
+  "screen": "classifieds-queue",
+  "branch": "unknown"
+}

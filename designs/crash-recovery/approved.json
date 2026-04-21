@@ -1,0 +1,10 @@
+{
+  "approved_variant": "B",
+  "feedback": "Inline banner at top of main canvas approved. Non-intrusive. Operator sees 'We noticed your last session didn't close cleanly.' with explicit action options.",
+  "direction": "Banner full-width at top of main canvas, below canvas header. Cream-tinted bg (--color-accent-bg #FCF1EC), 1.5px rust LEFT border (severity marker). Contents horizontal row: circular rust icon, text block (title 'We noticed your last session didn't close cleanly.' + subline 'Your last auto-save was HH:MM (N minutes ago). Want to pick up where you left off?'), right-aligned buttons, X-close at far right.",
+  "implementation_correction": "The mockup shows TWO action buttons (Discard + Restore). CEO Plan Accepted Scope #4 mandates THREE options: Recover / Discard / Open-Fresh. When implementing, the banner must include all three: 'Discard' ghost (destructive tint) + 'Open fresh (no recovery)' ghost + 'Restore from HH:MM' filled-rust primary + X-close. Don't ship the two-button version even if it looks cleaner — Open-Fresh is required by the CEO plan for operators who know the crash was intentional (e.g., they force-quit on purpose to bail out of a bad state).",
+  "ai_drift_notes": "Mockup shows Safari-like browser chrome at top (tabs, URL bar) — IGNORE, this is drift. App is an Electron window, not a browser. Sidebar drift: duplicated 'Issues' item, 'Projects', 'Memure' (misspelled Media?). IGNORE — use locked 8-tab IA. Conceptually the banner pattern is exactly what we want.",
+  "date": "2026-04-21",
+  "screen": "crash-recovery",
+  "branch": "unknown"
+}

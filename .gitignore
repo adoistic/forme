@@ -1,0 +1,65 @@
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+Icon?
+._*
+
+# Node
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.npm
+.yarn-integrity
+.pnp.*
+
+# Bun
+bun.lockb
+
+# Env
+.env
+.env.*
+!.env.example
+
+# Build outputs
+dist/
+build/
+out/
+release/
+*.tsbuildinfo
+
+# Electron-builder
+/release-builds/
+/dist-electron/
+
+# Test
+coverage/
+*.lcov
+.nyc_output/
+playwright-report/
+test-results/
+
+# IDE / editor
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS temp
+/tmp
+*.tmp
+
+# Claude Code local settings (never commit)
+.claude/settings.local.json
+
+# Logs
+logs/
+*.log
+
+# Runtime app data (if developer runs the built app locally and app writes here)
+/userdata/
+
+# Vendor caches (but commit the vendored Pretext source once added)
+# /vendor/.cache/

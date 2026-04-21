@@ -1,0 +1,9 @@
+{
+  "approved_variant": "B",
+  "feedback": "Full-tab view approved. Left 400px timeline (grouped Today/Yesterday/Last Week), right large preview pane with actual spread thumbnails. Much better use of canvas than drawer.",
+  "direction": "Left pane: search input with ⌘F, date-grouped entries with rust dot markers, selected entry has cream bg + rust left border. Right pane: 'Issue 47 at [timestamp]' display serif + 'Restore this version' outlined-rust button top-right, spread thumbnails showing snapshot state as read-only miniature.",
+  "ai_drift_notes": "IMPORTANT: sidebar nav items are wrong ('Dashboard / Issues / Content / Media / Layouts / Authors / History / Settings'). IGNORE this — use the 8-tab IA from DESIGN.md: Issue Board / Articles / Classifieds / Ads / Images / Templates / History / Settings. Also 'TEDAY' typo should be 'TODAY'. 'History' is the ACTIVE tab (left-accent bar).",
+  "date": "2026-04-21",
+  "screen": "history-panel",
+  "branch": "unknown"
+}

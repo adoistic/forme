@@ -1,0 +1,9 @@
+{
+  "approved_variant": "B",
+  "feedback": "Sectioned cards with two-column grid approved. Each card has title + subline + fields + per-card 'Save changes' rust link. Publication Basics + Print Defaults side-by-side is efficient use of canvas. House-style accent color swatch row is beautiful (8 color chips, rust currently selected).",
+  "direction": "Card radius 8px, 24px padding, subtle hairline border. Cards: Publication basics (name + masthead + house-accent swatches), Print defaults (A4/A5 + language pill + typography pairing + cadence), Fonts (installed/missing counter), Backup, Diagnostics. Per-card save pattern. Main canvas title 'Settings' + subline.",
+  "ai_drift_notes": "Sidebar nav items drift: 'Accounts & Users' isn't in our 8-tab IA. IGNORE and use locked 8 tabs. Typography pairing cards show wrong font names ('Fraunces / Playfair Display / Tiempos / Roboto Serif') — use the brief's locked 4: Editorial Serif (Tiro+Tiro), News Sans (Mukta+Source Sans 3), Literary (Tiro+Lora), Modern Geometric (Hind+Inter). House-style accent swatches in mockup include purple/green — our DESIGN.md locks that publisher accent applies to PRINT side only (per Pass 7D decision), so the UI's rust remains regardless. The swatch picker is still correct conceptually but the chosen color affects the EXPORT, not the editor chrome.",
+  "date": "2026-04-21",
+  "screen": "settings-profile",
+  "branch": "unknown"
+}

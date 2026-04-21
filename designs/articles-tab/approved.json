@@ -1,0 +1,9 @@
+{
+  "approved_variant": "A",
+  "feedback": "List view approved. Compact rows with thumbnail + headline + byline + preview + language tag + word count + placement status + menu. Drag handle visible. Bottom drop-zone hint. Shows ~6 articles per viewport.",
+  "direction": "Each row ~72px tall, 24px padding, 1px hairline divider. Left: drag handle (dots), thumbnail 48x60px if image else 'No Image' placeholder. Middle: headline (18px Inter semibold) + byline + 3-line preview (truncate). Right: language pill (EN/HI), word count caption, placement status ('Placed on page 7' in rust OR 'Not yet placed' in muted gray). Far right: three-dot menu revealing Edit/Delete/Move on click. Dashed-rust 'Drop .docx files here to import' zone at bottom.",
+  "ai_drift_notes": "Sidebar drift: 'Dashboard / Articles (ACTIVE, with explicit ACTIVE tag) / Issues / Media / Contributors / Templates / Settings / Help'. IGNORE — use locked 8-tab IA. 'ACTIVE' label shouldn't render in final UI (it's just how the mockup shows active state); in real implementation, active state = rust left-accent bar + rust icon (from DESIGN.md §9). Search input shows '2EF' which is OCR drift of '⌘F' keyboard hint.",
+  "date": "2026-04-21",
+  "screen": "articles-tab",
+  "branch": "unknown"
+}
