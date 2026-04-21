@@ -63,9 +63,22 @@ export async function validatePptx(options: ValidateOptions): Promise<ValidateRe
   const start = Date.now();
 
   try {
+    // Use a unique UserInstallation dir per invocation so parallel soffice
+    // calls don't block on each other's profile lock. Without this, a second
+    // soffice call while the first is still running silently exits 0 without
+    // producing output.
+    const userProfile = await fs.mkdtemp(path.join(os.tmpdir(), "forme-soffice-profile-"));
     const { stdout, stderr } = await execFileAsync(
       sofficeBinary,
-      ["--headless", "--convert-to", "pdf", "--outdir", outDir, pptxPath],
+      [
+        `-env:UserInstallation=file://${userProfile}`,
+        "--headless",
+        "--convert-to",
+        "pdf",
+        "--outdir",
+        outDir,
+        pptxPath,
+      ],
       { timeout: timeoutMs }
     );
 
