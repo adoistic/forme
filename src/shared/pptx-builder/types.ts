@@ -73,6 +73,14 @@ export interface PptxArticle {
   /** Optional hero image bytes + mime type. */
   heroImage?: PptxImage;
   pullQuote?: string;
+  /**
+   * Pre-broken body lines per page per column, usually produced upstream
+   * via @chenglou/pretext + Skia/canvas measurement. When present, the
+   * builder emits each line as its own paragraph (so PowerPoint's text
+   * engine cannot re-wrap and overflow the column box). When absent,
+   * the builder falls back to its older heuristic.
+   */
+  prelaidPages?: string[][][];
 }
 
 export interface PptxImage {

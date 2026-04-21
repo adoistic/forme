@@ -157,6 +157,79 @@ export interface ExportIssueResult {
   warnings: string[];
 }
 
+/**
+ * Plan returned by export:fetch-data — the renderer takes this, runs
+ * pretext-driven body line-breaking against the real browser canvas, then
+ * sends back a fully-laid-out structure via export:render-prelaid. The plan
+ * is the read-only snapshot of everything the export needs.
+ */
+export interface ExportPlan {
+  issue: {
+    id: string;
+    title: string;
+    issueNumber: number | null;
+    issueDate: string;
+    pageSize: "A4" | "A5";
+    primaryLanguage: Language;
+  };
+  template: {
+    id: string;
+    /** mm */
+    trim: [number, number];
+    /** mm */
+    bleedMm: number;
+    margins: { top: number; right: number; bottom: number; left: number };
+    columns: number;
+    /** mm */
+    gutterMm: number;
+    typography: {
+      headlinePt: number;
+      deckPt: number;
+      bodyPt: number;
+      bodyLeadingPt: number;
+    };
+    pageCountRange: [number, number];
+  };
+  articles: Array<{
+    id: string;
+    headline: string;
+    deck: string | null;
+    byline: string | null;
+    bylinePosition: "top" | "end";
+    body: string;
+    language: Language;
+    /** Hero image as base64 + mime type, if one exists. */
+    heroImage: {
+      mimeType: string;
+      base64: string;
+      widthPx: number;
+      heightPx: number;
+    } | null;
+  }>;
+  ads: Array<{
+    slotType: string;
+    positionLabel: string;
+    kind: "commercial" | "house" | "sponsor_strip";
+    bwFlag: boolean;
+    mimeType: string;
+    base64: string;
+    widthPx: number;
+    heightPx: number;
+  }>;
+  classifieds: Array<{
+    type: string;
+    language: "en" | "hi";
+    fields: Record<string, unknown>;
+  }>;
+}
+
+/** What the renderer hands back: pre-broken article body lines per column. */
+export interface RenderedExportPlan {
+  issueId: string;
+  /** [articleIdx][pageIdx][colIdx][lineIdx] = string */
+  articleBodyLines: string[][][][];
+}
+
 // ---- Channel map ----
 // Keep this in sync with the handlers in src/main/ipc/handlers/*.
 
@@ -187,6 +260,11 @@ export interface ChannelMap {
   "publisher:save": { request: PublisherProfile; response: PublisherProfile };
 
   "export:pptx": { request: ExportIssueInput; response: ExportIssueResult };
+  "export:fetch-plan": { request: ExportIssueInput; response: ExportPlan };
+  "export:render-prelaid": {
+    request: { plan: ExportPlan; rendered: RenderedExportPlan };
+    response: ExportIssueResult;
+  };
 }
 
 export type ChannelName = keyof ChannelMap;

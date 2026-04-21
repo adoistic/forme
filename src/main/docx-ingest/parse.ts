@@ -170,18 +170,73 @@ function splitHeadline(
 /**
  * Strip HTML tags but keep paragraph structure — downstream byline and
  * deck detection depend on paragraph boundaries surviving. We turn closing
- * block tags into double newlines, then strip inline tags, then collapse
- * horizontal whitespace only (not vertical).
+ * block tags into double newlines, then strip inline tags, decode HTML
+ * entities (&amp; → &, &aacute; → á, etc.), then collapse horizontal
+ * whitespace only (not vertical).
  */
 function stripTagsPreservingParagraphs(html: string): string {
-  return html
-    .replace(/<\/(p|h[1-6]|li|blockquote|br)\s*>/gi, "\n\n")
-    .replace(/<br\s*\/?>/gi, "\n\n")
-    .replace(/<[^>]+>/g, "")
-    .replace(/&nbsp;/g, " ")
+  return decodeHtmlEntities(
+    html
+      .replace(/<\/(p|h[1-6]|li|blockquote|br)\s*>/gi, "\n\n")
+      .replace(/<br\s*\/?>/gi, "\n\n")
+      .replace(/<[^>]+>/g, "")
+  )
     .replace(/[ \t]+/g, " ")
     .replace(/\n{3,}/g, "\n\n")
     .trim();
+}
+
+const NAMED_ENTITIES: Record<string, string> = {
+  amp: "&",
+  lt: "<",
+  gt: ">",
+  quot: '"',
+  apos: "'",
+  nbsp: " ",
+  ndash: "–",
+  mdash: "—",
+  hellip: "…",
+  lsquo: "‘",
+  rsquo: "’",
+  ldquo: "“",
+  rdquo: "”",
+  copy: "©",
+  reg: "®",
+  trade: "™",
+  // Latin extended — covers the most common Wikipedia footnote markers
+  aacute: "á",
+  eacute: "é",
+  iacute: "í",
+  oacute: "ó",
+  uacute: "ú",
+  ntilde: "ñ",
+  ccedil: "ç",
+  Aacute: "Á",
+  Eacute: "É",
+  Iacute: "Í",
+  Oacute: "Ó",
+  Uacute: "Ú",
+  Ntilde: "Ñ",
+  Ccedil: "Ç",
+};
+
+/**
+ * Decode HTML entities. Handles named (&amp;), decimal (&#38;), and hex
+ * (&#x26;) forms. Unknown named entities are left as-is so we don't lose
+ * data — better to print "&xyz;" than to silently drop content.
+ */
+function decodeHtmlEntities(s: string): string {
+  return s.replace(/&(#x[0-9a-f]+|#\d+|[a-zA-Z]+);/g, (full, body: string) => {
+    if (body.startsWith("#x") || body.startsWith("#X")) {
+      const code = parseInt(body.slice(2), 16);
+      return Number.isFinite(code) ? String.fromCodePoint(code) : full;
+    }
+    if (body.startsWith("#")) {
+      const code = parseInt(body.slice(1), 10);
+      return Number.isFinite(code) ? String.fromCodePoint(code) : full;
+    }
+    return NAMED_ENTITIES[body] ?? full;
+  });
 }
 
 /**

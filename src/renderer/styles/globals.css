@@ -1,6 +1,54 @@
 @import "tailwindcss";
 @config "../../../tailwind.config.ts";
 
+/* Bundled font files — loaded into the renderer so canvas measureText
+ * matches what the user sees AND what the PPTX export pre-lays-out
+ * against. Vite resolves these absolute imports through its asset
+ * pipeline; the same TTFs are also embedded into the .pptx zip via
+ * shared/pptx-builder/embed-fonts.ts. */
+@font-face {
+  font-family: "Fraunces";
+  font-style: normal;
+  font-weight: 400 900;
+  font-display: block;
+  src: url("../../assets/fonts/Fraunces-Regular.ttf") format("truetype");
+}
+@font-face {
+  font-family: "Fraunces";
+  font-style: italic;
+  font-weight: 400 900;
+  font-display: block;
+  src: url("../../assets/fonts/Fraunces-Italic.ttf") format("truetype");
+}
+@font-face {
+  font-family: "Inter";
+  font-style: normal;
+  font-weight: 100 900;
+  font-display: block;
+  src: url("../../assets/fonts/Inter-Regular.ttf") format("truetype");
+}
+@font-face {
+  font-family: "Inter";
+  font-style: italic;
+  font-weight: 100 900;
+  font-display: block;
+  src: url("../../assets/fonts/Inter-Italic.ttf") format("truetype");
+}
+@font-face {
+  font-family: "Mukta";
+  font-style: normal;
+  font-weight: 400;
+  font-display: block;
+  src: url("../../assets/fonts/Mukta-Regular.ttf") format("truetype");
+}
+@font-face {
+  font-family: "Mukta";
+  font-style: normal;
+  font-weight: 700;
+  font-display: block;
+  src: url("../../assets/fonts/Mukta-Bold.ttf") format("truetype");
+}
+
 /* Forme global styles.
  * Design tokens live in tailwind.config.ts → theme.extend.
  * Tailwind v4 requires the explicit @config directive to pick up the legacy

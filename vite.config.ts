@@ -20,7 +20,13 @@ export default defineConfig({
             sourcemap: true,
             minify: process.env.NODE_ENV === "production",
             rollupOptions: {
-              external: ["better-sqlite3", "sharp", "electron", /^node:/],
+              external: [
+                "better-sqlite3",
+                "sharp",
+                "@napi-rs/canvas",
+                "electron",
+                /^node:/,
+              ],
             },
           },
         },

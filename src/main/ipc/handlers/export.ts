@@ -2,6 +2,7 @@ import path from "node:path";
 import { addHandler } from "../register.js";
 import { getState } from "../../app-state.js";
 import { buildPptx } from "@shared/pptx-builder/build.js";
+import { preLayoutForTemplate } from "../../pptx-prelayout/layout.js";
 import { makeError } from "@shared/errors/structured.js";
 import type {
   ExportIssueInput,
@@ -199,6 +200,43 @@ export function registerExportHandlers(): void {
         }
       }
 
+      const bylinePosition: "top" | "end" =
+        article.byline_position === "end" ? "end" : "top";
+      const language = article.language as "en" | "hi" | "bilingual";
+
+      // Pre-break the body into per-page-per-column lines so PowerPoint's
+      // text engine can't re-wrap and overflow the column boxes.
+      let prelaidPages: string[][][] = [];
+      try {
+        prelaidPages = await preLayoutForTemplate({
+          body: article.body,
+          language,
+          hasDeck: !!article.deck,
+          hasTopByline: !!article.byline && bylinePosition === "top",
+          hasHero: !!heroImage,
+          template: {
+            trim_mm: template.geometry.trim_mm,
+            margins_mm: template.geometry.margins_mm,
+            columns: template.geometry.columns,
+            gutter_mm: template.geometry.gutter_mm,
+            typography: {
+              headline_pt: template.typography.headline_pt,
+              ...(template.typography.deck_pt !== undefined
+                ? { deck_pt: template.typography.deck_pt }
+                : {}),
+              body_pt: template.typography.body_pt,
+              body_leading_pt: template.typography.body_leading_pt,
+            },
+            page_count_range: template.page_count_range,
+          },
+        });
+      } catch (err) {
+        logger.warn(
+          { articleId: article.id, err: String(err) },
+          "pretext layout failed — falling back to legacy heuristic"
+        );
+      }
+
       placements.push({
         articleId: article.id,
         template,
@@ -207,13 +245,14 @@ export function registerExportHandlers(): void {
           headline: article.headline,
           deck: article.deck,
           byline: article.byline,
-          bylinePosition: (article.byline_position === "end" ? "end" : "top"),
+          bylinePosition,
           body: article.body,
-          language: article.language as "en" | "hi" | "bilingual",
+          language,
+          ...(prelaidPages.length > 0 ? { prelaidPages } : {}),
           ...(heroImage ? { heroImage } : {}),
         },
       });
-      nextPageNumber += template.page_count_range[0];
+      nextPageNumber += Math.max(prelaidPages.length, template.page_count_range[0]);
     }
 
     // Load ads for this issue, read their image bytes, base64-encode

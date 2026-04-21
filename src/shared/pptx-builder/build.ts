@@ -162,46 +162,57 @@ function addPlacementSlides(
   const charsPerColFirstPage = charsPerLine * linesPerColFirstPage;
   const charsPerColOtherPages = charsPerLine * linesPerColOtherPages;
 
-  // Decide actual page count from body length. Allocate capacities for the
-  // template's MAX pages, distribute greedily, then truncate to the actual
-  // number of pages that received content. That way:
-  //   - short articles don't get a blank page 2 forced by template min
-  //   - long articles that finish early don't get a blank trailing page
-  // The template's page_count_range is a guideline, not a hard floor. If the
-  // body is too short for the recommended minimum, we emit fewer pages and
-  // surface a warning so the caller can show the operator.
   const body = article.body.trim();
   const minPages = template.page_count_range[0];
   const maxPages = template.page_count_range[1];
 
-  const allCapacities: number[] = [];
-  for (let p = 0; p < maxPages; p += 1) {
-    const per = p === 0 ? charsPerColFirstPage : charsPerColOtherPages;
-    for (let c = 0; c < columnCount; c += 1) allCapacities.push(per);
-  }
-  const allSegments = distributeToColumns(body, allCapacities);
+  // Two paths:
+  //   (A) Pre-broken lines from upstream (pretext + Skia measurement).
+  //       Each line is emitted as its own paragraph so PowerPoint cannot
+  //       re-wrap and overflow the column box. This is the high-quality
+  //       path used in the normal export flow.
+  //   (B) Body string only — fall back to the older char-budget heuristic
+  //       (kept for tests and isolated builder calls).
+  let pagesNeeded: number;
+  let pageColumns: string[][][] | null = null; // [pageIdx][colIdx][lineIdx]
+  let segments: string[] = []; // legacy flat path
 
-  // Find the last column that actually got content; a page is used if any
-  // of its columns has text.
-  let lastFilledColIdx = -1;
-  for (let i = allSegments.length - 1; i >= 0; i -= 1) {
-    if ((allSegments[i] ?? "").length > 0) {
-      lastFilledColIdx = i;
-      break;
+  if (article.prelaidPages && article.prelaidPages.length > 0) {
+    pageColumns = article.prelaidPages;
+    pagesNeeded = Math.min(maxPages, Math.max(1, pageColumns.length));
+    if (pagesNeeded < minPages) {
+      warnings.push(
+        `Article fills ${pagesNeeded} page${pagesNeeded === 1 ? "" : "s"} but this template is designed for ${minPages}–${maxPages}. Consider a shorter template or adding more copy.`
+      );
     }
-  }
-  const pagesUsed =
-    lastFilledColIdx < 0
-      ? 1
-      : Math.floor(lastFilledColIdx / columnCount) + 1;
-  const pagesNeeded = Math.min(maxPages, Math.max(1, pagesUsed));
-  if (pagesNeeded < minPages) {
-    warnings.push(
-      `Article fills ${pagesNeeded} page${pagesNeeded === 1 ? "" : "s"} but this template is designed for ${minPages}–${maxPages}. Consider a shorter template or adding more copy.`
-    );
-  }
+  } else {
+    // Legacy heuristic distribution — kept for tests + back-compat.
+    const allCapacities: number[] = [];
+    for (let p = 0; p < maxPages; p += 1) {
+      const per = p === 0 ? charsPerColFirstPage : charsPerColOtherPages;
+      for (let c = 0; c < columnCount; c += 1) allCapacities.push(per);
+    }
+    const allSegments = distributeToColumns(body, allCapacities);
 
-  const segments = allSegments.slice(0, pagesNeeded * columnCount);
+    let lastFilledColIdx = -1;
+    for (let i = allSegments.length - 1; i >= 0; i -= 1) {
+      if ((allSegments[i] ?? "").length > 0) {
+        lastFilledColIdx = i;
+        break;
+      }
+    }
+    const pagesUsed =
+      lastFilledColIdx < 0
+        ? 1
+        : Math.floor(lastFilledColIdx / columnCount) + 1;
+    pagesNeeded = Math.min(maxPages, Math.max(1, pagesUsed));
+    if (pagesNeeded < minPages) {
+      warnings.push(
+        `Article fills ${pagesNeeded} page${pagesNeeded === 1 ? "" : "s"} but this template is designed for ${minPages}–${maxPages}. Consider a shorter template or adding more copy.`
+      );
+    }
+    segments = allSegments.slice(0, pagesNeeded * columnCount);
+  }
 
   // Emit slides
   for (let pageIdx = 0; pageIdx < pagesNeeded; pageIdx += 1) {
@@ -295,27 +306,56 @@ function addPlacementSlides(
 
     const bodyAvailableHeight = trimHeightIn - marginBottom - bodyStartY;
 
-    // Emit one text box per column with its segment
-    for (let col = 0; col < columnCount; col += 1) {
-      const slotIdx = pageIdx * columnCount + col;
-      const segment = segments[slotIdx];
-      if (!segment) continue;
-      const colX = marginLeft + col * (columnWidth + gutterIn);
-      slide.addText(segment, {
-        x: colX,
-        y: bodyStartY,
-        w: columnWidth,
-        h: bodyAvailableHeight,
-        fontSize: typ.body_pt,
-        lineSpacing: typ.body_leading_pt,
-        fontFace: bodyFont,
-        color: "1A1A1A",
-        valign: "top",
-        // Print-standard body alignment — the last line of each paragraph
-        // stays left, every other line justifies to the column edge.
-        align: "justify",
-        paraSpaceAfter: 4,
-      });
+    // Emit body. Two paths:
+    //   - prelaidPages: each line of each column becomes its own paragraph
+    //     so PowerPoint can't re-wrap and lose text past the column box.
+    //   - segments (legacy): one big justified block per column.
+    if (pageColumns) {
+      const cols = pageColumns[pageIdx] ?? [];
+      for (let col = 0; col < columnCount; col += 1) {
+        const lines = cols[col] ?? [];
+        if (lines.length === 0) continue;
+        const colX = marginLeft + col * (columnWidth + gutterIn);
+        // Slight column-width slack so PowerPoint never re-wraps a line
+        // we measured at 96% of the box width.
+        const renderColumnWidth = columnWidth * 1.02;
+        slide.addText(lines.join("\n"), {
+          x: colX,
+          y: bodyStartY,
+          w: renderColumnWidth,
+          h: bodyAvailableHeight,
+          fontSize: typ.body_pt,
+          lineSpacing: typ.body_leading_pt,
+          fontFace: bodyFont,
+          color: "1A1A1A",
+          valign: "top",
+          // Each pre-broken line becomes its own paragraph via \n. Justify
+          // still works on multi-word lines; short trailing-paragraph
+          // lines stay left.
+          align: "justify",
+          paraSpaceAfter: 0,
+        });
+      }
+    } else {
+      for (let col = 0; col < columnCount; col += 1) {
+        const slotIdx = pageIdx * columnCount + col;
+        const segment = segments[slotIdx];
+        if (!segment) continue;
+        const colX = marginLeft + col * (columnWidth + gutterIn);
+        slide.addText(segment, {
+          x: colX,
+          y: bodyStartY,
+          w: columnWidth,
+          h: bodyAvailableHeight,
+          fontSize: typ.body_pt,
+          lineSpacing: typ.body_leading_pt,
+          fontFace: bodyFont,
+          color: "1A1A1A",
+          valign: "top",
+          align: "justify",
+          paraSpaceAfter: 4,
+        });
+      }
     }
 
     // End-positioned byline on the LAST emitted page of this article.
@@ -327,8 +367,10 @@ function addPlacementSlides(
       // Find the right-most column that actually got content on this page
       let lastColWithText = -1;
       for (let c = columnCount - 1; c >= 0; c -= 1) {
-        const seg = segments[pageIdx * columnCount + c];
-        if (seg && seg.length > 0) {
+        const hasContent = pageColumns
+          ? (pageColumns[pageIdx]?.[c] ?? []).some((l) => l.length > 0)
+          : ((segments[pageIdx * columnCount + c] ?? "").length > 0);
+        if (hasContent) {
           lastColWithText = c;
           break;
         }

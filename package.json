@@ -69,9 +69,11 @@
     "vitest": "^4.1.5"
   },
   "dependencies": {
+    "@chenglou/pretext": "file:./vendor/pretext",
     "@dnd-kit/core": "^6.3.1",
     "@dnd-kit/sortable": "^10.0.0",
     "@dnd-kit/utilities": "^3.2.2",
+    "@napi-rs/canvas": "^0.1.99",
     "@phosphor-icons/react": "^2.1.10",
     "@radix-ui/react-collapsible": "^1.1.12",
     "@radix-ui/react-dialog": "^1.1.15",
