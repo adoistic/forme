@@ -1,0 +1,97 @@
+import React from "react";
+import {
+  SquaresFour,
+  FileText,
+  ListBullets,
+  Megaphone,
+  Images,
+  SquareHalf,
+  ClockCounterClockwise,
+  GearSix,
+} from "@phosphor-icons/react";
+import { useNavStore, useShallow, type TabId } from "../stores/navigation.js";
+
+interface NavItem {
+  id: TabId;
+  label: string;
+  Icon: React.ComponentType<{ size?: number; weight?: "regular" | "bold"; className?: string }>;
+}
+
+// 8-tab IA locked by CEO review Section 11 decision.
+const NAV_ITEMS: readonly NavItem[] = [
+  { id: "issue-board", label: "Issue Board", Icon: SquaresFour },
+  { id: "articles", label: "Articles", Icon: FileText },
+  { id: "classifieds", label: "Classifieds", Icon: ListBullets },
+  { id: "ads", label: "Ads", Icon: Megaphone },
+  { id: "images", label: "Images", Icon: Images },
+  { id: "templates", label: "Templates", Icon: SquareHalf },
+  { id: "history", label: "History", Icon: ClockCounterClockwise },
+  { id: "settings", label: "Settings", Icon: GearSix },
+];
+
+export function Sidebar(): React.ReactElement {
+  const { activeTab, setActiveTab } = useNavStore(
+    useShallow((s) => ({ activeTab: s.activeTab, setActiveTab: s.setActiveTab }))
+  );
+
+  return (
+    <aside
+      aria-label="Primary"
+      className="flex h-full w-[260px] shrink-0 flex-col border-r border-border-default bg-bg-canvas"
+    >
+      {/* Masthead-free sidebar per Pass 1 IA fix — masthead moves to canvas header */}
+      <div className="h-16 app-region-drag" />
+
+      <nav className="flex-1 px-3 py-2">
+        <ul className="space-y-0.5">
+          {NAV_ITEMS.map(({ id, label, Icon }) => {
+            const isActive = activeTab === id;
+            return (
+              <li key={id}>
+                <button
+                  type="button"
+                  data-testid={`nav-${id}`}
+                  onClick={() => setActiveTab(id)}
+                  className={[
+                    "group relative flex w-full items-center gap-3 rounded-md px-4 py-2.5 text-title-sm",
+                    "transition-colors duration-fast ease-standard",
+                    isActive
+                      ? "text-text-primary"
+                      : "text-text-secondary hover:bg-black/[0.04] hover:text-text-primary",
+                  ].join(" ")}
+                >
+                  {/* Active-state left-accent bar per DESIGN.md §9 sidebar spec */}
+                  {isActive && (
+                    <span
+                      aria-hidden="true"
+                      className="absolute left-0 top-1/2 h-5 w-[3px] -translate-y-1/2 rounded-r-sm bg-accent"
+                    />
+                  )}
+                  <Icon
+                    size={18}
+                    weight="regular"
+                    className={isActive ? "text-accent" : "text-text-secondary group-hover:text-text-primary"}
+                  />
+                  <span>{label}</span>
+                </button>
+              </li>
+            );
+          })}
+        </ul>
+      </nav>
+
+      {/* Bottom: page count + Export (filled rust per Pass 1 decision) */}
+      <div className="border-t border-border-default px-6 py-4">
+        <div className="mb-2 text-caption text-text-tertiary">0 pages</div>
+        <button
+          type="button"
+          data-testid="export-button"
+          disabled
+          className="flex w-full items-center justify-center gap-2 rounded-md bg-accent px-4 py-2.5 text-title-sm font-semibold text-text-inverse opacity-40 disabled:cursor-default"
+        >
+          Export
+        </button>
+      </div>
+    </aside>
+  );
+}

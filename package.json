@@ -24,7 +24,8 @@
     "dist": "electron-builder",
     "db:migrate": "kysely-ctl migrate latest",
     "db:migrate:down": "kysely-ctl migrate down",
-    "db:status": "kysely-ctl migrate list"
+    "db:status": "kysely-ctl migrate list",
+    "prepare": "husky || true"
   },
   "engines": {
     "node": ">=22"

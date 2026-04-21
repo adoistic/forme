@@ -1,0 +1,63 @@
+# GitHub Actions CI workflow for Forme.
+#
+# INSTALL INSTRUCTIONS (one-time, requires user action):
+#   1. Move this file to .github/workflows/ci.yml
+#   2. Refresh gh CLI with workflow scope:
+#        gh auth refresh -s workflow
+#   3. git add .github/workflows/ci.yml && git commit && git push
+#
+# It's placed here rather than in .github/ because the OAuth token used
+# in this session lacks the `workflow` scope required to push files
+# under .github/workflows/. See PROGRESS.md blockers.
+
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  verify:
+    name: Typecheck + Lint + Format + Unit
+    runs-on: macos-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - name: Install deps
+        run: bun install --frozen-lockfile
+
+      - name: Typecheck
+        run: bun run typecheck
+
+      - name: Lint
+        run: bun run lint
+
+      - name: Format check
+        run: bun run format:check
+
+      - name: Unit + Integration tests
+        run: bun run test
+
+      - name: Upload coverage
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage
+          path: coverage/
+          retention-days: 7
+
+  # E2E tests require Electron + local-only fonts; skipped on CI per eng-plan §1
+  # Run locally via: bun run test:e2e

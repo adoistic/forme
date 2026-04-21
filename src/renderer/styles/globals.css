@@ -1,0 +1,67 @@
+@import "tailwindcss";
+
+/* Forme global styles.
+ * Design tokens live in tailwind.config.ts → theme.extend.
+ * This file is only for resets and the font-face declarations. */
+
+@theme {
+  --font-display: "Fraunces", "Playfair Display", ui-serif, Georgia, serif;
+  --font-sans: "Inter", -apple-system, system-ui, sans-serif;
+  --font-devanagari: "Mukta", "Tiro Devanagari Hindi", sans-serif;
+}
+
+/* Base reset + body */
+html,
+body {
+  margin: 0;
+  padding: 0;
+  height: 100%;
+  width: 100%;
+  font-family: var(--font-sans);
+  background-color: #f5efe7;
+  color: #1a1a1a;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+}
+
+#root {
+  height: 100%;
+  width: 100%;
+  overflow: hidden;
+}
+
+/* Focus rings (a11y-critical per DESIGN.md §12) */
+*:focus {
+  outline: none;
+}
+*:focus-visible {
+  box-shadow: 0 0 0 3px rgba(201, 110, 78, 0.35);
+  border-radius: 6px;
+}
+
+/* Reduce-motion respect */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* Window chrome drag region for Electron (traffic lights work without this,
+ * but we want the canvas header to be draggable too later) */
+.app-region-drag {
+  -webkit-app-region: drag;
+}
+.app-region-no-drag {
+  -webkit-app-region: no-drag;
+}
+
+/* Classes for display serif (Fraunces) vs sans */
+.font-display {
+  font-family: var(--font-display);
+  font-feature-settings: "ss01", "ss02";
+}

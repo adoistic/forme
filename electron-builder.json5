@@ -1,0 +1,34 @@
+{
+  // Unsigned dev build. Signing + notarization require Apple Dev cert
+  // (not available in this session — see PROGRESS.md blockers).
+  appId: "com.forme.cms",
+  productName: "Forme",
+  copyright: "Copyright © 2026 Adnan Abbasi",
+  asar: true,
+  directories: {
+    output: "release/${version}",
+    buildResources: "build",
+  },
+  files: [
+    "dist/**/*",
+    "package.json",
+    "!node_modules/**/*",
+  ],
+  extraResources: [
+    { from: "templates/", to: "templates/" },
+    { from: "vendor/pretext/", to: "vendor/pretext/" },
+  ],
+  mac: {
+    category: "public.app-category.productivity",
+    target: [{ target: "dmg", arch: ["arm64", "x64"] }],
+    // identity: null means "do not sign" (acceptable for dev builds)
+    // Replace with your Developer ID Application cert name to enable signing
+    identity: null,
+    hardenedRuntime: false,
+    gatekeeperAssess: false,
+  },
+  dmg: {
+    writeUpdateInfo: false,
+    sign: false,
+  },
+}
