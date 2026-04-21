@@ -19,11 +19,17 @@
     "format:check": "prettier --check .",
     "test": "vitest run",
     "test:watch": "vitest",
+    "pretest:e2e": "bun run rebuild:electron",
     "test:e2e": "playwright test",
+    "posttest:e2e": "bun run rebuild:node",
+    "predev": "bun run rebuild:electron",
+    "predist": "bun run rebuild:electron",
     "dist": "electron-builder",
     "db:migrate": "kysely-ctl migrate latest",
     "db:migrate:down": "kysely-ctl migrate down",
     "db:status": "kysely-ctl migrate list",
+    "rebuild:electron": "electron-rebuild -w better-sqlite3 -f",
+    "rebuild:node": "cd node_modules/better-sqlite3 && ../.bin/prebuild-install --runtime=node --target=$(node -p process.versions.node) >/dev/null 2>&1 || true",
     "prepare": "husky || true"
   },
   "engines": {

@@ -1,27 +1,29 @@
 import { test, expect, _electron as electron, type ElectronApplication, type Page } from "@playwright/test";
 import path from "node:path";
+import fs from "node:fs/promises";
+import os from "node:os";
 
-// Phase 0 smoke test per docs/eng-plan.md §1: launches the packaged Electron
-// app in dev mode, verifies the window opens, the 8-tab sidebar renders, and
-// nav clicks change the active tab.
-//
-// Local-only gate per eng-plan §1 (font antialiasing differs across machines
-// so pixel-diff screenshots are unreliable on CI). Run via:
+// E2E smoke test per docs/eng-plan.md §1: launches the packaged Electron app,
+// walks the shell, and hits a happy path (create issue → switch tabs → see the
+// empty drop zones come alive). Local-only (font antialiasing differs across
+// machines, pixel diff unreliable on CI). Run via:
 //   bun run test:e2e
 
-// Playwright runs from the repo root by default.
 const repoRoot = process.cwd();
 
 let app: ElectronApplication;
 let window: Page;
+// Use a throwaway userData dir so the test never stomps on real user state.
+let userDataDir: string;
 
 test.beforeAll(async () => {
-  // Launch via the dev entry. vite-plugin-electron builds dist/main/index.js
-  // before the Electron process spawns; for this test we rely on a prior
-  // `bun run build` OR invoke the dev server directly.
+  userDataDir = await fs.mkdtemp(path.join(os.tmpdir(), "forme-e2e-"));
   const mainEntry = path.join(repoRoot, "dist/main/index.js");
+  // Electron honors --user-data-dir as a CLI switch (see electron command-line
+  // switches docs). Point it at a scratch dir so the test never touches real
+  // app state in ~/Library/Application Support/Forme.
   app = await electron.launch({
-    args: [mainEntry],
+    args: [mainEntry, `--user-data-dir=${userDataDir}`],
     cwd: repoRoot,
     env: {
       ...process.env,
@@ -34,13 +36,14 @@ test.beforeAll(async () => {
 
 test.afterAll(async () => {
   await app?.close();
+  await fs.rm(userDataDir, { recursive: true, force: true }).catch(() => {});
 });
 
-test("main window opens and renders the Issue Board shell", async () => {
+test("main window opens and renders the 8-tab shell", async () => {
   const title = await window.title();
   expect(title.toLowerCase()).toContain("forme");
 
-  // Sidebar nav is visible — all 8 tabs present
+  // All 8 sidebar tabs present
   const navIds = [
     "issue-board",
     "articles",
@@ -52,40 +55,70 @@ test("main window opens and renders the Issue Board shell", async () => {
     "settings",
   ];
   for (const id of navIds) {
-    const item = window.getByTestId(`nav-${id}`);
-    await expect(item).toBeVisible();
+    await expect(window.getByTestId(`nav-${id}`)).toBeVisible();
   }
 
-  // Auto-save indicator visible in canvas header
-  await expect(window.getByTestId("autosave-indicator")).toBeVisible();
-
-  // Export button present in sidebar footer (disabled in Phase 0)
+  // Sidebar export button is present, disabled when no issue exists yet
   const exportBtn = window.getByTestId("export-button");
   await expect(exportBtn).toBeVisible();
   await expect(exportBtn).toBeDisabled();
+
+  // IssueBoard header autosave indicator is present
+  await expect(window.getByTestId("autosave-indicator")).toBeVisible();
 });
 
-test("clicking a tab changes the active surface", async () => {
-  // Start on Issue Board — "Check my issue" button should be present
-  await expect(window.getByTestId("check-my-issue-button")).toBeVisible();
+test("Issue Board shows the no-issue CTA", async () => {
+  await window.getByTestId("nav-issue-board").click();
+  await expect(window.getByTestId("create-issue-button")).toBeVisible();
+  await expect(window.getByText(/let.?s set up your first issue/i)).toBeVisible();
+});
 
-  // Click Articles tab
+test("Articles tab without an issue prompts the user to create one", async () => {
   await window.getByTestId("nav-articles").click();
-
-  // Issue Board's "Check my issue" is no longer rendered
-  await expect(window.getByTestId("check-my-issue-button")).toHaveCount(0);
-
-  // Articles empty state should be visible via its label text
-  await expect(window.getByText(/drop your first article/i)).toBeVisible();
+  // "Create an issue first." when no issue exists — not the drop zone
+  await expect(window.getByText(/create an issue first/i)).toBeVisible();
 });
 
-test("classifieds tab renders its empty state", async () => {
+test("Classifieds tab renders its empty state", async () => {
   await window.getByTestId("nav-classifieds").click();
   await expect(window.getByText(/add your first classified/i)).toBeVisible();
+  await expect(window.getByTestId("add-classified-button")).toBeVisible();
 });
 
-test("can navigate back to Issue Board", async () => {
+test("Settings tab renders the publisher profile form", async () => {
+  await window.getByTestId("nav-settings").click();
+  // Profile form has a visible heading — use text match rather than test-id
+  // to confirm the screen actually mounts.
+  await expect(window.getByText(/publisher profile/i)).toBeVisible();
+});
+
+test("can navigate back to Issue Board after visiting other tabs", async () => {
   await window.getByTestId("nav-articles").click();
   await window.getByTestId("nav-issue-board").click();
-  await expect(window.getByTestId("check-my-issue-button")).toBeVisible();
+  await expect(window.getByTestId("create-issue-button")).toBeVisible();
+});
+
+// Visual-regression shots written to test-results/screenshots/. Eyeball these
+// when bumping tokens, tweaking the modal, or onboarding new contributors.
+test("screenshots: issue board + create-issue modal + classifieds + settings", async () => {
+  const outDir = path.join(repoRoot, "test-results/screenshots");
+  await fs.mkdir(outDir, { recursive: true });
+
+  await window.getByTestId("nav-issue-board").click();
+  await window.waitForTimeout(200);
+  await window.screenshot({ path: path.join(outDir, "01-issue-board.png"), fullPage: true });
+
+  await window.getByTestId("create-issue-button").click();
+  await expect(window.getByTestId("create-issue-modal")).toBeVisible();
+  await window.waitForTimeout(200);
+  await window.screenshot({ path: path.join(outDir, "02-create-issue-modal.png"), fullPage: true });
+  await window.getByTestId("create-issue-cancel").click();
+
+  await window.getByTestId("nav-classifieds").click();
+  await window.waitForTimeout(200);
+  await window.screenshot({ path: path.join(outDir, "03-classifieds.png"), fullPage: true });
+
+  await window.getByTestId("nav-settings").click();
+  await window.waitForTimeout(200);
+  await window.screenshot({ path: path.join(outDir, "04-settings.png"), fullPage: true });
 });

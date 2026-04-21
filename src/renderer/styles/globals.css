@@ -1,7 +1,12 @@
 @import "tailwindcss";
+@config "../../../tailwind.config.ts";
 
 /* Forme global styles.
  * Design tokens live in tailwind.config.ts → theme.extend.
+ * Tailwind v4 requires the explicit @config directive to pick up the legacy
+ * JS config. Without it, custom color tokens like bg-surface / accent fall
+ * through to undefined, which is why modals and accents rendered transparent
+ * before this line was added.
  * This file is only for resets and the font-face declarations. */
 
 @theme {
