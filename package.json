@@ -10,10 +10,9 @@
     "url": "https://github.com/adoistic/forme.git"
   },
   "main": "dist/main/index.js",
-  "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "vite build",
+    "build": "vite build && bun scripts/post-build.ts",
     "typecheck": "tsc --noEmit",
     "lint": "eslint .",
     "format": "prettier --write .",
@@ -45,6 +44,7 @@
     "docx": "^9.6.1",
     "electron": "^41.2.2",
     "electron-builder": "^26.8.1",
+    "esbuild": "^0.28.0",
     "eslint": "^10.2.1",
     "eslint-config-prettier": "^10.1.8",
     "husky": "^9.1.7",

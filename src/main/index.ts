@@ -1,11 +1,12 @@
 import { app, BrowserWindow, ipcMain } from "electron";
-import { fileURLToPath } from "node:url";
 import path from "node:path";
 import { createLogger } from "./logger.js";
 import { registerIpcHandlers } from "./ipc/register.js";
 import { handleSecondInstance } from "./crash-recovery/single-instance.js";
 
-const __dirname = path.dirname(fileURLToPath(import.meta.url));
+// In CJS bundled output, __dirname is auto-injected by Node. Declare it for
+// TypeScript so strict mode doesn't choke.
+declare const __dirname: string;
 
 const logger = createLogger("main");
 
@@ -32,7 +33,7 @@ function createMainWindow(): BrowserWindow {
     backgroundColor: "#F5EFE7",
     show: false,
     webPreferences: {
-      preload: path.join(__dirname, "preload.cjs"),
+      preload: path.join(__dirname, "preload.js"),
       contextIsolation: true,
       nodeIntegration: false,
       sandbox: false, // sharp native module needs non-sandboxed main

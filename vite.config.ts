@@ -1,18 +1,18 @@
 import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react";
-import electron from "vite-plugin-electron";
-import electronRenderer from "vite-plugin-electron-renderer";
+import electron from "vite-plugin-electron/simple";
 import { resolve } from "node:path";
 
 // Forme build config.
 // Three processes: main (Node), renderer (Chromium), utility (worker for pptxgenjs).
-// See docs/eng-plan.md §1 for rationale.
+// Using vite-plugin-electron/simple which emits CJS for main + preload (required
+// for Electron to load them without "type": "module" contortions) and keeps
+// the renderer as ESM.
 export default defineConfig({
   plugins: [
     react(),
-    electron([
-      {
-        // Main process
+    electron({
+      main: {
         entry: "src/main/index.ts",
         vite: {
           build: {
@@ -20,30 +20,25 @@ export default defineConfig({
             sourcemap: true,
             minify: process.env.NODE_ENV === "production",
             rollupOptions: {
-              external: ["better-sqlite3", "sharp", "electron"],
+              external: ["better-sqlite3", "sharp", "electron", /^node:/],
             },
           },
         },
-        onstart(options) {
-          options.startup();
-        },
       },
-      {
-        // Utility process (for pptxgenjs — offloaded from renderer per eng-plan §1)
-        entry: "src/utility/pptx-gen.ts",
+      preload: {
+        input: "src/main/preload.cts",
         vite: {
           build: {
-            outDir: "dist/utility",
+            outDir: "dist/main",
             sourcemap: true,
             minify: process.env.NODE_ENV === "production",
             rollupOptions: {
-              external: ["electron"],
+              external: ["electron", /^node:/],
             },
           },
         },
       },
-    ]),
-    electronRenderer(),
+    }),
   ],
   resolve: {
     alias: {
