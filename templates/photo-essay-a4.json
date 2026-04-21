@@ -1,0 +1,40 @@
+{
+  "schemaVersion": 1,
+  "id": "photo_essay_a4",
+  "family": "photo_essay",
+  "page_size": "A4",
+  "page_count_range": [2, 3],
+  "word_count_range": {
+    "en": [400, 1100],
+    "hi": [350, 900]
+  },
+  "required_images": 1,
+  "optional_images": [0, 4],
+  "image_aspect_preferences": ["landscape", "any"],
+  "supports_pull_quote": false,
+  "supports_sidebar": false,
+  "language_modes": ["en", "hi", "bilingual"],
+  "content_type": "Photo Essay",
+  "typography_pairing_default": "Editorial Serif",
+  "exposed_settings": ["caption_position"],
+  "typography": {
+    "body_pt": 11,
+    "body_leading_pt": 16,
+    "headline_pt": 56,
+    "deck_pt": 16,
+    "caption_pt": 9
+  },
+  "geometry": {
+    "trim_mm": [210, 297],
+    "bleed_mm": 3,
+    "safe_mm": 5,
+    "columns": 2,
+    "gutter_mm": 7,
+    "margins_mm": {
+      "top": 22,
+      "right": 22,
+      "bottom": 25,
+      "left": 22
+    }
+  }
+}

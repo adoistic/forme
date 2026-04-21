@@ -181,14 +181,36 @@ export function registerExportHandlers(): void {
       });
     }
 
-    // Default template: first matching page_size for this issue
+    // Templates available for this issue's page size
     const matchingTemplates = templates.filter((t) => t.page_size === issueRow.page_size);
-    const template = matchingTemplates.find((t) => t.id === "standard_feature_a4") ?? matchingTemplates[0];
-    if (!template) {
+    if (matchingTemplates.length === 0) {
       throw makeError("no_viable_template", "error", {
         reason: `no templates for page size ${issueRow.page_size}`,
       });
     }
+    const featureTemplate =
+      matchingTemplates.find((t) => t.id === "standard_feature_a4") ??
+      matchingTemplates[0]!;
+    const photoEssayTemplate = matchingTemplates.find((t) => t.id === "photo_essay_a4");
+
+    /**
+     * Pick the right template per article. Rules (MVP, will become a
+     * Phase-11 auto-fit scoring pass):
+     *   - content_type === "Photo Essay" → photo_essay layout
+     *   - hero image present AND body short OR explicitly visual →
+     *     photo_essay layout
+     *   - everything else → standard feature
+     *
+     * For now any article with a hero image gets the photo-essay
+     * treatment — image-driven stories deserve the wider, two-column
+     * layout. Pure-text articles stay with the three-column feature.
+     */
+    const pickTemplate = (article: { body: string; content_type: string }, hasHero: boolean) => {
+      if (photoEssayTemplate && (article.content_type === "Photo Essay" || hasHero)) {
+        return photoEssayTemplate;
+      }
+      return featureTemplate;
+    };
 
     // Build placements — Phase 2 scope: each article becomes its own placement,
     // starting pages are sequential. Phase 11+ will add auto-fit scoring + real
@@ -232,6 +254,7 @@ export function registerExportHandlers(): void {
       const bylinePosition: "top" | "end" =
         article.byline_position === "end" ? "end" : "top";
       const language = article.language as "en" | "hi" | "bilingual";
+      const chosenTemplate = pickTemplate(article, !!heroImage);
 
       // Pre-break the body into per-page-per-column lines so PowerPoint's
       // text engine can't re-wrap and overflow the column boxes.
@@ -244,19 +267,19 @@ export function registerExportHandlers(): void {
           hasTopByline: !!article.byline && bylinePosition === "top",
           hasHero: !!heroImage,
           template: {
-            trim_mm: template.geometry.trim_mm,
-            margins_mm: template.geometry.margins_mm,
-            columns: template.geometry.columns,
-            gutter_mm: template.geometry.gutter_mm,
+            trim_mm: chosenTemplate.geometry.trim_mm,
+            margins_mm: chosenTemplate.geometry.margins_mm,
+            columns: chosenTemplate.geometry.columns,
+            gutter_mm: chosenTemplate.geometry.gutter_mm,
             typography: {
-              headline_pt: template.typography.headline_pt,
-              ...(template.typography.deck_pt !== undefined
-                ? { deck_pt: template.typography.deck_pt }
+              headline_pt: chosenTemplate.typography.headline_pt,
+              ...(chosenTemplate.typography.deck_pt !== undefined
+                ? { deck_pt: chosenTemplate.typography.deck_pt }
                 : {}),
-              body_pt: template.typography.body_pt,
-              body_leading_pt: template.typography.body_leading_pt,
+              body_pt: chosenTemplate.typography.body_pt,
+              body_leading_pt: chosenTemplate.typography.body_leading_pt,
             },
-            page_count_range: template.page_count_range,
+            page_count_range: chosenTemplate.page_count_range,
           },
         });
       } catch (err) {
@@ -268,7 +291,7 @@ export function registerExportHandlers(): void {
 
       placements.push({
         articleId: article.id,
-        template,
+        template: chosenTemplate,
         startingPageNumber: nextPageNumber,
         article: {
           headline: article.headline,
@@ -281,7 +304,7 @@ export function registerExportHandlers(): void {
           ...(heroImage ? { heroImage } : {}),
         },
       });
-      nextPageNumber += Math.max(prelaidPages.length, template.page_count_range[0]);
+      nextPageNumber += Math.max(prelaidPages.length, chosenTemplate.page_count_range[0]);
     }
 
     // Load ads for this issue, read their image bytes, base64-encode
