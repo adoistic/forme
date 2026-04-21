@@ -190,6 +190,10 @@ async function main() {
       "notice_text",
       "published_by",
       "date",
+      "occasion_type",
+      "recipient_name",
+      "message_text",
+      "sender_names",
       "make",
       "model",
       "year",
@@ -197,41 +201,162 @@ async function main() {
       "fuel_type",
       "expected_price",
     ];
+    // Indices for column lookup so the rows below stay readable.
+    const idx = (k: string): number => headers.indexOf(k);
+    const make = (cells: Record<string, string>): string[] => {
+      const row = new Array(headers.length).fill("");
+      for (const [k, v] of Object.entries(cells)) {
+        const i = idx(k);
+        if (i >= 0) row[i] = v;
+      }
+      return row;
+    };
     const rows: string[][] = [
-      [
-        "matrimonial_no_photo", "en", "2",
-        "Aanya Sharma", "29", "Delhi", "Hindu", "MBA Finance", "Investment banker",
-        "Mrs. Sharma", "+91-98100-00000",
-        "", "", "", "", "",
-        "", "", "", "",
-        "", "", "", "", "", "",
-      ],
-      [
-        "obituary", "en", "1",
-        "", "", "", "", "", "", "", "",
-        "R. Sharma", "2026-04-18",
-        "A printer, teacher, and community organizer who spent forty years at the local press.",
-        "Wife Meena, two daughters, five grandchildren.",
-        "Lodhi Crematorium, 23 April 2026, 11 AM.",
-        "", "", "", "",
-        "", "", "", "", "", "",
-      ],
-      [
-        "public_notice", "en", "2",
-        "", "", "", "", "", "", "", "",
-        "", "", "", "", "",
-        "name_change",
-        "I, Anand Kumar Verma, son of late S. K. Verma, resident of Sector 21, Noida, have changed my name to Anand Verma. Affidavit dated 10 April 2026.",
-        "Anand Verma", "2026-04-10",
-        "", "", "", "", "", "",
-      ],
-      [
-        "vehicles", "en", "2",
-        "", "", "Lodhi Colony", "", "", "", "", "+91-98104-44444",
-        "", "", "", "", "",
-        "", "", "", "",
-        "Mahindra", "XUV300", "2021", "32000", "petrol", "₹8.5 lakh, neg.",
-      ],
+      // Matrimonials with photo (placeholder monogram)
+      make({
+        type: "matrimonial_with_photo",
+        language: "en",
+        weeks_to_run: "2",
+        name: "Aanya Sharma",
+        age: "29",
+        location: "Delhi",
+        religion_community: "Hindu",
+        education: "MBA Finance",
+        occupation: "Investment banker",
+        contact_name: "Mrs. Sharma",
+        contact_phones: "+91-98100-00000",
+      }),
+      make({
+        type: "matrimonial_with_photo",
+        language: "en",
+        weeks_to_run: "2",
+        name: "Rohan Iyer",
+        age: "32",
+        location: "Bengaluru",
+        religion_community: "Hindu Iyer",
+        education: "MS Computer Science",
+        occupation: "Senior software engineer",
+        contact_name: "Mr. Iyer",
+        contact_phones: "+91-98101-23456",
+      }),
+      make({
+        type: "matrimonial_no_photo",
+        language: "en",
+        weeks_to_run: "1",
+        name: "Sara Khan",
+        age: "27",
+        location: "Hyderabad",
+        religion_community: "Sunni Muslim",
+        education: "MD Pediatrics",
+        occupation: "Doctor (Apollo)",
+        contact_name: "Mr. Khan",
+        contact_phones: "+91-98102-34567",
+      }),
+      make({
+        type: "matrimonial_no_photo",
+        language: "en",
+        weeks_to_run: "1",
+        name: "Daniel Mathew",
+        age: "30",
+        location: "Kochi",
+        religion_community: "Syrian Christian",
+        education: "B.Tech, MBA",
+        occupation: "Family business",
+        contact_name: "Mr. Mathew",
+        contact_phones: "+91-98103-45678",
+      }),
+      // Obituaries
+      make({
+        type: "obituary",
+        language: "en",
+        weeks_to_run: "1",
+        name_of_deceased: "R. Sharma",
+        date_of_death: "2026-04-18",
+        life_summary:
+          "A printer, teacher, and community organizer who spent forty years at the local press.",
+        surviving_family: "Wife Meena, two daughters, five grandchildren.",
+        prayer_meeting: "Lodhi Crematorium, 23 April 2026, 11 AM.",
+      }),
+      make({
+        type: "obituary",
+        language: "en",
+        weeks_to_run: "1",
+        name_of_deceased: "Geeta Devi (1939–2026)",
+        date_of_death: "2026-04-15",
+        life_summary:
+          "Schoolteacher, gardener, and grandmother to half the neighbourhood.",
+        surviving_family: "Husband Lakshman, three sons, eight grandchildren.",
+        prayer_meeting: "Bharat Sevashram Sangha, 22 April, 10 AM.",
+      }),
+      // Public notices
+      make({
+        type: "public_notice",
+        language: "en",
+        weeks_to_run: "2",
+        notice_type: "name_change",
+        notice_text:
+          "I, Anand Kumar Verma, son of late S. K. Verma, resident of Sector 21, Noida, have changed my name to Anand Verma. Affidavit dated 10 April 2026.",
+        published_by: "Anand Verma",
+        date: "2026-04-10",
+      }),
+      make({
+        type: "public_notice",
+        language: "en",
+        weeks_to_run: "1",
+        notice_type: "lost_document",
+        notice_text:
+          "I, Priya Iyer, lost my Class 10 ICSE certificate (Cert No. ICSE/2008/12345) on the Andheri local on 17 April 2026. Finder kindly contact below.",
+        published_by: "Priya Iyer",
+        date: "2026-04-19",
+      }),
+      // Announcements
+      make({
+        type: "announcement",
+        language: "en",
+        weeks_to_run: "1",
+        occasion_type: "birthday",
+        recipient_name: "Master Aarav, on his 5th birthday",
+        message_text:
+          "Many happy returns of the day from the entire Khan-Iyer family. May you grow in laughter and curiosity.",
+        sender_names: "Mom, Dad, Naani, Dadu",
+      }),
+      make({
+        type: "announcement",
+        language: "en",
+        weeks_to_run: "1",
+        occasion_type: "anniversary",
+        recipient_name: "Mr. & Mrs. Banerjee — 50 golden years",
+        message_text:
+          "From your children, grandchildren, and the entire C-23 housing society. Here's to fifty more.",
+        sender_names: "The Banerjee clan",
+      }),
+      // Vehicles
+      make({
+        type: "vehicles",
+        language: "en",
+        weeks_to_run: "2",
+        location: "Lodhi Colony",
+        contact_phones: "+91-98104-44444",
+        make: "Mahindra",
+        model: "XUV300",
+        year: "2021",
+        kilometers: "32000",
+        fuel_type: "petrol",
+        expected_price: "₹8.5 lakh, neg.",
+      }),
+      make({
+        type: "vehicles",
+        language: "en",
+        weeks_to_run: "1",
+        location: "Pune",
+        contact_phones: "+91-98105-55555",
+        make: "Honda",
+        model: "City",
+        year: "2018",
+        kilometers: "78000",
+        fuel_type: "diesel",
+        expected_price: "₹5.2 lakh",
+      }),
     ];
     const csv =
       headers.join(",") +

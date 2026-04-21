@@ -283,21 +283,37 @@ function addPlacementSlides(
         cursorY += pt2in(14) + pt2in(10);
       }
 
-      // Optional hero image (full-width, modest height)
+      // Optional hero image — fit to the content width, scale height
+      // proportionally from the source aspect ratio (never stretch),
+      // and cap at a reasonable max so the image doesn't crowd out
+      // the body. If the source is portrait we render at a smaller
+      // visible width, centered.
       if (article.heroImage) {
-        const heroHeight = Math.min(
-          pt2in(220),
+        const aspect =
+          article.heroImage.heightPx > 0
+            ? article.heroImage.widthPx / article.heroImage.heightPx
+            : 1;
+        const maxHeight = Math.min(
+          pt2in(260),
           pageContentHeight - (cursorY - marginTop) - pt2in(typ.body_pt * 20)
         );
-        if (heroHeight > pt2in(60)) {
+        let heroW = pageContentWidth;
+        let heroH = heroW / aspect;
+        if (heroH > maxHeight) {
+          heroH = maxHeight;
+          heroW = heroH * aspect;
+        }
+        if (heroH > pt2in(60)) {
+          // Center horizontally if narrower than the column block
+          const heroX = marginLeft + (pageContentWidth - heroW) / 2;
           slide.addImage({
             data: `data:${article.heroImage.mimeType};base64,${article.heroImage.base64}`,
-            x: marginLeft,
+            x: heroX,
             y: cursorY,
-            w: pageContentWidth,
-            h: heroHeight,
+            w: heroW,
+            h: heroH,
           });
-          cursorY += heroHeight + pt2in(10);
+          cursorY += heroH + pt2in(10);
         }
       }
 
@@ -307,33 +323,32 @@ function addPlacementSlides(
     const bodyAvailableHeight = trimHeightIn - marginBottom - bodyStartY;
 
     // Emit body. Two paths:
-    //   - prelaidPages: each line of each column becomes its own paragraph
-    //     so PowerPoint can't re-wrap and lose text past the column box.
-    //   - segments (legacy): one big justified block per column.
+    //   - prelaidPages: each entry is a complete (or sentence-split)
+    //     PARAGRAPH that PowerPoint wraps + justifies internally. Each
+    //     paragraph's non-final lines stretch to the column edge; the
+    //     last line of every paragraph stays left. Print-standard.
+    //   - segments (legacy): one big justified block per column, no
+    //     pretext-driven splitting.
     if (pageColumns) {
       const cols = pageColumns[pageIdx] ?? [];
       for (let col = 0; col < columnCount; col += 1) {
-        const lines = cols[col] ?? [];
-        if (lines.length === 0) continue;
+        const paragraphs = cols[col] ?? [];
+        if (paragraphs.length === 0) continue;
         const colX = marginLeft + col * (columnWidth + gutterIn);
-        // Slight column-width slack so PowerPoint never re-wraps a line
-        // we measured at 96% of the box width.
-        const renderColumnWidth = columnWidth * 1.02;
-        slide.addText(lines.join("\n"), {
+        slide.addText(paragraphs.join("\n"), {
           x: colX,
           y: bodyStartY,
-          w: renderColumnWidth,
+          w: columnWidth,
           h: bodyAvailableHeight,
           fontSize: typ.body_pt,
           lineSpacing: typ.body_leading_pt,
           fontFace: bodyFont,
           color: "1A1A1A",
           valign: "top",
-          // Each pre-broken line becomes its own paragraph via \n. Justify
-          // still works on multi-word lines; short trailing-paragraph
-          // lines stay left.
           align: "justify",
-          paraSpaceAfter: 0,
+          // Small inter-paragraph gap (~half a body line), matches the
+          // line accounted for during packing.
+          paraSpaceAfter: typ.body_leading_pt * 0.4,
         });
       }
     } else {
@@ -687,19 +702,11 @@ function addClassifiedsSection(
       Math.floor((columnWidth * PT_PER_INCH) / (8 * 0.5))
     );
 
-    for (const entry of entries) {
-      const displayHeight = pt2in(16);
-      // Each bodyLines entry may wrap to multiple visual lines. Compute
-      // visualLines per line based on character count + column width, then
-      // add per-line spacing.
-      let totalVisualLines = 0;
-      for (const bl of entry.bodyLines) {
-        const lines = Math.max(1, Math.ceil(bl.length / charsPerLine));
-        totalVisualLines += lines;
-      }
-      const bodyHeight = pt2in(totalVisualLines * 11 + entry.bodyLines.length * 2 + 6);
-      const photoHeight = entry.photoBase64 ? pt2in(60) : 0;
-      const entryHeight = displayHeight + bodyHeight + photoHeight + pt2in(18);
+    for (let e = 0; e < entries.length; e += 1) {
+      const entry = entries[e]!;
+      const ENTRY_GAP = pt2in(14);
+      const entryHeight =
+        estimateClassifiedHeight(entry, columnWidth, charsPerLine) + ENTRY_GAP;
       if (y + entryHeight > bottomY) {
         col += 1;
         y = marginTop;
@@ -708,44 +715,33 @@ function addClassifiedsSection(
           pageCount += 1;
           col = 0;
         }
+        // Re-emit a "(continued)" type heading at the top of the new
+        // column so readers know the section continues.
+        const ncolX = marginLeft + col * (columnWidth + gutterIn);
+        slide.addText(`${label.toUpperCase()} (CONT.)`, {
+          x: ncolX,
+          y,
+          w: columnWidth,
+          h: headingHeight,
+          fontSize: 10,
+          fontFace: "Inter",
+          bold: true,
+          color: "C96E4E",
+          charSpacing: 3,
+        });
+        y += headingHeight + pt2in(4);
+        slide.addShape("line", {
+          x: ncolX,
+          y: y - pt2in(2),
+          w: columnWidth,
+          h: 0,
+          line: { color: "C96E4E", width: 0.5 },
+        });
+        y += pt2in(6);
       }
       const ex = marginLeft + col * (columnWidth + gutterIn);
-
-      if (entry.photoBase64 && entry.photoMimeType) {
-        slide.addImage({
-          data: `data:${entry.photoMimeType};base64,${entry.photoBase64}`,
-          x: ex,
-          y,
-          w: columnWidth * 0.4,
-          h: photoHeight,
-        });
-      }
-
-      slide.addText(entry.displayName, {
-        x: ex + (entry.photoBase64 ? columnWidth * 0.45 : 0),
-        y,
-        w: columnWidth - (entry.photoBase64 ? columnWidth * 0.45 : 0),
-        h: displayHeight,
-        fontSize: 10,
-        fontFace: "Fraunces",
-        bold: true,
-        color: "1A1A1A",
-      });
-
-      const bodyText = entry.bodyLines.join("\n");
-      slide.addText(bodyText, {
-        x: ex,
-        y: y + displayHeight + photoHeight + pt2in(2),
-        w: columnWidth,
-        h: bodyHeight,
-        fontSize: 8,
-        lineSpacing: 11,
-        fontFace: "Inter",
-        color: "1A1A1A",
-        valign: "top",
-      });
-
-      y += entryHeight;
+      const drawnHeight = drawClassifiedEntry(slide, entry, ex, y, columnWidth, charsPerLine);
+      y += drawnHeight + ENTRY_GAP;
     }
 
     // Small gap between types
@@ -760,6 +756,472 @@ function addClassifiedsSection(
   // their own path; classifieds trailing pages are small and fine without
   // automated folios per page.
   return pageCount;
+}
+
+// ── Per-type classified rendering ──────────────────────────────────
+// Each type gets its own visual treatment so a page of classifieds reads
+// like a real magazine section, not a uniform list. Heights returned by
+// drawClassifiedEntry are estimates the packer uses for column-flow.
+
+function estimateClassifiedHeight(
+  entry: PptxClassified,
+  columnWidth: number,
+  charsPerLine: number
+): number {
+  const pt2in = (pt: number): number => pt / PT_PER_INCH;
+  // Each bodyLine wraps based on column width
+  let bodyVisualLines = 0;
+  for (const bl of entry.bodyLines) {
+    bodyVisualLines += Math.max(1, Math.ceil(bl.length / charsPerLine));
+  }
+  const bodyH = pt2in(bodyVisualLines * 11 + entry.bodyLines.length * 2 + 4);
+
+  // Display name height varies by font size per type. Use per-type
+  // approximation so the packer doesn't under-reserve space when the
+  // name wraps to 2-3 lines.
+  let titleFontPt = 11;
+  let titleCharFactor = 0.5;
+  let chrome = 0; // ornament + rules + photo etc.
+  switch (entry.type) {
+    case "matrimonial_with_photo":
+      titleFontPt = 11;
+      titleCharFactor = 0.5;
+      chrome = pt2in(72); // 60pt photo + 12pt padding
+      break;
+    case "matrimonial_no_photo":
+      titleFontPt = 11;
+      titleCharFactor = 0.5;
+      chrome = pt2in(8);
+      break;
+    case "obituary":
+      titleFontPt = 14;
+      titleCharFactor = 0.5;
+      chrome = pt2in(28); // IN MEMORIAM label + 2 thin rules + padding
+      break;
+    case "public_notice":
+      titleFontPt = 10;
+      titleCharFactor = 0.45;
+      chrome = pt2in(20); // black banner
+      break;
+    case "announcement":
+      titleFontPt = 12;
+      titleCharFactor = 0.55;
+      chrome = pt2in(18); // ornament + padding
+      break;
+    case "vehicles":
+      titleFontPt = 11;
+      titleCharFactor = 0.5;
+      chrome = pt2in(10); // divider rule
+      break;
+  }
+  const titleCharCap = Math.max(12, Math.floor(charsPerLine * titleCharFactor));
+  const titleLines = Math.max(1, Math.ceil(entry.displayName.length / titleCharCap));
+  const titleLeading = titleFontPt * 1.3;
+  const titleH = pt2in(titleLines * titleLeading + 6);
+
+  void columnWidth;
+  return titleH + bodyH + chrome;
+}
+
+/** Returns the height actually used (in inches) so the packer can advance y. */
+function drawClassifiedEntry(
+  slide: pptxgen.Slide,
+  entry: PptxClassified,
+  x: number,
+  y: number,
+  w: number,
+  charsPerLine: number
+): number {
+  switch (entry.type) {
+    case "matrimonial_with_photo":
+      return drawMatrimonialPhoto(slide, entry, x, y, w, charsPerLine);
+    case "matrimonial_no_photo":
+      return drawMatrimonialPlain(slide, entry, x, y, w, charsPerLine);
+    case "obituary":
+      return drawObituary(slide, entry, x, y, w, charsPerLine);
+    case "public_notice":
+      return drawPublicNotice(slide, entry, x, y, w, charsPerLine);
+    case "announcement":
+      return drawAnnouncement(slide, entry, x, y, w, charsPerLine);
+    case "vehicles":
+      return drawVehicle(slide, entry, x, y, w, charsPerLine);
+    default:
+      return drawDefault(slide, entry, x, y, w, charsPerLine);
+  }
+}
+
+function drawMatrimonialPhoto(
+  slide: pptxgen.Slide,
+  entry: PptxClassified,
+  x: number,
+  y: number,
+  w: number,
+  charsPerLine: number
+): number {
+  const pt2in = (pt: number): number => pt / PT_PER_INCH;
+  // 60pt-square portrait centered above the name
+  const photoSize = pt2in(60);
+  const photoX = x + (w - photoSize) / 2;
+  if (entry.photoBase64 && entry.photoMimeType) {
+    slide.addImage({
+      data: `data:${entry.photoMimeType};base64,${entry.photoBase64}`,
+      x: photoX,
+      y,
+      w: photoSize,
+      h: photoSize,
+    });
+    // Thin rust frame
+    slide.addShape("rect", {
+      x: photoX,
+      y,
+      w: photoSize,
+      h: photoSize,
+      fill: { type: "none" },
+      line: { color: "C96E4E", width: 0.75 },
+    });
+  }
+  let cy = y + photoSize + pt2in(6);
+  slide.addText(entry.displayName, {
+    x,
+    y: cy,
+    w,
+    h: pt2in(16),
+    fontSize: 11,
+    fontFace: "Fraunces",
+    bold: true,
+    color: "1A1A1A",
+    align: "center",
+  });
+  cy += pt2in(18);
+  const bodyText = entry.bodyLines.join("\n");
+  const bodyH = bodyHeight(bodyText, w, charsPerLine);
+  slide.addText(bodyText, {
+    x,
+    y: cy,
+    w,
+    h: bodyH,
+    fontSize: 8,
+    lineSpacing: 11,
+    fontFace: "Inter",
+    color: "5C5853",
+    align: "center",
+    valign: "top",
+  });
+  return cy + bodyH - y;
+}
+
+function drawMatrimonialPlain(
+  slide: pptxgen.Slide,
+  entry: PptxClassified,
+  x: number,
+  y: number,
+  w: number,
+  charsPerLine: number
+): number {
+  const pt2in = (pt: number): number => pt / PT_PER_INCH;
+  slide.addText(entry.displayName, {
+    x,
+    y,
+    w,
+    h: pt2in(16),
+    fontSize: 11,
+    fontFace: "Fraunces",
+    bold: true,
+    color: "1A1A1A",
+    align: "center",
+  });
+  const cy = y + pt2in(18);
+  const bodyText = entry.bodyLines.join("\n");
+  const bodyH = bodyHeight(bodyText, w, charsPerLine);
+  slide.addText(bodyText, {
+    x,
+    y: cy,
+    w,
+    h: bodyH,
+    fontSize: 8,
+    lineSpacing: 11,
+    fontFace: "Inter",
+    color: "5C5853",
+    align: "center",
+    valign: "top",
+  });
+  return cy + bodyH - y;
+}
+
+function drawObituary(
+  slide: pptxgen.Slide,
+  entry: PptxClassified,
+  x: number,
+  y: number,
+  w: number,
+  charsPerLine: number
+): number {
+  const pt2in = (pt: number): number => pt / PT_PER_INCH;
+  // Top thin rule
+  slide.addShape("line", {
+    x: x + w * 0.25,
+    y,
+    w: w * 0.5,
+    h: 0,
+    line: { color: "9B958E", width: 0.5 },
+  });
+  let cy = y + pt2in(6);
+  // Discreet "IN MEMORIAM" label
+  slide.addText("IN MEMORIAM", {
+    x,
+    y: cy,
+    w,
+    h: pt2in(10),
+    fontSize: 7,
+    fontFace: "Inter",
+    bold: true,
+    color: "9B958E",
+    charSpacing: 4,
+    align: "center",
+  });
+  cy += pt2in(11);
+  // Name — italic Fraunces 14pt. Long names wrap to multiple lines.
+  // 14pt italic averages ~0.5em per char.
+  const nameCharCap = Math.max(12, Math.floor(charsPerLine * 0.5));
+  const nameLines = Math.max(1, Math.ceil(entry.displayName.length / nameCharCap));
+  const nameH = pt2in(nameLines * 18 + 4);
+  slide.addText(entry.displayName, {
+    x,
+    y: cy,
+    w,
+    h: nameH,
+    fontSize: 14,
+    fontFace: "Fraunces",
+    italic: true,
+    color: "1A1A1A",
+    align: "center",
+  });
+  cy += nameH + pt2in(2);
+  const bodyText = entry.bodyLines.join("\n");
+  const bodyH = bodyHeight(bodyText, w, charsPerLine);
+  slide.addText(bodyText, {
+    x,
+    y: cy,
+    w,
+    h: bodyH,
+    fontSize: 8,
+    lineSpacing: 11,
+    fontFace: "Inter",
+    color: "5C5853",
+    align: "center",
+    valign: "top",
+  });
+  cy += bodyH;
+  // Bottom thin rule
+  slide.addShape("line", {
+    x: x + w * 0.25,
+    y: cy + pt2in(2),
+    w: w * 0.5,
+    h: 0,
+    line: { color: "9B958E", width: 0.5 },
+  });
+  return cy + pt2in(4) - y;
+}
+
+function drawPublicNotice(
+  slide: pptxgen.Slide,
+  entry: PptxClassified,
+  x: number,
+  y: number,
+  w: number,
+  charsPerLine: number
+): number {
+  const pt2in = (pt: number): number => pt / PT_PER_INCH;
+  // Box with double-rule top and a thin "PUBLIC NOTICE" badge
+  slide.addText("PUBLIC NOTICE", {
+    x,
+    y,
+    w,
+    h: pt2in(10),
+    fontSize: 7,
+    fontFace: "Inter",
+    bold: true,
+    color: "FFFFFF",
+    charSpacing: 4,
+    align: "center",
+    fill: { color: "1A1A1A" },
+  });
+  let cy = y + pt2in(12);
+  slide.addText(entry.displayName.replace(/^Public notice — /i, ""), {
+    x,
+    y: cy,
+    w,
+    h: pt2in(16),
+    fontSize: 10,
+    fontFace: "Fraunces",
+    bold: true,
+    color: "1A1A1A",
+  });
+  cy += pt2in(18);
+  const bodyText = entry.bodyLines.join("\n");
+  const bodyH = bodyHeight(bodyText, w, charsPerLine);
+  slide.addText(bodyText, {
+    x,
+    y: cy,
+    w,
+    h: bodyH,
+    fontSize: 8,
+    lineSpacing: 11,
+    fontFace: "Inter",
+    color: "1A1A1A",
+    valign: "top",
+    align: "justify",
+  });
+  return cy + bodyH - y;
+}
+
+function drawAnnouncement(
+  slide: pptxgen.Slide,
+  entry: PptxClassified,
+  x: number,
+  y: number,
+  w: number,
+  charsPerLine: number
+): number {
+  const pt2in = (pt: number): number => pt / PT_PER_INCH;
+  // Decorative ornament + occasion italic display
+  slide.addText("✦", {
+    x,
+    y,
+    w,
+    h: pt2in(12),
+    fontSize: 12,
+    fontFace: "Fraunces",
+    color: "C96E4E",
+    align: "center",
+  });
+  let cy = y + pt2in(14);
+  // Display can wrap to 2-3 lines for long birthday/anniversary phrases —
+  // estimate visual lines so the body never collides with the title.
+  // 12pt italic averages ~0.5em chars-per-pt, so use ~0.45× charsPerLine.
+  const displayCharCap = Math.max(12, Math.floor(charsPerLine * 0.55));
+  const displayLines = Math.max(1, Math.ceil(entry.displayName.length / displayCharCap));
+  const displayH = pt2in(displayLines * 16 + 4);
+  slide.addText(entry.displayName, {
+    x,
+    y: cy,
+    w,
+    h: displayH,
+    fontSize: 12,
+    fontFace: "Fraunces",
+    italic: true,
+    color: "1A1A1A",
+    align: "center",
+  });
+  cy += displayH + pt2in(2);
+  const bodyText = entry.bodyLines.join("\n");
+  const bodyH = bodyHeight(bodyText, w, charsPerLine);
+  slide.addText(bodyText, {
+    x,
+    y: cy,
+    w,
+    h: bodyH,
+    fontSize: 8,
+    lineSpacing: 11,
+    fontFace: "Inter",
+    color: "5C5853",
+    align: "center",
+    valign: "top",
+  });
+  return cy + bodyH - y;
+}
+
+function drawVehicle(
+  slide: pptxgen.Slide,
+  entry: PptxClassified,
+  x: number,
+  y: number,
+  w: number,
+  charsPerLine: number
+): number {
+  const pt2in = (pt: number): number => pt / PT_PER_INCH;
+  slide.addText(entry.displayName, {
+    x,
+    y,
+    w,
+    h: pt2in(16),
+    fontSize: 11,
+    fontFace: "Fraunces",
+    bold: true,
+    color: "1A1A1A",
+  });
+  let cy = y + pt2in(18);
+  // Thin horizontal divider
+  slide.addShape("line", {
+    x,
+    y: cy - pt2in(2),
+    w,
+    h: 0,
+    line: { color: "E5DFD5", width: 0.5 },
+  });
+  // Tabular body — each bodyLine becomes its own row, monospace-ish
+  for (const ln of entry.bodyLines) {
+    slide.addText(ln, {
+      x,
+      y: cy,
+      w,
+      h: pt2in(11),
+      fontSize: 8,
+      lineSpacing: 11,
+      fontFace: "Inter",
+      color: "1A1A1A",
+    });
+    cy += pt2in(12);
+  }
+  void charsPerLine;
+  return cy - y;
+}
+
+function drawDefault(
+  slide: pptxgen.Slide,
+  entry: PptxClassified,
+  x: number,
+  y: number,
+  w: number,
+  charsPerLine: number
+): number {
+  const pt2in = (pt: number): number => pt / PT_PER_INCH;
+  slide.addText(entry.displayName, {
+    x,
+    y,
+    w,
+    h: pt2in(16),
+    fontSize: 10,
+    fontFace: "Fraunces",
+    bold: true,
+    color: "1A1A1A",
+  });
+  const cy = y + pt2in(18);
+  const bodyText = entry.bodyLines.join("\n");
+  const bodyH = bodyHeight(bodyText, w, charsPerLine);
+  slide.addText(bodyText, {
+    x,
+    y: cy,
+    w,
+    h: bodyH,
+    fontSize: 8,
+    lineSpacing: 11,
+    fontFace: "Inter",
+    color: "1A1A1A",
+    valign: "top",
+  });
+  return cy + bodyH - y;
+}
+
+function bodyHeight(text: string, w: number, charsPerLine: number): number {
+  const pt2in = (pt: number): number => pt / PT_PER_INCH;
+  const lines = text.split("\n");
+  let total = 0;
+  for (const ln of lines) {
+    total += Math.max(1, Math.ceil(ln.length / charsPerLine));
+  }
+  void w;
+  return pt2in(total * 11 + 4);
 }
 
 function addFolio(

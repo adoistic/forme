@@ -1,5 +1,13 @@
-type,language,weeks_to_run,name,age,location,religion_community,education,occupation,contact_name,contact_phones,name_of_deceased,date_of_death,life_summary,surviving_family,prayer_meeting,notice_type,notice_text,published_by,date,make,model,year,kilometers,fuel_type,expected_price
-matrimonial_no_photo,en,2,Aanya Sharma,29,Delhi,Hindu,MBA Finance,Investment banker,Mrs. Sharma,+91-98100-00000,,,,,,,,,,,,,,,
-obituary,en,1,,,,,,,,,R. Sharma,2026-04-18,"A printer, teacher, and community organizer who spent forty years at the local press.","Wife Meena, two daughters, five grandchildren.","Lodhi Crematorium, 23 April 2026, 11 AM.",,,,,,,,,,
-public_notice,en,2,,,,,,,,,,,,,,name_change,"I, Anand Kumar Verma, son of late S. K. Verma, resident of Sector 21, Noida, have changed my name to Anand Verma. Affidavit dated 10 April 2026.",Anand Verma,2026-04-10,,,,,,
-vehicles,en,2,,,Lodhi Colony,,,,,+91-98104-44444,,,,,,,,,,Mahindra,XUV300,2021,32000,petrol,"₹8.5 lakh, neg."
+type,language,weeks_to_run,name,age,location,religion_community,education,occupation,contact_name,contact_phones,name_of_deceased,date_of_death,life_summary,surviving_family,prayer_meeting,notice_type,notice_text,published_by,date,occasion_type,recipient_name,message_text,sender_names,make,model,year,kilometers,fuel_type,expected_price
+matrimonial_with_photo,en,2,Aanya Sharma,29,Delhi,Hindu,MBA Finance,Investment banker,Mrs. Sharma,+91-98100-00000,,,,,,,,,,,,,,,,,,,
+matrimonial_with_photo,en,2,Rohan Iyer,32,Bengaluru,Hindu Iyer,MS Computer Science,Senior software engineer,Mr. Iyer,+91-98101-23456,,,,,,,,,,,,,,,,,,,
+matrimonial_no_photo,en,1,Sara Khan,27,Hyderabad,Sunni Muslim,MD Pediatrics,Doctor (Apollo),Mr. Khan,+91-98102-34567,,,,,,,,,,,,,,,,,,,
+matrimonial_no_photo,en,1,Daniel Mathew,30,Kochi,Syrian Christian,"B.Tech, MBA",Family business,Mr. Mathew,+91-98103-45678,,,,,,,,,,,,,,,,,,,
+obituary,en,1,,,,,,,,,R. Sharma,2026-04-18,"A printer, teacher, and community organizer who spent forty years at the local press.","Wife Meena, two daughters, five grandchildren.","Lodhi Crematorium, 23 April 2026, 11 AM.",,,,,,,,,,,,,,
+obituary,en,1,,,,,,,,,Geeta Devi (1939–2026),2026-04-15,"Schoolteacher, gardener, and grandmother to half the neighbourhood.","Husband Lakshman, three sons, eight grandchildren.","Bharat Sevashram Sangha, 22 April, 10 AM.",,,,,,,,,,,,,,
+public_notice,en,2,,,,,,,,,,,,,,name_change,"I, Anand Kumar Verma, son of late S. K. Verma, resident of Sector 21, Noida, have changed my name to Anand Verma. Affidavit dated 10 April 2026.",Anand Verma,2026-04-10,,,,,,,,,,
+public_notice,en,1,,,,,,,,,,,,,,lost_document,"I, Priya Iyer, lost my Class 10 ICSE certificate (Cert No. ICSE/2008/12345) on the Andheri local on 17 April 2026. Finder kindly contact below.",Priya Iyer,2026-04-19,,,,,,,,,,
+announcement,en,1,,,,,,,,,,,,,,,,,,birthday,"Master Aarav, on his 5th birthday",Many happy returns of the day from the entire Khan-Iyer family. May you grow in laughter and curiosity.,"Mom, Dad, Naani, Dadu",,,,,,
+announcement,en,1,,,,,,,,,,,,,,,,,,anniversary,Mr. & Mrs. Banerjee — 50 golden years,"From your children, grandchildren, and the entire C-23 housing society. Here's to fifty more.",The Banerjee clan,,,,,,
+vehicles,en,2,,,Lodhi Colony,,,,,+91-98104-44444,,,,,,,,,,,,,,Mahindra,XUV300,2021,32000,petrol,"₹8.5 lakh, neg."
+vehicles,en,1,,,Pune,,,,,+91-98105-55555,,,,,,,,,,,,,,Honda,City,2018,78000,diesel,₹5.2 lakh

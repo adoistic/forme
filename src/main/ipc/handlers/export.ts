@@ -113,6 +113,35 @@ function labelize(key: string): string {
   return key.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
 }
 
+/**
+ * Pull initials from a display name, e.g. "Aanya Sharma, 29" → "AS".
+ * Falls back to the first two letters when only one word is available.
+ */
+function monogramInitials(displayName: string): string {
+  const cleaned = displayName.replace(/[,(].*$/, "").trim();
+  const parts = cleaned.split(/\s+/).filter(Boolean);
+  if (parts.length === 0) return "·";
+  if (parts.length === 1) return parts[0]!.slice(0, 2).toUpperCase();
+  return ((parts[0]?.[0] ?? "") + (parts[parts.length - 1]?.[0] ?? "")).toUpperCase();
+}
+
+/**
+ * Tiny SVG monogram used as a placeholder when matrimonial_with_photo
+ * lacks a real photo. Keeps the layout exercising the "image present"
+ * branch so the rendered page still demonstrates the type's visual
+ * treatment. Returns base64-encoded SVG bytes.
+ */
+function monogramSvg(initials: string): string {
+  const svg = `<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200" width="200" height="200">
+  <rect width="200" height="200" fill="#F5EFE7"/>
+  <circle cx="100" cy="100" r="92" fill="none" stroke="#C96E4E" stroke-width="2"/>
+  <text x="100" y="120" font-family="Georgia, serif" font-size="80" font-weight="700"
+        text-anchor="middle" fill="#C96E4E">${initials}</text>
+</svg>`;
+  return Buffer.from(svg, "utf-8").toString("base64");
+}
+
 function slugify(s: string): string {
   return (
     s
@@ -296,7 +325,8 @@ export function registerExportHandlers(): void {
       .orderBy("type", "asc")
       .orderBy("created_at", "asc")
       .execute();
-    const classifieds: PptxClassified[] = classifiedRows.map((row) => {
+    const classifieds: PptxClassified[] = [];
+    for (const row of classifiedRows) {
       let fields: Record<string, unknown> = {};
       try {
         fields = JSON.parse(row.fields_json) as Record<string, unknown>;
@@ -304,13 +334,39 @@ export function registerExportHandlers(): void {
         fields = {};
       }
       const rendered = renderClassified(row.type, fields);
-      return {
+      let photoBase64: string | undefined;
+      let photoMimeType: string | undefined;
+      // Real photo from blob store, if any
+      if (row.photo_blob_hash) {
+        try {
+          const bytes = await blobs.readBuffer(row.photo_blob_hash);
+          const meta = await db
+            .selectFrom("images")
+            .select(["mime_type"])
+            .where("blob_hash", "=", row.photo_blob_hash)
+            .executeTakeFirst();
+          photoBase64 = bytes.toString("base64");
+          photoMimeType = meta?.mime_type ?? "image/png";
+        } catch {
+          // missing blob — fall through to placeholder/none
+        }
+      }
+      // For matrimonial_with_photo without a real photo, drop in a
+      // generic monogram so the visual treatment still demonstrates.
+      if (!photoBase64 && row.type === "matrimonial_with_photo") {
+        const initials = monogramInitials(rendered.displayName);
+        photoBase64 = monogramSvg(initials);
+        photoMimeType = "image/svg+xml";
+      }
+      classifieds.push({
         type: row.type,
         language: row.language as "en" | "hi",
         displayName: rendered.displayName,
         bodyLines: rendered.bodyLines,
-      };
-    });
+        ...(photoBase64 ? { photoBase64 } : {}),
+        ...(photoMimeType ? { photoMimeType } : {}),
+      });
+    }
 
     const filename = `${slugify(issueRow.title)}-${issueRow.issue_date}.pptx`;
     const outputPath = path.join(exportDir, filename);

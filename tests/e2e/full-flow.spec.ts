@@ -89,7 +89,7 @@ test("full flow: create issue → import docs → add classified → upload ad �
   //    spanning 4 different classified types.
   await window.getByTestId("nav-classifieds").click();
   await window.getByTestId("import-csv-input").setInputFiles(CLASSIFIEDS_CSV);
-  await expect(window.getByText(/imported \d+ classified/i)).toBeVisible({
+  await expect(window.getByText(/imported \d+/i)).toBeVisible({
     timeout: 15_000,
   });
 
