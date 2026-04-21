@@ -26,6 +26,8 @@ export interface PptxArticle {
   headline: string;
   deck: string | null;
   byline: string | null;
+  /** Where the byline prints: under the deck ("top") or after the body ("end"). */
+  bylinePosition?: "top" | "end";
   body: string;
   language: "en" | "hi" | "bilingual";
   /** Optional hero image bytes + mime type. */

@@ -45,7 +45,11 @@ export async function bootstrap(): Promise<AppState> {
   const templates = await loadTemplatesFromDir(templatesDir);
   logger.info({ count: templates.length, dir: templatesDir }, "Templates loaded");
 
-  const exportDir = path.join(app.getPath("documents"), "Forme");
+  // Export dir — normally ~/Documents/Forme. Tests can override via
+  // FORME_TEST_DOCUMENTS_DIR so we never stomp on real user files.
+  const docsRoot =
+    process.env.FORME_TEST_DOCUMENTS_DIR ?? app.getPath("documents");
+  const exportDir = path.join(docsRoot, "Forme");
   await fs.mkdir(exportDir, { recursive: true });
 
   state = { db, blobs, snapshots, templates, dataDir, exportDir };

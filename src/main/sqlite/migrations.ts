@@ -225,6 +225,17 @@ const MIGRATIONS: Migration[] = [
         .execute();
     },
   },
+  {
+    version: 2,
+    name: "add_byline_position",
+    async up(db) {
+      // byline_position lets editorials + wire-credited pieces print the
+      // author at the end of the article instead of below the deck.
+      await sql`ALTER TABLE articles ADD COLUMN byline_position TEXT NOT NULL DEFAULT 'top'`.execute(
+        db
+      );
+    },
+  },
 ];
 
 export async function runMigrations(db: Kysely<Database>): Promise<{ applied: number[] }> {

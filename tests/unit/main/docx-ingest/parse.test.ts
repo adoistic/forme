@@ -81,4 +81,34 @@ describe("parseDocx", () => {
     // Warnings may or may not exist for a simple file; assert shape
     expect(Array.isArray(result.warnings)).toBe(true);
   });
+
+  test("extracts top byline when article starts with 'By X'", async () => {
+    // Build a minimal docx-shaped XML via pandoc-equivalent: use the real
+    // fixture directory at tests/fixtures/articles which build-fixtures.ts
+    // produces with a By-line paragraph right after the h1.
+    const fixtureDir = path.resolve(
+      path.dirname(fileURLToPath(import.meta.url)),
+      "../../../fixtures/articles"
+    );
+    const buf = await fs
+      .readFile(path.join(fixtureDir, "chandrayaan-3.docx"))
+      .catch(() => null);
+    if (!buf) {
+      // Fixture not built yet — skip rather than fail. Run
+      // `bun scripts/build-fixtures.ts` to generate.
+      return;
+    }
+    const result = await parseDocx(buf);
+    expect(result.byline).toBe("By QA Harness");
+    expect(result.byline_position).toBe("top");
+    // Byline should NOT appear at the start of body anymore
+    expect(result.body.slice(0, 60)).not.toMatch(/^By QA Harness/);
+  });
+
+  test("byline defaults to null + position 'top' when none found", async () => {
+    const buf = await readFixture("simple-english.docx");
+    const result = await parseDocx(buf);
+    expect(result.byline).toBeNull();
+    expect(result.byline_position).toBe("top");
+  });
 });

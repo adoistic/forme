@@ -42,6 +42,7 @@ describe("ArticleSchema", () => {
     headline: "Test headline",
     deck: null,
     byline: "by Someone",
+    byline_position: "top" as const,
     body: "Body text of some length.",
     language: "en" as const,
     word_count: 5,

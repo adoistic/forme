@@ -13,12 +13,19 @@ export const ContentTypeSchema = z.enum([
 ]);
 export type ContentType = z.infer<typeof ContentTypeSchema>;
 
+// Where the byline prints. Most news + features: "top" (runs under the deck).
+// Editorials, op-eds, wire-credits: "end" (runs flush to the last column of
+// the final page, em-dash + name).
+export const BylinePositionSchema = z.enum(["top", "end"]);
+export type BylinePosition = z.infer<typeof BylinePositionSchema>;
+
 export const ArticleSchema = z.object({
   id: z.string().uuid(),
   issue_id: z.string().uuid(),
   headline: z.string().min(1).max(500),
   deck: z.string().max(800).nullable(),
   byline: z.string().max(200).nullable(),
+  byline_position: BylinePositionSchema,
   body: z.string().min(1),
   language: LanguageSchema,
   word_count: z.number().int().nonnegative(),

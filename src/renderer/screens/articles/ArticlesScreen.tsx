@@ -3,6 +3,8 @@ import { useIssueStore, useShallow } from "../../stores/issue.js";
 import { useToast } from "../../components/Toast.js";
 import { invoke } from "../../ipc/client.js";
 import { describeError } from "../../lib/error-helpers.js";
+import { EditArticleModal } from "./EditArticleModal.js";
+import type { ArticleSummary } from "@shared/ipc-contracts/channels.js";
 
 export function ArticlesScreen(): React.ReactElement {
   const { currentIssue, articles, refreshArticles, refreshIssues } = useIssueStore(
@@ -16,6 +18,7 @@ export function ArticlesScreen(): React.ReactElement {
   const toast = useToast();
   const [isDragging, setIsDragging] = useState(false);
   const [importing, setImporting] = useState(0);
+  const [editing, setEditing] = useState<ArticleSummary | null>(null);
 
   if (!currentIssue) {
     return <NoIssue />;
@@ -127,7 +130,7 @@ export function ArticlesScreen(): React.ReactElement {
             </div>
           </div>
         ) : (
-          <ArticleList articles={articles} />
+          <ArticleList articles={articles} onEdit={(a) => setEditing(a)} />
         )}
 
         {isDragging ? (
@@ -144,31 +147,65 @@ export function ArticlesScreen(): React.ReactElement {
           </div>
         ) : null}
       </div>
+
+      {editing ? (
+        <EditArticleModal
+          article={editing}
+          onClose={() => setEditing(null)}
+          onSaved={async () => {
+            setEditing(null);
+            await refreshArticles();
+            toast.push("success", "Article updated.");
+          }}
+        />
+      ) : null}
     </div>
   );
 }
 
 function ArticleList({
   articles,
+  onEdit,
 }: {
-  articles: import("@shared/ipc-contracts/channels.js").ArticleSummary[];
+  articles: ArticleSummary[];
+  onEdit: (a: ArticleSummary) => void;
 }): React.ReactElement {
   return (
     <div className="mx-auto max-w-[920px]">
       <ul className="divide-y divide-border-default">
         {articles.map((a) => (
-          <li key={a.id} className="flex items-start gap-4 py-4" data-testid={`article-row-${a.id}`}>
-            <div className="flex-1 min-w-0">
-              <div className="font-display text-title-lg text-text-primary truncate">
+          <li
+            key={a.id}
+            className="group flex items-start gap-4 py-4"
+            data-testid={`article-row-${a.id}`}
+          >
+            <button
+              type="button"
+              onClick={() => onEdit(a)}
+              className="flex-1 min-w-0 text-left"
+              data-testid={`article-edit-${a.id}`}
+            >
+              <div className="font-display text-title-lg text-text-primary truncate group-hover:text-accent">
                 {a.headline}
               </div>
               {a.byline ? (
-                <div className="text-caption text-text-tertiary">{a.byline}</div>
-              ) : null}
+                <div className="text-caption text-text-tertiary">
+                  {a.byline}
+                  {a.bylinePosition === "end" ? (
+                    <span className="ml-2 rounded-full border border-border-default px-2 text-label-caps text-text-tertiary">
+                      END
+                    </span>
+                  ) : null}
+                </div>
+              ) : (
+                <div className="text-caption italic text-text-tertiary">
+                  No byline — click to add
+                </div>
+              )}
               <div className="mt-1 text-caption text-text-tertiary">
                 {a.wordCount.toLocaleString()} words · {a.contentType}
               </div>
-            </div>
+            </button>
             <div className="flex shrink-0 items-center gap-3">
               <span
                 className={[

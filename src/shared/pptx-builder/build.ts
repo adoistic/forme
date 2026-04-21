@@ -219,8 +219,10 @@ function addPlacementSlides(
         cursorY += deckHeight + pt2in(6);
       }
 
-      // Byline (small caps sans, rust)
-      if (article.byline) {
+      // Byline (small caps sans, rust) — only at top when position is "top".
+      // End-positioned bylines are emitted after the body on the last page.
+      const bylinePosition = article.bylinePosition ?? "top";
+      if (article.byline && bylinePosition === "top") {
         slide.addText(article.byline.toUpperCase(), {
           x: marginLeft,
           y: cursorY,
@@ -275,8 +277,45 @@ function addPlacementSlides(
         fontFace: bodyFont,
         color: "1A1A1A",
         valign: "top",
+        // Print-standard body alignment — the last line of each paragraph
+        // stays left, every other line justifies to the column edge.
+        align: "justify",
         paraSpaceAfter: 4,
       });
+    }
+
+    // End-positioned byline on the LAST emitted page of this article.
+    // Runs below whichever column finished last, in italic small-caps rust.
+    // Italic em-dash leader matches print-editorial convention.
+    const isLastPage = pageIdx === pagesNeeded - 1;
+    const endByline = article.bylinePosition ?? "top";
+    if (isLastPage && article.byline && endByline === "end") {
+      // Find the right-most column that actually got content on this page
+      let lastColWithText = -1;
+      for (let c = columnCount - 1; c >= 0; c -= 1) {
+        const seg = segments[pageIdx * columnCount + c];
+        if (seg && seg.length > 0) {
+          lastColWithText = c;
+          break;
+        }
+      }
+      if (lastColWithText >= 0) {
+        const colX = marginLeft + lastColWithText * (columnWidth + gutterIn);
+        // Place near the bottom of the column — matches the visual rhythm of
+        // end-of-article credits in print magazines.
+        slide.addText(`— ${article.byline.replace(/^By\s+/i, "")}`, {
+          x: colX,
+          y: trimHeightIn + bleedIn - marginBottom - pt2in(28),
+          w: columnWidth,
+          h: pt2in(20),
+          fontSize: 10,
+          fontFace: sansFont,
+          italic: true,
+          color: "C96E4E",
+          align: "right",
+          valign: "bottom",
+        });
+      }
     }
 
     // Pull quote on page 2 center column, if supported + present

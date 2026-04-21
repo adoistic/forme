@@ -87,6 +87,7 @@ describe("schema: issues + articles", () => {
       headline: "The article",
       deck: null,
       byline: null,
+      byline_position: "top",
       body: "Body text.",
       language: "en",
       word_count: 2,

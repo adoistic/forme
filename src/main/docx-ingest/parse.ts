@@ -1,6 +1,6 @@
 import mammoth from "mammoth";
 import { detectLanguage } from "@shared/schemas/language.js";
-import { countWords } from "@shared/schemas/article.js";
+import { countWords, type BylinePosition } from "@shared/schemas/article.js";
 import { makeError, type StructuredError } from "@shared/errors/structured.js";
 import type { Language } from "@shared/schemas/language.js";
 
@@ -16,6 +16,7 @@ export interface ParsedDocx {
   body_html: string;
   deck: string | null;
   byline: string | null;
+  byline_position: BylinePosition;
   word_count: number;
   language: Language;
   images: ParsedImage[];
@@ -55,13 +56,17 @@ export async function parseDocx(buffer: Buffer): Promise<ParsedDocx> {
   const html = htmlResult.value;
 
   // 3. Extract headline: prefer first h1, then first h2, then first line
-  const { headline, bodyText, bodyHtml } = splitHeadline(rawText, html);
+  const { headline, bodyText: rawBody, bodyHtml } = splitHeadline(rawText, html);
 
-  // 4. Count words in body + detect language from full text
+  // 4. Extract byline + position from the body. Handles the two print
+  // conventions: "By X" near the top, or em-dash credit at the end.
+  const { byline, bylinePosition, bodyText } = extractByline(rawBody);
+
+  // 5. Count words in body + detect language from full text
   const word_count = countWords(bodyText);
   const language = detectLanguage(rawText);
 
-  // 5. Warnings from mammoth (unmapped styles, broken refs, etc.)
+  // 6. Warnings from mammoth (unmapped styles, broken refs, etc.)
   const warnings = dedupe([
     ...htmlResult.messages.map((m) => m.message),
     ...textResult.messages.map((m) => m.message),
@@ -72,7 +77,8 @@ export async function parseDocx(buffer: Buffer): Promise<ParsedDocx> {
     body: bodyText,
     body_html: bodyHtml,
     deck: null,
-    byline: null,
+    byline,
+    byline_position: bylinePosition,
     word_count,
     language,
     images,
@@ -91,9 +97,7 @@ function splitHeadline(
   if (headingMatch?.[2]) {
     const headline = stripTags(headingMatch[2]).trim();
     const bodyHtml = html.replace(headingMatch[0], "").trim();
-    const bodyText = stripTags(bodyHtml)
-      .replace(/\s+/g, " ")
-      .trim();
+    const bodyText = stripTagsPreservingParagraphs(bodyHtml);
     return { headline: headline || firstLine(rawText), bodyText, bodyHtml };
   }
 
@@ -105,6 +109,73 @@ function splitHeadline(
     bodyText: remainder,
     bodyHtml: html,
   };
+}
+
+/**
+ * Strip HTML tags but keep paragraph structure — downstream byline and
+ * deck detection depend on paragraph boundaries surviving. We turn closing
+ * block tags into double newlines, then strip inline tags, then collapse
+ * horizontal whitespace only (not vertical).
+ */
+function stripTagsPreservingParagraphs(html: string): string {
+  return html
+    .replace(/<\/(p|h[1-6]|li|blockquote|br)\s*>/gi, "\n\n")
+    .replace(/<br\s*\/?>/gi, "\n\n")
+    .replace(/<[^>]+>/g, "")
+    .replace(/&nbsp;/g, " ")
+    .replace(/[ \t]+/g, " ")
+    .replace(/\n{3,}/g, "\n\n")
+    .trim();
+}
+
+/**
+ * Find a byline in the body. Two conventions supported:
+ *   - Top byline: a line starting with "By " (or "by " / "BY ") within the
+ *     first few paragraphs. Strip it from the body and mark position "top".
+ *   - End byline: last non-empty paragraph is a short line starting with
+ *     "— " / "-- " / "—" (em-dash) followed by a name, or a line like
+ *     "By The Editor" at the end. Mark position "end" and strip it.
+ * If both are present, top wins (common wire-service pattern).
+ */
+function extractByline(body: string): {
+  byline: string | null;
+  bylinePosition: BylinePosition;
+  bodyText: string;
+} {
+  const paragraphs = body
+    .split(/\n{2,}|(?<=\.)\s*\n/)
+    .map((p) => p.trim())
+    .filter((p) => p.length > 0);
+
+  // Look for top byline in first 3 paragraphs
+  for (let i = 0; i < Math.min(3, paragraphs.length); i += 1) {
+    const p = paragraphs[i] ?? "";
+    const m = p.match(/^\s*By\s+(.+?)\s*$/i);
+    if (m && m[1] && m[1].length < 140) {
+      paragraphs.splice(i, 1);
+      return {
+        byline: `By ${m[1].trim()}`,
+        bylinePosition: "top",
+        bodyText: paragraphs.join("\n\n"),
+      };
+    }
+  }
+
+  // Look for end byline in last paragraph
+  const last = paragraphs[paragraphs.length - 1] ?? "";
+  const endMatch =
+    last.match(/^\s*[—–-]{1,2}\s*(.+?)\s*$/) ??
+    last.match(/^\s*(?:By|Signed)\s+(.+?)\s*$/i);
+  if (endMatch && endMatch[1] && endMatch[1].length < 140 && last.length < 160) {
+    paragraphs.pop();
+    return {
+      byline: endMatch[1].trim(),
+      bylinePosition: "end",
+      bodyText: paragraphs.join("\n\n"),
+    };
+  }
+
+  return { byline: null, bylinePosition: "top", bodyText: body };
 }
 
 function firstLine(text: string): string {

@@ -24,6 +24,7 @@ export interface ArticlesTable {
   headline: string;
   deck: string | null;
   byline: string | null;
+  byline_position: "top" | "end"; // most pieces: top; editorials/wire: end
   body: string; // full body text (plain or markdown)
   language: "en" | "hi" | "bilingual";
   word_count: number;

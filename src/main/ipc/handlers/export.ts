@@ -74,6 +74,7 @@ export function registerExportHandlers(): void {
           headline: article.headline,
           deck: article.deck,
           byline: article.byline,
+          bylinePosition: (article.byline_position === "end" ? "end" : "top"),
           body: article.body,
           language: article.language as "en" | "hi" | "bilingual",
         },
