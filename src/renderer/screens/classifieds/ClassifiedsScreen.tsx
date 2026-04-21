@@ -33,6 +33,34 @@ export function ClassifiedsScreen(): React.ReactElement {
   const toast = useToast();
   const [adding, setAdding] = useState<ClassifiedType | null>(null);
   const [pickingType, setPickingType] = useState(false);
+  const [importing, setImporting] = useState(false);
+
+  async function handleCsvUpload(e: React.ChangeEvent<HTMLInputElement>): Promise<void> {
+    const file = e.target.files?.[0];
+    e.target.value = "";
+    if (!file) return;
+    setImporting(true);
+    try {
+      const csv = await file.text();
+      const res = await invoke("classified:import-csv", {
+        csv,
+        issueId: currentIssue?.id ?? null,
+      });
+      await Promise.all([refreshClassifieds(), refreshIssues()]);
+      if (res.errors.length === 0) {
+        toast.push("success", `Imported ${res.imported} classified${res.imported === 1 ? "" : "s"}.`);
+      } else {
+        toast.push(
+          res.imported > 0 ? "info" : "error",
+          `Imported ${res.imported}, ${res.errors.length} row${res.errors.length === 1 ? "" : "s"} skipped (row ${res.errors[0]?.row}: ${res.errors[0]?.reason ?? "unknown"}).`
+        );
+      }
+    } catch (err) {
+      toast.push("error", describeError(err));
+    } finally {
+      setImporting(false);
+    }
+  }
 
   return (
     <div className="flex h-full flex-col overflow-hidden">
@@ -45,14 +73,29 @@ export function ClassifiedsScreen(): React.ReactElement {
               : `${classifieds.length} queued · no issue selected`}
           </div>
         </div>
-        <button
-          type="button"
-          onClick={() => setPickingType(true)}
-          className="rounded-md bg-accent px-4 py-2 text-title-sm font-semibold text-text-inverse hover:bg-accent-hover"
-          data-testid="add-classified-button"
-        >
-          + Add classified
-        </button>
+        <div className="flex items-center gap-3">
+          <label
+            className="cursor-pointer rounded-md border-[1.5px] border-accent px-4 py-1.5 text-title-sm text-accent hover:bg-accent-bg"
+            data-testid="import-csv-button"
+          >
+            {importing ? "Importing..." : "Import CSV"}
+            <input
+              type="file"
+              accept=".csv,text/csv"
+              className="hidden"
+              onChange={handleCsvUpload}
+              data-testid="import-csv-input"
+            />
+          </label>
+          <button
+            type="button"
+            onClick={() => setPickingType(true)}
+            className="rounded-md bg-accent px-4 py-2 text-title-sm font-semibold text-text-inverse hover:bg-accent-hover"
+            data-testid="add-classified-button"
+          >
+            + Add classified
+          </button>
+        </div>
       </header>
 
       <div className="flex-1 overflow-auto p-8">

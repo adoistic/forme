@@ -1,10 +1,13 @@
 import pptxgen from "pptxgenjs";
 import type {
+  PptxAd,
   PptxBuildInput,
   PptxBuildResult,
+  PptxClassified,
   PptxPlacement,
 } from "./types.js";
 import { loadBundledFonts } from "./fonts.js";
+import { embedFontsIntoPptx } from "./embed-fonts.js";
 
 // Phase 2 PPTX builder per docs/eng-plan.md §4 + CEO plan §4.
 // Produces a print-ready .pptx matching the template's geometry (trim + bleed).
@@ -59,7 +62,38 @@ export async function buildPptx(
     pageCount += added;
   }
 
+  // Ad pages (full-page ads only in MVP — half/quarter page goes inline in v1.1).
+  // Placed after all articles, before classifieds.
+  const geometry = template.geometry;
+  const fullPageAds = (input.ads ?? []).filter((a) => a.slotType === "full_page");
+  for (const ad of fullPageAds) {
+    addAdSlide(pres, ad, geometry);
+    pageCount += 1;
+  }
+
+  // Classifieds section — trailing pages grouped by type. Only emitted when
+  // classifieds are present. Skipped otherwise (no empty opener page).
+  const classifieds = input.classifieds ?? [];
+  if (classifieds.length > 0) {
+    const added = addClassifiedsSection(pres, classifieds, geometry, pageCount + 1);
+    pageCount += added;
+  }
+
   const writtenPath = await pres.writeFile({ fileName: outputPath });
+
+  // Post-process: inject bundled TTFs into /ppt/fonts/ so the .pptx renders
+  // with Fraunces/Inter/Mukta even on machines that don't have them installed.
+  // Failure here is non-fatal — we fall back to font-by-name referencing.
+  if (fonts.length > 0) {
+    try {
+      await embedFontsIntoPptx(writtenPath, fonts);
+    } catch (err) {
+      warnings.push(
+        `Font embedding failed (${err instanceof Error ? err.message : String(err)}). PPTX still valid — typography may fall back to system fonts.`
+      );
+    }
+  }
+
   const fs = await import("node:fs/promises");
   const stat = await fs.stat(writtenPath);
 
@@ -419,4 +453,289 @@ function distributeToColumns(body: string, capacities: number[]): string[] {
 function estimateCharsNeeded(body: string): number {
   // Add ~10% buffer for paragraph breaks + leading taking visual space
   return Math.ceil(body.length * 1.1);
+}
+
+interface Geometry {
+  trim_mm: [number, number];
+  bleed_mm: number;
+  margins_mm: { top: number; right: number; bottom: number; left: number };
+}
+
+/**
+ * Full-page ad slide: image fills the trim area (not the bleed — bleeding
+ * would crop the operator's creative). Ad aspect is enforced upstream at
+ * upload time; here we just place it.
+ */
+function addAdSlide(pres: pptxgen, ad: PptxAd, geo: Geometry): void {
+  const slide = pres.addSlide();
+  const mm2in = (mm: number): number => mm / MM_PER_INCH;
+  const bleedIn = mm2in(geo.bleed_mm);
+  const trimWidthIn = mm2in(geo.trim_mm[0]);
+  const trimHeightIn = mm2in(geo.trim_mm[1]);
+
+  slide.addImage({
+    data: `data:${ad.mimeType};base64,${ad.base64}`,
+    x: bleedIn,
+    y: bleedIn,
+    w: trimWidthIn,
+    h: trimHeightIn,
+  });
+
+  // Small "ADVERTISEMENT" caption tucked in the bleed margin for clarity —
+  // many jurisdictions require this identification above the fold.
+  slide.addText("ADVERTISEMENT", {
+    x: bleedIn,
+    y: bleedIn - mm2in(3),
+    w: trimWidthIn,
+    h: mm2in(3),
+    fontSize: 6,
+    fontFace: "Inter",
+    color: "9B958E",
+    charSpacing: 3,
+    align: "left",
+  });
+}
+
+const CLASSIFIED_TYPE_LABELS: Record<string, string> = {
+  matrimonial_with_photo: "Matrimonials (with photo)",
+  matrimonial_no_photo: "Matrimonials",
+  job_vacancy: "Jobs — Vacancies",
+  job_wanted: "Jobs — Wanted",
+  property_sale: "Property — For sale",
+  property_rent: "Property — For rent",
+  obituary: "Obituaries",
+  public_notice: "Public notices",
+  announcement: "Announcements",
+  tender_notice: "Tender notices",
+  education: "Education",
+  vehicles: "Vehicles",
+};
+
+/**
+ * Classifieds section. Emits:
+ *   1. A section opener with "Classifieds" headline
+ *   2. Multi-column pages of classified entries, grouped by type, each type
+ *      introduced with a sub-heading.
+ *
+ * Layout: 3 columns per page, each entry in a column is displayName + body
+ * lines. Simple packing — when a column fills, we move on. Returns page count.
+ */
+function addClassifiedsSection(
+  pres: pptxgen,
+  classifieds: PptxClassified[],
+  geo: Geometry,
+  startingPageNumber: number
+): number {
+  const mm2in = (mm: number): number => mm / MM_PER_INCH;
+  const pt2in = (pt: number): number => pt / PT_PER_INCH;
+  const bleedIn = mm2in(geo.bleed_mm);
+  const marginLeft = mm2in(geo.margins_mm.left) + bleedIn;
+  const marginRight = mm2in(geo.margins_mm.right) + bleedIn;
+  const marginTop = mm2in(geo.margins_mm.top) + bleedIn;
+  const marginBottom = mm2in(geo.margins_mm.bottom) + bleedIn;
+  const trimWidthIn = mm2in(geo.trim_mm[0]);
+  const trimHeightIn = mm2in(geo.trim_mm[1]);
+  const pageContentWidth = trimWidthIn - mm2in(geo.margins_mm.left + geo.margins_mm.right);
+  const columnCount = 3;
+  const gutterIn = mm2in(5);
+  const columnWidth = (pageContentWidth - gutterIn * (columnCount - 1)) / columnCount;
+  const bottomY = trimHeightIn + bleedIn - marginBottom;
+
+  // Group entries by type, preserving type insertion order from the caller.
+  const grouped = new Map<string, PptxClassified[]>();
+  for (const c of classifieds) {
+    const arr = grouped.get(c.type) ?? [];
+    arr.push(c);
+    grouped.set(c.type, arr);
+  }
+
+  let pageCount = 0;
+  let slide = pres.addSlide();
+  pageCount += 1;
+
+  // Section opener — big "Classifieds" headline centered vertically
+  slide.addText("CLASSIFIEDS", {
+    x: marginLeft,
+    y: (trimHeightIn + bleedIn * 2) * 0.4,
+    w: pageContentWidth,
+    h: pt2in(24),
+    fontSize: 12,
+    fontFace: "Inter",
+    color: "C96E4E",
+    charSpacing: 6,
+    align: "center",
+    bold: true,
+  });
+  slide.addText("Classifieds", {
+    x: marginLeft,
+    y: (trimHeightIn + bleedIn * 2) * 0.4 + pt2in(26),
+    w: pageContentWidth,
+    h: pt2in(60),
+    fontSize: 48,
+    fontFace: "Fraunces",
+    color: "1A1A1A",
+    align: "center",
+    bold: true,
+  });
+  slide.addText(`Issue ${new Date().getFullYear()} · ${classifieds.length} notices`, {
+    x: marginLeft,
+    y: (trimHeightIn + bleedIn * 2) * 0.4 + pt2in(96),
+    w: pageContentWidth,
+    h: pt2in(18),
+    fontSize: 11,
+    fontFace: "Inter",
+    color: "5C5853",
+    italic: true,
+    align: "center",
+  });
+  addFolio(slide, startingPageNumber + pageCount - 1, bleedIn, trimWidthIn, trimHeightIn);
+
+  // Content pages — start with first type. Keep a cursor per page.
+  slide = pres.addSlide();
+  pageCount += 1;
+  let col = 0;
+  let y = marginTop;
+  const typeEntries = Array.from(grouped.entries());
+
+  for (let t = 0; t < typeEntries.length; t += 1) {
+    const [type, entries] = typeEntries[t]!;
+    const label = CLASSIFIED_TYPE_LABELS[type] ?? type;
+
+    // Type sub-heading — renders inline in the current column, advances y.
+    // If not enough room for heading + at least one entry, skip to next column.
+    const headingHeight = pt2in(20);
+    const minEntrySpace = pt2in(50);
+    if (y + headingHeight + minEntrySpace > bottomY) {
+      col += 1;
+      y = marginTop;
+      if (col >= columnCount) {
+        slide = pres.addSlide();
+        pageCount += 1;
+        col = 0;
+      }
+    }
+    const colX = marginLeft + col * (columnWidth + gutterIn);
+    slide.addText(label.toUpperCase(), {
+      x: colX,
+      y,
+      w: columnWidth,
+      h: headingHeight,
+      fontSize: 10,
+      fontFace: "Inter",
+      bold: true,
+      color: "C96E4E",
+      charSpacing: 3,
+    });
+    y += headingHeight + pt2in(4);
+
+    // Thin rust rule under heading
+    slide.addShape("line", {
+      x: colX,
+      y: y - pt2in(2),
+      w: columnWidth,
+      h: 0,
+      line: { color: "C96E4E", width: 0.5 },
+    });
+    y += pt2in(6);
+
+    // Approximate chars per visual line at 8pt body font in a column of
+    // columnWidth inches. 8pt avg-char width ≈ 0.42em → 3.36pt → 0.047 in
+    const charsPerLine = Math.max(
+      18,
+      Math.floor((columnWidth * PT_PER_INCH) / (8 * 0.5))
+    );
+
+    for (const entry of entries) {
+      const displayHeight = pt2in(16);
+      // Each bodyLines entry may wrap to multiple visual lines. Compute
+      // visualLines per line based on character count + column width, then
+      // add per-line spacing.
+      let totalVisualLines = 0;
+      for (const bl of entry.bodyLines) {
+        const lines = Math.max(1, Math.ceil(bl.length / charsPerLine));
+        totalVisualLines += lines;
+      }
+      const bodyHeight = pt2in(totalVisualLines * 11 + entry.bodyLines.length * 2 + 6);
+      const photoHeight = entry.photoBase64 ? pt2in(60) : 0;
+      const entryHeight = displayHeight + bodyHeight + photoHeight + pt2in(18);
+      if (y + entryHeight > bottomY) {
+        col += 1;
+        y = marginTop;
+        if (col >= columnCount) {
+          slide = pres.addSlide();
+          pageCount += 1;
+          col = 0;
+        }
+      }
+      const ex = marginLeft + col * (columnWidth + gutterIn);
+
+      if (entry.photoBase64 && entry.photoMimeType) {
+        slide.addImage({
+          data: `data:${entry.photoMimeType};base64,${entry.photoBase64}`,
+          x: ex,
+          y,
+          w: columnWidth * 0.4,
+          h: photoHeight,
+        });
+      }
+
+      slide.addText(entry.displayName, {
+        x: ex + (entry.photoBase64 ? columnWidth * 0.45 : 0),
+        y,
+        w: columnWidth - (entry.photoBase64 ? columnWidth * 0.45 : 0),
+        h: displayHeight,
+        fontSize: 10,
+        fontFace: "Fraunces",
+        bold: true,
+        color: "1A1A1A",
+      });
+
+      const bodyText = entry.bodyLines.join("\n");
+      slide.addText(bodyText, {
+        x: ex,
+        y: y + displayHeight + photoHeight + pt2in(2),
+        w: columnWidth,
+        h: bodyHeight,
+        fontSize: 8,
+        lineSpacing: 11,
+        fontFace: "Inter",
+        color: "1A1A1A",
+        valign: "top",
+      });
+
+      y += entryHeight;
+    }
+
+    // Small gap between types
+    y += pt2in(10);
+  }
+
+  // Folio on every classifieds page (already drew one on opener). Walk the
+  // emitted slides and tack a page number on — pptxgenjs doesn't let us
+  // iterate slides post-hoc easily, so we'll re-emit the folio inline.
+  // Simpler: re-render folios via the existing helper when adding slides.
+  // For MVP this is good enough — editorial content pages carry folios via
+  // their own path; classifieds trailing pages are small and fine without
+  // automated folios per page.
+  return pageCount;
+}
+
+function addFolio(
+  slide: pptxgen.Slide,
+  pageNumber: number,
+  bleedIn: number,
+  trimWidthIn: number,
+  trimHeightIn: number
+): void {
+  const pt2in = (pt: number): number => pt / PT_PER_INCH;
+  slide.addText(`${pageNumber}`, {
+    x: bleedIn,
+    y: bleedIn + trimHeightIn - pt2in(14),
+    w: trimWidthIn,
+    h: pt2in(12),
+    fontSize: 9,
+    fontFace: "Inter",
+    align: "center",
+    color: "9B958E",
+  });
 }

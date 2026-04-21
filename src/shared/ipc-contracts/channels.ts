@@ -89,6 +89,21 @@ export interface ClassifiedSummary {
   createdAt: string;
 }
 
+export interface ImportClassifiedsCsvInput {
+  /** UTF-8 CSV string from a file read via the renderer's File API. */
+  csv: string;
+  issueId: string | null;
+}
+
+export interface ImportClassifiedsCsvResult {
+  imported: number;
+  /**
+   * Rows that failed validation or parsing — each with 1-based row number
+   * (excludes header) and a human-readable reason.
+   */
+  errors: Array<{ row: number; reason: string }>;
+}
+
 // ---- Ads ----
 
 export interface UploadAdInput {
@@ -160,6 +175,10 @@ export interface ChannelMap {
     response: ClassifiedSummary[];
   };
   "classified:add": { request: AddClassifiedInput; response: ClassifiedSummary };
+  "classified:import-csv": {
+    request: ImportClassifiedsCsvInput;
+    response: ImportClassifiedsCsvResult;
+  };
 
   "ad:list": { request: { issueId: string | null }; response: AdSummary[] };
   "ad:upload": { request: UploadAdInput; response: AdSummary };

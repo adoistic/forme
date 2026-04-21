@@ -56,11 +56,25 @@ export async function parseDocx(buffer: Buffer): Promise<ParsedDocx> {
   const html = htmlResult.value;
 
   // 3. Extract headline: prefer first h1, then first h2, then first line
-  const { headline, bodyText: rawBody, bodyHtml } = splitHeadline(rawText, html);
+  const {
+    headline,
+    bodyText: rawBody,
+    bodyHtml: afterHeadlineHtml,
+  } = splitHeadline(rawText, html);
 
-  // 4. Extract byline + position from the body. Handles the two print
-  // conventions: "By X" near the top, or em-dash credit at the end.
-  const { byline, bylinePosition, bodyText } = extractByline(rawBody);
+  // 4. Extract deck from the first italic paragraph, if any. Magazines
+  // conventionally put a one-line or two-line italic subtitle right below
+  // the headline, and pandoc's HTML preserves the <em> wrapper — so we
+  // parse BEFORE stripping tags. Strip the matched paragraph out of both
+  // HTML and the plain-text body.
+  const { deck, bodyText: afterDeckText, bodyHtml } = extractDeck(
+    rawBody,
+    afterHeadlineHtml
+  );
+
+  // 5. Extract byline + position from the deck-stripped body. Handles both
+  // print conventions: "By X" near the top, or em-dash credit at the end.
+  const { byline, bylinePosition, bodyText } = extractByline(afterDeckText);
 
   // 5. Count words in body + detect language from full text
   const word_count = countWords(bodyText);
@@ -76,7 +90,7 @@ export async function parseDocx(buffer: Buffer): Promise<ParsedDocx> {
     headline,
     body: bodyText,
     body_html: bodyHtml,
-    deck: null,
+    deck,
     byline,
     byline_position: bylinePosition,
     word_count,
@@ -84,6 +98,48 @@ export async function parseDocx(buffer: Buffer): Promise<ParsedDocx> {
     images,
     warnings,
   };
+}
+
+/**
+ * Pull the first italic paragraph out and call it the deck. Two patterns
+ * handled:
+ *   - <p><em>Deck</em></p>  — pandoc's conversion of Word italic paragraphs.
+ *   - <p><i>Deck</i></p>    — equivalent from older editors.
+ * If the first paragraph is mixed-italic (italic wrapping only some of its
+ * text), we don't treat it as a deck — it's probably just normal body copy.
+ */
+function extractDeck(
+  bodyText: string,
+  bodyHtml: string
+): { deck: string | null; bodyText: string; bodyHtml: string } {
+  // Match an initial fully-italic <p> (allow whitespace around)
+  const m = bodyHtml.match(
+    /^\s*<p>\s*<(em|i)>([\s\S]*?)<\/\1>\s*<\/p>\s*/i
+  );
+  if (!m || !m[2]) {
+    return { deck: null, bodyText, bodyHtml };
+  }
+  const deck = stripAllTags(m[2]).trim();
+  if (deck.length === 0 || deck.length > 600) {
+    return { deck: null, bodyText, bodyHtml };
+  }
+  const newHtml = bodyHtml.slice(m[0].length);
+  // Remove the first paragraph from the plain-text body too. Since our
+  // stripTagsPreservingParagraphs splits blocks into \n\n chunks, the deck
+  // should be the first such chunk.
+  const paragraphs = bodyText.split(/\n{2,}/);
+  if (paragraphs[0]?.trim() === deck) {
+    paragraphs.shift();
+  }
+  return {
+    deck,
+    bodyText: paragraphs.join("\n\n").trim(),
+    bodyHtml: newHtml,
+  };
+}
+
+function stripAllTags(s: string): string {
+  return s.replace(/<[^>]+>/g, "").replace(/&nbsp;/g, " ").replace(/\s+/g, " ");
 }
 
 /**

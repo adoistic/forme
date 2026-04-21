@@ -30,6 +30,7 @@ const ARTICLES = [
   "movable-type.docx",
 ].map((f) => path.join(FIXTURES, "articles", f));
 const AD_IMAGE = path.join(FIXTURES, "ads", "full-page-rust.png");
+const CLASSIFIEDS_CSV = path.join(FIXTURES, "classifieds", "sample.csv");
 
 let app: ElectronApplication;
 let window: Page;
@@ -83,28 +84,13 @@ test("full flow: create issue → import docs → add classified → upload ad �
     timeout: 45_000,
   });
 
-  // 3) Add one classified via the JSON view (type-agnostic path) ─────
+  // 3) Bulk-import classifieds via CSV (covers the realistic operator flow:
+  //    keep an Excel sheet, import once an issue). The fixture has 4 rows
+  //    spanning 4 different classified types.
   await window.getByTestId("nav-classifieds").click();
-  await window.getByTestId("add-classified-button").click();
-  await window.getByRole("button", { name: /obituary/i }).click();
-  await window.getByTestId("add-classified-modal").waitFor({ state: "visible" });
-  await window.getByRole("button", { name: /JSON view/i }).click();
-  const jsonTextarea = window.locator('textarea').first();
-  await jsonTextarea.fill(
-    JSON.stringify({
-      name_of_deceased: "R. Sharma",
-      date_of_death: "2026-04-18",
-      age: 84,
-      life_summary:
-        "A printer, teacher, and community organizer who spent forty years at the local press.",
-      surviving_family: "Wife Meena, two daughters, five grandchildren.",
-      prayer_meeting: "Lodhi Crematorium, 23 April 2026, 11 AM.",
-    })
-  );
-  await window.getByTestId("classified-submit").click();
-  // Modal closes on save — use that as the signal
-  await expect(window.getByTestId("add-classified-modal")).toBeHidden({
-    timeout: 10_000,
+  await window.getByTestId("import-csv-input").setInputFiles(CLASSIFIEDS_CSV);
+  await expect(window.getByText(/imported \d+ classified/i)).toBeVisible({
+    timeout: 15_000,
   });
 
   // 4) Upload one ad image ──────────────────────────────────────────
@@ -125,13 +111,18 @@ test("full flow: create issue → import docs → add classified → upload ad �
   const files = await fs.readdir(exportRoot).catch(() => []);
   const pptx = files.find((f) => f.endsWith(".pptx"));
   expect(pptx, `expected a .pptx in ${exportRoot}`).toBeTruthy();
-  const pptxPath = path.join(exportRoot, pptx!);
-  const stat = await fs.stat(pptxPath);
+  const pptxSrc = path.join(exportRoot, pptx!);
+  const stat = await fs.stat(pptxSrc);
   expect(stat.size).toBeGreaterThan(5_000);
 
-  // 7) Convert to PDF via LibreOffice, rasterize every page ─────────
+  // Copy pptx into test-results so we (or CI) can inspect it after the
+  // scratch documents dir is cleaned up.
   const outDir = path.join(repoRoot, "test-results/full-flow");
   await fs.mkdir(outDir, { recursive: true });
+  const pptxPath = path.join(outDir, pptx!);
+  await fs.copyFile(pptxSrc, pptxPath);
+
+  // 7) Convert to PDF via LibreOffice, rasterize every page ─────────
   const pdfPath = await sofficeToPdf(pptxPath, outDir);
   expect(pdfPath).toBeTruthy();
   await rasterizePdf(pdfPath, outDir, "page");

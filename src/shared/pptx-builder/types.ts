@@ -13,6 +13,46 @@ export interface PptxBuildInput {
   publicationName: string;
   /** List of placed articles with their template + optional image. */
   placements: PptxPlacement[];
+  /** Full-page + half-page ad creatives. */
+  ads?: PptxAd[];
+  /** Classifieds grouped-by-type and rendered in a trailing section. */
+  classifieds?: PptxClassified[];
+  /**
+   * Page geometry for the non-article sections (ads, classifieds). The
+   * article sections get geometry from their own template. Defaults to
+   * the first placement's template if omitted.
+   */
+  fallbackGeometry?: {
+    trim_mm: [number, number];
+    bleed_mm: number;
+    margins_mm: { top: number; right: number; bottom: number; left: number };
+  };
+}
+
+export interface PptxAd {
+  /** Slot type string — drives aspect-ratio + placement strategy. */
+  slotType: string;
+  positionLabel: string;
+  kind: "commercial" | "house" | "sponsor_strip";
+  bwFlag: boolean;
+  mimeType: string;
+  base64: string;
+  /** Natural pixel dimensions (used for aspect-ratio sanity). */
+  widthPx: number;
+  heightPx: number;
+}
+
+export interface PptxClassified {
+  /** One of the 12 classified types from the schema. */
+  type: string;
+  language: "en" | "hi";
+  /** Rendered display title (e.g. "Aanya Sharma, 28"). */
+  displayName: string;
+  /** Body lines already formatted for print (paragraphs + phone numbers). */
+  bodyLines: string[];
+  /** Optional photo for matrimonial_with_photo. */
+  photoBase64?: string;
+  photoMimeType?: string;
 }
 
 export interface PptxPlacement {

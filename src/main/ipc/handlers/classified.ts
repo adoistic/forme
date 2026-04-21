@@ -1,4 +1,5 @@
 import { randomUUID } from "node:crypto";
+import Papa from "papaparse";
 import { addHandler } from "../register.js";
 import { getState } from "../../app-state.js";
 import {
@@ -9,6 +10,8 @@ import { makeError } from "@shared/errors/structured.js";
 import type {
   AddClassifiedInput,
   ClassifiedSummary,
+  ImportClassifiedsCsvInput,
+  ImportClassifiedsCsvResult,
 } from "@shared/ipc-contracts/channels.js";
 
 function nowISO(): string {
@@ -127,4 +130,105 @@ export function registerClassifiedHandlers(): void {
       createdAt: now,
     };
   });
+
+  addHandler(
+    "classified:import-csv",
+    async (payload: ImportClassifiedsCsvInput): Promise<ImportClassifiedsCsvResult> => {
+      const { db } = getState();
+      const parsed = Papa.parse<Record<string, string>>(payload.csv, {
+        header: true,
+        skipEmptyLines: true,
+        transformHeader: (h) => h.trim(),
+      });
+      if (parsed.errors.length > 0) {
+        throw makeError("ipc_handler_threw", "error", {
+          reason: `CSV parse error: ${parsed.errors[0]?.message ?? "unknown"}`,
+        });
+      }
+
+      const imported: string[] = [];
+      const errors: { row: number; reason: string }[] = [];
+      const standardKeys = new Set([
+        "type",
+        "language",
+        "weeks_to_run",
+        "billing_reference",
+      ]);
+      const numericKeys = new Set([
+        "age",
+        "year",
+        "kilometers",
+        "expected_price",
+        "asking_price",
+        "rent_amount",
+      ]);
+      const arrayKeys = new Set(["contact_phones", "sender_names"]);
+
+      for (let i = 0; i < parsed.data.length; i += 1) {
+        const row = parsed.data[i] ?? {};
+        const rowNum = i + 1;
+        try {
+          const type = (row["type"] ?? "").trim() as ClassifiedType;
+          if (!type) {
+            errors.push({ row: rowNum, reason: "missing `type`" });
+            continue;
+          }
+          const language = ((row["language"] ?? "en").trim() || "en") as "en" | "hi";
+          const weeksToRun = Number(row["weeks_to_run"]) || 1;
+          const billingReference = row["billing_reference"]?.trim() || null;
+
+          const fields: Record<string, unknown> = {};
+          for (const [k, v] of Object.entries(row)) {
+            if (standardKeys.has(k)) continue;
+            if (v === undefined || v === null) continue;
+            const trimmed = String(v).trim();
+            if (trimmed === "") continue;
+            if (numericKeys.has(k)) {
+              const n = Number(trimmed);
+              if (!Number.isNaN(n)) fields[k] = n;
+            } else if (arrayKeys.has(k)) {
+              fields[k] = trimmed
+                .split(/[;,]/)
+                .map((s) => s.trim())
+                .filter((s) => s.length > 0);
+            } else {
+              fields[k] = trimmed;
+            }
+          }
+
+          const validation = validateClassified(type, fields);
+          if (!validation.ok) {
+            const issues = validation.issues
+              .map((iss) => `${iss.path.join(".") || "(root)"}: ${iss.message}`)
+              .join("; ");
+            errors.push({ row: rowNum, reason: issues });
+            continue;
+          }
+
+          const id = randomUUID();
+          const now = nowISO();
+          await db
+            .insertInto("classifieds")
+            .values({
+              id,
+              issue_id: payload.issueId,
+              type,
+              language,
+              weeks_to_run: weeksToRun,
+              photo_blob_hash: null,
+              fields_json: JSON.stringify(fields),
+              billing_reference: billingReference,
+              created_at: now,
+              updated_at: now,
+            })
+            .execute();
+          imported.push(id);
+        } catch (err) {
+          errors.push({ row: rowNum, reason: err instanceof Error ? err.message : String(err) });
+        }
+      }
+
+      return { imported: imported.length, errors };
+    }
+  );
 }

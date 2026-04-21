@@ -40,17 +40,26 @@ async function fetchWikipediaPlainText(title: string): Promise<string> {
   return words.slice(0, 2500).join(" ");
 }
 
-async function plainTextToDocx(plain: string, headline: string, outPath: string): Promise<void> {
+async function plainTextToDocx(
+  plain: string,
+  headline: string,
+  outPath: string,
+  heroImagePath?: string
+): Promise<void> {
   // Produce a clean HTML page with a single H1 + paragraphs, then run pandoc
   // to convert it to .docx. Result is a normal Word doc, not a markdown doc.
   const paragraphs = plain
     .split(/\n\s*\n/)
     .map((p) => p.trim())
     .filter(Boolean);
+  const heroTag = heroImagePath
+    ? `<p><img src="${heroImagePath}" alt="Hero image"></p>`
+    : "";
   const html = `<!DOCTYPE html><html><head><meta charset="utf-8"><title>${escapeHtml(headline)}</title></head><body>
 <h1>${escapeHtml(headline)}</h1>
 <p><em>A Wikipedia-sourced article converted for end-to-end testing of Forme's PPTX builder.</em></p>
 <p><strong>By QA Harness</strong></p>
+${heroTag}
 ${paragraphs.map((p) => `<p>${escapeHtml(p)}</p>`).join("\n")}
 </body></html>`;
 
@@ -98,19 +107,35 @@ async function main() {
   await fs.mkdir(ADS_DIR, { recursive: true });
   await fs.mkdir(CLASSIFIEDS_DIR, { recursive: true });
 
-  // Articles
-  for (const a of WIKI_ARTICLES) {
+  // Generate a sample hero image once — 2000×1200 landscape, the first
+  // article's docx embeds it so we can exercise the hero-image path end-to-end.
+  const heroImagePath = path.join(ARTICLES_DIR, "_hero.png");
+  if (!(await exists(heroImagePath))) {
+    await makeAdImage(
+      "Chandrayaan-3",
+      "On the surface. For the first time.",
+      2000,
+      1200,
+      "#1A3A5C",
+      heroImagePath
+    );
+    console.log(`  hero → ${heroImagePath}`);
+  }
+
+  // Articles — always rewrite so fixture fields (hero image, byline) stay in
+  // sync with the latest docx layout.
+  for (let i = 0; i < WIKI_ARTICLES.length; i += 1) {
+    const a = WIKI_ARTICLES[i]!;
     const outPath = path.join(ARTICLES_DIR, `${a.slug}.docx`);
-    if (await exists(outPath)) {
-      console.log(`✓ ${outPath} (cached)`);
-      continue;
-    }
     console.log(`Fetching ${a.title}…`);
     try {
       const text = await fetchWikipediaPlainText(a.title);
-      await plainTextToDocx(text, a.title.replace(/_/g, " "), outPath);
+      // Only the first article gets a hero image — keeps the test matrix
+      // small while still exercising the path.
+      const hero = i === 0 ? heroImagePath : undefined;
+      await plainTextToDocx(text, a.title.replace(/_/g, " "), outPath, hero);
       const stat = await fs.stat(outPath);
-      console.log(`  → ${outPath} (${stat.size} bytes)`);
+      console.log(`  → ${outPath} (${stat.size} bytes${hero ? " — includes hero" : ""})`);
     } catch (e) {
       console.error(`  FAIL ${a.title}:`, e);
     }
@@ -133,21 +158,95 @@ async function main() {
     console.log(`  ad → ${p} (${stat.size} bytes)`);
   }
 
-  // Classifieds — small CSV with a few representative types.
+  // Classifieds — sparse-column CSV with one row per representative type.
+  // Column rule (matches classified:import-csv handler):
+  //   - type, language, weeks_to_run, billing_reference are reserved
+  //   - any other column becomes a field on the classified, with these
+  //     special-cased: age/year/kilometers as numbers, contact_phones +
+  //     sender_names as comma-separated arrays.
+  // Empty cells are skipped, so each row only fills the columns its type
+  // actually needs. Operators can keep this in Excel — it's the same idea.
   const csvPath = path.join(CLASSIFIEDS_DIR, "sample.csv");
-  if (!(await exists(csvPath))) {
-    const csv = [
-      "type,title,body,contact,weeks_to_run",
-      'matrimonial_no_photo,"Match sought — Delhi MBA","Well-educated Delhi family seeks suitable match for their daughter, 29, working in finance. Preferred partner: well-settled, graduate, non-smoker.",+91-98100-00000,1',
-      'obituary,"In loving memory of R. Sharma","R. Sharma (1942–2026) passed away peacefully at home on 18 April. Survived by his wife Meena and two daughters. Prayers at Lodhi Crematorium, 23 April, 11 AM.",+91-98101-11111,1',
-      'public_notice,"Change of name — A. K. Verma","I, Anand Kumar Verma, son of late S. K. Verma, resident of Sector 21, Noida, have changed my name to Anand Verma. Affidavit dated 10 April 2026.",+91-98102-22222,2',
-      'property_rent,"2BHK Lodhi Estate","Ground-floor 2BHK in Lodhi Estate, unfurnished, park facing. Rent ₹65,000/month. Available May 1. Brokers excuse.",+91-98103-33333,4',
-      'vehicles,"2021 Mahindra XUV300","Single owner, 32,000 km, full service history, petrol, manual. Priced at ₹8.5 lakh, neg. Sold as-is.",+91-98104-44444,2',
-    ].join("\n");
+  // Always rewrite — schema may have changed since last gen.
+  {
+    const headers = [
+      "type",
+      "language",
+      "weeks_to_run",
+      "name",
+      "age",
+      "location",
+      "religion_community",
+      "education",
+      "occupation",
+      "contact_name",
+      "contact_phones",
+      "name_of_deceased",
+      "date_of_death",
+      "life_summary",
+      "surviving_family",
+      "prayer_meeting",
+      "notice_type",
+      "notice_text",
+      "published_by",
+      "date",
+      "make",
+      "model",
+      "year",
+      "kilometers",
+      "fuel_type",
+      "expected_price",
+    ];
+    const rows: string[][] = [
+      [
+        "matrimonial_no_photo", "en", "2",
+        "Aanya Sharma", "29", "Delhi", "Hindu", "MBA Finance", "Investment banker",
+        "Mrs. Sharma", "+91-98100-00000",
+        "", "", "", "", "",
+        "", "", "", "",
+        "", "", "", "", "", "",
+      ],
+      [
+        "obituary", "en", "1",
+        "", "", "", "", "", "", "", "",
+        "R. Sharma", "2026-04-18",
+        "A printer, teacher, and community organizer who spent forty years at the local press.",
+        "Wife Meena, two daughters, five grandchildren.",
+        "Lodhi Crematorium, 23 April 2026, 11 AM.",
+        "", "", "", "",
+        "", "", "", "", "", "",
+      ],
+      [
+        "public_notice", "en", "2",
+        "", "", "", "", "", "", "", "",
+        "", "", "", "", "",
+        "name_change",
+        "I, Anand Kumar Verma, son of late S. K. Verma, resident of Sector 21, Noida, have changed my name to Anand Verma. Affidavit dated 10 April 2026.",
+        "Anand Verma", "2026-04-10",
+        "", "", "", "", "", "",
+      ],
+      [
+        "vehicles", "en", "2",
+        "", "", "Lodhi Colony", "", "", "", "", "+91-98104-44444",
+        "", "", "", "", "",
+        "", "", "", "",
+        "Mahindra", "XUV300", "2021", "32000", "petrol", "₹8.5 lakh, neg.",
+      ],
+    ];
+    const csv =
+      headers.join(",") +
+      "\n" +
+      rows
+        .map((r) =>
+          r
+            .map((cell) =>
+              /[",\n]/.test(cell) ? `"${cell.replace(/"/g, '""')}"` : cell
+            )
+            .join(",")
+        )
+        .join("\n");
     await fs.writeFile(csvPath, csv);
     console.log(`  csv → ${csvPath} (${csv.length} bytes)`);
-  } else {
-    console.log(`✓ ${csvPath} (cached)`);
   }
 
   console.log("\nfixtures ready under:", FIXTURES);

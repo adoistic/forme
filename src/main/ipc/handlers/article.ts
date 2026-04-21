@@ -74,34 +74,6 @@ export function registerArticleHandlers(): void {
 
     const parsed = await parseDocx(buf);
 
-    for (const img of parsed.images) {
-      try {
-        const ingested = await ingestImage({
-          filename: payload.filename,
-          buffer: img.bytes,
-        });
-        const hash = await blobs.writeBuffer(ingested.bytes);
-        await db
-          .insertInto("images")
-          .values({
-            blob_hash: hash,
-            filename: payload.filename,
-            mime_type: ingested.mimeType,
-            width: ingested.width,
-            height: ingested.height,
-            dpi: ingested.dpi,
-            color_mode: ingested.color_mode,
-            size_bytes: ingested.size_bytes,
-            imported_at: nowISO(),
-            tags_json: null,
-          })
-          .onConflict((oc) => oc.column("blob_hash").doNothing())
-          .execute();
-      } catch {
-        // best-effort: skip bad images, they don't block the article
-      }
-    }
-
     const id = randomUUID();
     const now = nowISO();
     const language = parsed.language ?? detectLanguage(parsed.body);
@@ -125,6 +97,50 @@ export function registerArticleHandlers(): void {
         updated_at: now,
       })
       .execute();
+
+    // Now link each embedded image into the article_images join. First image
+    // becomes the hero (rendered on page 1 of the article by the PPTX
+    // builder); subsequent ones are marked "inline" for future use.
+    let position = 0;
+    for (const img of parsed.images) {
+      try {
+        const ingested = await ingestImage({
+          filename: payload.filename,
+          buffer: img.bytes,
+        });
+        const hash = await blobs.writeBuffer(ingested.bytes);
+        await db
+          .insertInto("images")
+          .values({
+            blob_hash: hash,
+            filename: payload.filename,
+            mime_type: ingested.mimeType,
+            width: ingested.width,
+            height: ingested.height,
+            dpi: ingested.dpi,
+            color_mode: ingested.color_mode,
+            size_bytes: ingested.size_bytes,
+            imported_at: nowISO(),
+            tags_json: null,
+          })
+          .onConflict((oc) => oc.column("blob_hash").doNothing())
+          .execute();
+        await db
+          .insertInto("article_images")
+          .values({
+            article_id: id,
+            blob_hash: hash,
+            position,
+            caption: null,
+            role: position === 0 ? "hero" : "inline",
+          })
+          .onConflict((oc) => oc.columns(["article_id", "blob_hash", "position"]).doNothing())
+          .execute();
+        position += 1;
+      } catch {
+        // best-effort: skip bad images, they don't block the article
+      }
+    }
 
     return {
       id,
