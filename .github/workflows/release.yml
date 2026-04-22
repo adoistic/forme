@@ -1,0 +1,95 @@
+# Release — builds an unsigned macOS arm64 DMG and attaches it to
+# the GitHub Release for the matching tag.
+#
+# Trigger: pushing a tag matching `v*.*.*` (e.g. v0.6, v0.6.1).
+# Manual: Actions tab → Release → Run workflow → tag name.
+#
+# Code signing + notarization is NOT done here yet (no Apple Developer
+# ID configured). Adding it later will mean: (1) putting the .p12 + key
+# password into repo secrets, (2) adding `mac.identity` env to electron-
+# builder, (3) the `dist:notarized` script in package.json runs instead.
+# Until then, the DMG is unsigned and Gatekeeper will require right-
+# click → Open on first launch.
+
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*.*.*"
+      - "v*.*"
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Release tag (e.g. v0.6.0)"
+        required: true
+        type: string
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  build-dmg:
+    name: Build macOS arm64 DMG
+    runs-on: macos-14
+    timeout-minutes: 30
+    permissions:
+      contents: write   # gh release upload
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+        with:
+          ref: ${{ github.event.inputs.tag || github.ref }}
+
+      - name: Set up Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+
+      - name: Typecheck
+        run: bun run typecheck
+
+      - name: Build renderer + main
+        run: bun run build
+
+      - name: Rebuild native modules for Electron
+        run: bun run rebuild:electron
+
+      - name: Build DMG (unsigned)
+        run: bun run dist
+        env:
+          # Tell electron-builder explicitly: do not try to sign or notarize.
+          CSC_IDENTITY_AUTO_DISCOVERY: "false"
+
+      - name: List build output
+        run: ls -lh release-builds/
+
+      - name: Resolve tag name
+        id: tag
+        run: |
+          if [ -n "${{ github.event.inputs.tag }}" ]; then
+            echo "name=${{ github.event.inputs.tag }}" >> "$GITHUB_OUTPUT"
+          else
+            echo "name=${GITHUB_REF#refs/tags/}" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Upload DMG to GitHub Release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          # Create the release if it doesn't exist yet (workflow_dispatch path),
+          # otherwise just attach the DMG to the existing one.
+          if ! gh release view "${{ steps.tag.outputs.name }}" >/dev/null 2>&1; then
+            gh release create "${{ steps.tag.outputs.name }}" \
+              --title "${{ steps.tag.outputs.name }}" \
+              --notes "Automated build. See README for what's in this release." \
+              --draft=false
+          fi
+          gh release upload "${{ steps.tag.outputs.name }}" \
+            release-builds/Forme-*-arm64.dmg \
+            --clobber
