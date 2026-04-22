@@ -88,10 +88,33 @@ export async function preLayoutArticleBody(
     return pretext.measureLineStats(prepared, measureColPx).lineCount;
   };
 
-  const rawParagraphs = input.body
+  const sourceParagraphs = input.body
     .split(/\n{2,}/)
     .map((p) => p.replace(/\s+/g, " ").trim())
     .filter((p) => p.length > 0);
+
+  // Wikipedia plaintext (and many other sources) sometimes has a single
+  // 10K-char paragraph for the entire article body. Magazine readers
+  // expect visible paragraph breaks every few sentences. Split any
+  // paragraph longer than 5 sentences into chunks of 3-5 sentences each.
+  // Sentence boundaries: . ! ? (Latin), । (Devanagari), 。 (CJK), ؟ (Arabic).
+  const SENTENCES_PER_PARAGRAPH = 4;
+  const SENTENCE_BOUNDARY = /(?<=[.!?।。؟])\s+|(?<=।)/;
+  const rawParagraphs: string[] = [];
+  for (const p of sourceParagraphs) {
+    const sentences = p
+      .split(SENTENCE_BOUNDARY)
+      .map((s) => s.trim())
+      .filter((s) => s.length > 0);
+    if (sentences.length <= SENTENCES_PER_PARAGRAPH + 1) {
+      rawParagraphs.push(p);
+      continue;
+    }
+    for (let i = 0; i < sentences.length; i += SENTENCES_PER_PARAGRAPH) {
+      const chunk = sentences.slice(i, i + SENTENCES_PER_PARAGRAPH).join(" ");
+      if (chunk.length > 0) rawParagraphs.push(chunk);
+    }
+  }
 
   // Belt-and-braces line-count: take pretext's measurement, but floor it
   // to a character-width estimate so a paragraph never reports 0 lines
@@ -118,22 +141,31 @@ export async function preLayoutArticleBody(
     return { text: p, lines: Math.max(measuredLines, fallback) };
   });
 
-  // Pack paragraphs into columns. The visual paragraph gap PowerPoint
-  // renders is paraSpaceAfter (≈ 0.4 × leading), not a full line. Counting
-  // a full line per gap caused col 1 to "fill" after only 3 short
-  // paragraphs while col 2 ran 8 lines longer. Use 0 — the leading itself
-  // gives enough breathing room between paragraphs.
-  const PARAGRAPH_GAP_LINES = 0;
+  // PARAGRAPH_GAP_PT is the actual vertical space PowerPoint will emit
+  // between paragraphs (paraSpaceAfter, in points). The packer subtracts
+  // it from per-col capacity for every paragraph break — that way the
+  // visual line-count and the math agree to a single point.
+  //
+  // The user's mental model: emit an empty 4pt-high "spacer paragraph"
+  // between every two real paragraphs. We do exactly that visually
+  // (PowerPoint renders paraSpaceAfter as the gap). 4pt is small enough
+  // to read as paragraph break without making cols look loose.
+  const PARAGRAPH_GAP_PT = 4;
+  const PARAGRAPH_GAP_LINES = PARAGRAPH_GAP_PT / input.bodyLeadingPt;
   const pages: string[][][] = [];
   let pageIdx = 0;
   let pendingParagraph: MeasuredParagraph | null = null;
 
   // Helper to compute remaining body lines (used to detect the LAST page
-  // and balance its columns instead of fill-greedy).
+  // and balance its columns instead of fill-greedy). Includes the
+  // paragraph-gap overhead so the balancer's target is honest.
   const remainingLines = (): number => {
     const pendingLn = pendingParagraph?.lines ?? 0;
     const measuredLn = measured.reduce((acc, m) => acc + m.lines, 0);
-    return pendingLn + measuredLn;
+    const paraCount =
+      (pendingParagraph ? 1 : 0) + measured.length;
+    const gapOverhead = Math.max(0, paraCount - 1) * PARAGRAPH_GAP_LINES;
+    return pendingLn + measuredLn + gapOverhead;
   };
 
   while (
@@ -141,10 +173,8 @@ export async function preLayoutArticleBody(
     (pendingParagraph !== null || measured.length > 0)
   ) {
     const heightIn = input.pageBodyHeightsIn[pageIdx] ?? 0;
-    const fullLinesPerCol = Math.max(
-      1,
-      Math.floor((heightIn * PT_PER_INCH) / input.bodyLeadingPt)
-    );
+    const fullLinesPerCol =
+      (heightIn * PT_PER_INCH) / input.bodyLeadingPt;
 
     // Last-page detection: if all remaining content fits within one
     // page's worth of capacity (colCount × fullLinesPerCol), we're on
@@ -153,21 +183,30 @@ export async function preLayoutArticleBody(
     // packer fills col 1 to capacity and col 3 ends up much shorter.
     const remaining = remainingLines();
     const onLastPage = remaining <= fullLinesPerCol * input.columnCount;
-    // For balancing: target = ceil(remaining / colCount), capped by
-    // capacity. +1 line of slack so we don't lose content to rounding.
     const balancedTarget = Math.min(
       fullLinesPerCol,
-      Math.ceil(remaining / input.columnCount) + 1
+      remaining / input.columnCount + 0.5 // half-line of slack
     );
     const linesPerCol = onLastPage ? balancedTarget : fullLinesPerCol;
+    // On balanced pages, allow the packer to overshoot the target by up
+    // to 35% of it (or 4 lines, whichever is larger) before splitting.
+    // Without this, cols 2 underfills any time the next paragraph won't
+    // fit exactly — col 3 then ends up TALLER than col 2. Allowing
+    // overshoot trades a tiny imbalance for a much more even visual.
+    const overshoot = onLastPage
+      ? Math.max(4, linesPerCol * 0.35)
+      : 0;
 
     const cols: string[][] = [];
     for (let c = 0; c < input.columnCount; c += 1) {
       const col: string[] = [];
       let used = 0;
+      const isLastCol = c === input.columnCount - 1;
+      // Last col on the last page absorbs ANY remaining content.
+      const colCap = isLastCol && onLastPage ? Infinity : linesPerCol + overshoot;
 
       if (pendingParagraph) {
-        const fit = fitParagraph(pendingParagraph, linesPerCol - used, measure);
+        const fit = fitParagraph(pendingParagraph, colCap - used, measure);
         if (fit.fitting) {
           col.push(fit.fitting.text);
           used += fit.fitting.lines + PARAGRAPH_GAP_LINES;
@@ -175,18 +214,27 @@ export async function preLayoutArticleBody(
         pendingParagraph = fit.rest;
       }
 
-      while (used < linesPerCol && measured.length > 0 && !pendingParagraph) {
+      while (used < colCap && measured.length > 0 && !pendingParagraph) {
         const next = measured[0]!;
-        if (next.lines + (col.length > 0 ? PARAGRAPH_GAP_LINES : 0) <= linesPerCol - used) {
+        const gap = col.length > 0 ? PARAGRAPH_GAP_LINES : 0;
+        const projected = used + next.lines + gap;
+        // Acceptance rules (in priority order):
+        //   1) Last col on last page: take everything (the only place
+        //      we let cols overflow with no cap)
+        //   2) Otherwise: fits inside cap (target + overshoot)
+        //   3) Otherwise: split at sentence boundary
+        const acceptWhole =
+          (isLastCol && onLastPage) || projected <= colCap;
+        if (acceptWhole) {
           measured.shift();
           col.push(next.text);
-          used += next.lines + PARAGRAPH_GAP_LINES;
+          used += next.lines + gap;
         } else {
           measured.shift();
-          const fit = fitParagraph(next, linesPerCol - used, measure);
+          const fit = fitParagraph(next, colCap - used, measure);
           if (fit.fitting) {
             col.push(fit.fitting.text);
-            used += fit.fitting.lines + PARAGRAPH_GAP_LINES;
+            used += fit.fitting.lines + gap;
           }
           pendingParagraph = fit.rest;
         }
@@ -258,17 +306,29 @@ function fitParagraph(
   }
 
   if (!acc) {
-    // Even one sentence overflows the available space. Push the whole
-    // paragraph to the next column and let it use a full column there.
+    // Even one sentence overflows the available space. If we have at
+    // least HALF the column free, take the first sentence anyway and
+    // accept the small overflow — better than leaving a 30%-empty col
+    // because the next paragraph couldn't be cleanly split. If we have
+    // less than half free, push the paragraph to the next column.
+    if (linesAvailable >= 4 && sentences.length > 0) {
+      const firstSentence = sentences[0]!;
+      const firstLines = measure(firstSentence);
+      const restText = sentences.slice(1).join(" ").trim();
+      return {
+        fitting: { text: firstSentence, lines: firstLines },
+        rest: restText
+          ? { text: restText, lines: measure(restText) }
+          : null,
+      };
+    }
     return { fitting: null, rest: para };
   }
 
   const rest = sentences.slice(i).join(" ").trim();
   return {
     fitting: { text: acc, lines: accLines },
-    rest: rest
-      ? { text: rest, lines: measure(rest) }
-      : null,
+    rest: rest ? { text: rest, lines: measure(rest) } : null,
   };
 }
 

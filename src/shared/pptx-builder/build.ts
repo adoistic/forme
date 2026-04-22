@@ -871,21 +871,21 @@ function addPlacementSlides(
     //     pretext-driven splitting.
     if (pageColumns) {
       const cols = pageColumns[pageIdx] ?? [];
-      // Print-style paragraphs: tight set with a first-line indent on
-      // every paragraph EXCEPT the first one in a column. PowerPoint
-      // doesn't expose a "first-line-indent" knob in pptxgenjs, so we
-      // prepend a tab character — PowerPoint renders the default tab
-      // stop at ~0.5", which gives a magazine-y indent. paraSpaceAfter
-      // drops to ~0 because the indent itself signals the new paragraph.
-      const INDENT = "\u00A0\u00A0\u00A0"; // three non-breaking spaces ≈ 1em indent
+      // Print-style paragraphs: visible inter-paragraph gap (paraSpaceAfter
+      // = 4pt — must match PARAGRAPH_GAP_PT in the prelayout for the
+      // line-count math to agree to the point), plus a first-line indent
+      // on every paragraph except the first in a column. PowerPoint
+      // doesn't expose a first-line-indent knob in pptxgenjs, so we
+      // prepend three non-breaking spaces (~1em).
+      const INDENT = "\u00A0\u00A0\u00A0";
+      const PARA_GAP_PT = 4;
       for (let col = 0; col < columnCount; col += 1) {
         const paragraphs = cols[col] ?? [];
         if (paragraphs.length === 0) continue;
         const colX = marginLeft + col * (columnWidth + gutterIn);
         // Indent every paragraph except the first in the column. The
         // continuation paragraph at the top of cols 2/3 also gets no
-        // indent — it's the visual continuation of col 1's last
-        // paragraph from the operator's reading flow's POV.
+        // indent — it visually continues from col 1.
         const styled = paragraphs.map((p, i) => (i === 0 ? p : INDENT + p));
         slide.addText(styled.join("\n"), {
           x: colX,
@@ -898,9 +898,7 @@ function addPlacementSlides(
           color: "1A1A1A",
           valign: "top",
           align: "justify",
-          // Tight set — paragraph break is signaled by the first-line
-          // indent, not by extra vertical space.
-          paraSpaceAfter: 0,
+          paraSpaceAfter: PARA_GAP_PT,
         });
       }
     } else {

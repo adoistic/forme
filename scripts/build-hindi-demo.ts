@@ -82,6 +82,18 @@ async function main() {
       },
     });
 
+    // Diagnostic: print col line counts per page
+    console.log(`  prelaid pages: ${prelaidPages.length}`);
+    prelaidPages.forEach((cols, p) => {
+      const sizes = cols.map((c) => {
+        // Rough line estimate: split by space, divide by ~6 words/line
+        return c.reduce((acc, para) => {
+          return acc + Math.max(1, Math.ceil(para.length / 30));
+        }, 0);
+      });
+      console.log(`    page ${p + 1}: cols ~ [${sizes.join(", ")}] lines (paras [${cols.map(c => c.length).join(", ")}])`);
+    });
+
     placements.push({
       articleId: a.slug,
       template: featureTemplate,
