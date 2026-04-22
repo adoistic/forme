@@ -45,7 +45,7 @@ These are real, the operator will hit them; they're listed honestly so v0.5 isn'
 
 - **v0.6** — close gaps 1–5 above (hero upload, CSV docs, drag-reorder, manual ad placement, save-as dialog). These are the operator's daily friction.
 - **v0.7** — poetry layouts (3+ templates) and side-image article layouts. This is the brainstorm in flight.
-- **v0.8** — code-signed + notarized macOS DMG. Windows is in `TODOS.md` for v1.x.
+- **v0.8** — distribution hardening: code-signed + notarized macOS DMG, plus App Sandbox + Hardened Runtime + entitlements (shipped together — sandbox issues only surface in signed builds). Windows is in `TODOS.md` for v1.x.
 
 ---
 

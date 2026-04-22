@@ -100,6 +100,44 @@ These are the issues the operator hits in normal use of the v0.5 build. Order is
 
 ---
 
+## v0.8 — distribution hardening
+
+### [P1] Code-signed + notarized macOS DMG
+
+**What:** Acquire an Apple Developer ID Application certificate, add the cert + Apple ID + app-specific password as repo secrets (`MAC_CSC_LINK`, `MAC_CSC_KEY_PASSWORD`, `APPLE_ID`, `APPLE_APP_SPECIFIC_PASSWORD`, `APPLE_TEAM_ID`), set `mac.identity` in `package.json` to the cert's common name, and switch the release workflow's build step from `bun run dist` to `bun run dist:notarized`. The `dist:notarized` script is already wired (`-c.mac.notarize=true`).
+
+**Why:** The v0.5 unsigned DMG triggers Gatekeeper on first launch — operator has to right-click → Open. For non-technical operators (the entire target audience), this is a real onboarding failure: they'll think the app is broken or unsafe. Code-signing + notarization removes the warning entirely.
+
+**Pros:** First-launch experience matches every other commercial Mac app. Required to ship to a non-technical buyer with confidence. Apple's notary service rejects malware-pattern binaries — a passive QC layer.
+
+**Cons:** Apple Developer Program is $99/yr. Notarization adds ~5 min to the release pipeline. CSC_LINK rotation procedure is non-obvious and needs a runbook.
+
+**Effort:** S (human ~half-day to set up cert + secrets + first signed build / CC ~2h to wire the workflow).
+
+**Priority:** P1 for v0.8.
+
+**Depends on:** Apple Developer ID enrollment (out-of-band).
+
+---
+
+### [P1] macOS App Sandbox + Hardened Runtime + entitlements
+
+**What:** Move Forme into the macOS App Sandbox. Specifically: enable Hardened Runtime in `package.json` (`mac.hardenedRuntime: true`), write `build-resources/entitlements.mac.plist` with the minimum capabilities the runtime actually needs (file read/write inside `~/Library/Application Support/forme` + `~/Documents/Forme`, user-selected file read for .docx import + image upload, no outbound network), set `mac.entitlements` to point at it, and rebuild + verify each subsystem still works (better-sqlite3 file I/O, sharp image decoding, `@napi-rs/canvas` font registration, Electron's IPC).
+
+**Why:** Today Forme runs as a normal user-tier process — it can read anywhere the operator can. That's fine for a single-operator dev preview but it's not the security posture a published app should ship with. Sandboxing means a compromised renderer can't leak the user's files outside Forme's own data dirs. Pairs naturally with notarization (which Apple recommends for any signed Mac app).
+
+**Pros:** Proper macOS app citizenship. Sandbox + Hardened Runtime + Notarization = the same security tier as App Store apps without going through the Store. Reduces the blast radius of any future renderer-side bug.
+
+**Cons:** Native modules don't all play nicely with the Sandbox out-of-the-box. `sharp` (libvips) and `better-sqlite3` typically need `com.apple.security.cs.allow-unsigned-executable-memory` or `com.apple.security.cs.allow-jit` entitlements; `@napi-rs/canvas` may need `disable-library-validation`. Each entitlement is a research item — get the wrong combination and the app crashes on launch with no visible error in production. End-to-end verification needs the signed + notarized build, which means the CI release workflow has to land first.
+
+**Effort:** M (human ~3-4d / CC ~2d). Most of the cost is empirical: build → notarize → install → debug crash → adjust entitlements → repeat. Easier on a dev machine with Console.app open to watch the entitlements failures.
+
+**Priority:** P1 for v0.8 (paired with signing).
+
+**Depends on:** Code-signing + notarization shipping first (sandbox issues only manifest in signed builds, so we need a working signing pipeline to debug them).
+
+---
+
 ## Strategic v1.1 candidates
 
 ### [P2] Voice intake for classifieds (Whisper + LLM extraction)
