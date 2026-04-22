@@ -3,7 +3,11 @@
 // which routes to the registered handler on the main side.
 
 import type { Language } from "@shared/schemas/language.js";
-import type { ContentType, BylinePosition } from "@shared/schemas/article.js";
+import type {
+  ContentType,
+  BylinePosition,
+  HeroPlacement,
+} from "@shared/schemas/article.js";
 import type {
   ClassifiedType,
   FieldsFor,
@@ -54,6 +58,10 @@ export interface ArticleSummary {
   deck: string | null;
   byline: string | null;
   bylinePosition: BylinePosition;
+  heroPlacement: HeroPlacement;
+  heroCaption: string | null;
+  heroCredit: string | null;
+  section: string | null;
   language: Language;
   wordCount: number;
   contentType: ContentType;
@@ -66,6 +74,11 @@ export interface UpdateArticleInput {
   deck?: string | null;
   byline?: string | null;
   bylinePosition?: BylinePosition;
+  heroPlacement?: HeroPlacement;
+  heroCaption?: string | null;
+  heroCredit?: string | null;
+  section?: string | null;
+  contentType?: ContentType;
 }
 
 // ---- Classifieds ----

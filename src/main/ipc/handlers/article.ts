@@ -9,7 +9,11 @@ import type {
   ImportDocxInput,
   UpdateArticleInput,
 } from "@shared/ipc-contracts/channels.js";
-import type { ContentType, BylinePosition } from "@shared/schemas/article.js";
+import type {
+  ContentType,
+  BylinePosition,
+  HeroPlacement,
+} from "@shared/schemas/article.js";
 
 function nowISO(): string {
   return new Date().toISOString();
@@ -22,11 +26,20 @@ type ArticleRow = {
   deck: string | null;
   byline: string | null;
   byline_position: string;
+  hero_placement: string;
+  hero_caption: string | null;
+  hero_credit: string | null;
+  section: string | null;
   language: string;
   word_count: number;
   content_type: string;
   created_at: string;
 };
+
+function normalizeHeroPlacement(s: string | null | undefined): HeroPlacement {
+  if (s === "above-headline" || s === "full-bleed") return s;
+  return "below-headline";
+}
 
 function rowToSummary(row: ArticleRow): ArticleSummary {
   return {
@@ -36,6 +49,10 @@ function rowToSummary(row: ArticleRow): ArticleSummary {
     deck: row.deck,
     byline: row.byline,
     bylinePosition: (row.byline_position === "end" ? "end" : "top") as BylinePosition,
+    heroPlacement: normalizeHeroPlacement(row.hero_placement),
+    heroCaption: row.hero_caption,
+    heroCredit: row.hero_credit,
+    section: row.section,
     language: row.language as ArticleSummary["language"],
     wordCount: row.word_count,
     contentType: row.content_type as ContentType,
@@ -50,6 +67,10 @@ const SUMMARY_COLUMNS = [
   "deck",
   "byline",
   "byline_position",
+  "hero_placement",
+  "hero_caption",
+  "hero_credit",
+  "section",
   "language",
   "word_count",
   "content_type",
@@ -87,6 +108,10 @@ export function registerArticleHandlers(): void {
         deck: parsed.deck,
         byline: parsed.byline,
         byline_position: parsed.byline_position,
+        hero_placement: "below-headline",
+        hero_caption: null,
+        hero_credit: null,
+        section: null,
         body: parsed.body,
         language,
         word_count: parsed.word_count,
@@ -149,6 +174,10 @@ export function registerArticleHandlers(): void {
       deck: parsed.deck,
       byline: parsed.byline,
       bylinePosition: parsed.byline_position,
+      heroPlacement: "below-headline",
+      heroCaption: null,
+      heroCredit: null,
+      section: null,
       language,
       wordCount: parsed.word_count,
       contentType: "Article",
@@ -164,6 +193,12 @@ export function registerArticleHandlers(): void {
     if (payload.byline !== undefined) patch["byline"] = payload.byline;
     if (payload.bylinePosition !== undefined)
       patch["byline_position"] = payload.bylinePosition;
+    if (payload.heroPlacement !== undefined)
+      patch["hero_placement"] = payload.heroPlacement;
+    if (payload.heroCaption !== undefined) patch["hero_caption"] = payload.heroCaption;
+    if (payload.heroCredit !== undefined) patch["hero_credit"] = payload.heroCredit;
+    if (payload.section !== undefined) patch["section"] = payload.section;
+    if (payload.contentType !== undefined) patch["content_type"] = payload.contentType;
 
     await db.updateTable("articles").set(patch).where("id", "=", payload.id).execute();
 

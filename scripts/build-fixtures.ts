@@ -74,6 +74,14 @@ const WIKI_ARTICLES: WikiArticleSpec[] = [
     credit: "Lorem Picsum",
     caption: "The blue mountains, viewed from the rack-and-pinion line.",
   },
+  {
+    slug: "ladakh-feature",
+    title: "Ladakh",
+    contentType: "Photo Essay",
+    heroSeed: "forme-ladakh",
+    credit: "Lorem Picsum",
+    caption: "High-altitude desert. The light at 3,500m never quite finishes settling.",
+  },
 ];
 
 async function fetchWikipediaPlainText(title: string): Promise<string> {

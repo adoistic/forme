@@ -25,6 +25,10 @@ export interface ArticlesTable {
   deck: string | null;
   byline: string | null;
   byline_position: "top" | "end"; // most pieces: top; editorials/wire: end
+  hero_placement: "below-headline" | "above-headline" | "full-bleed";
+  hero_caption: string | null;
+  hero_credit: string | null;
+  section: string | null; // section override for the running header
   body: string; // full body text (plain or markdown)
   language: "en" | "hi" | "bilingual";
   word_count: number;

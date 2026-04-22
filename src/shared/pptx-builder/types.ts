@@ -88,12 +88,15 @@ export interface PptxArticle {
   /** Photographer credit shown in small italic next to the caption. */
   heroCredit?: string;
   /**
-   * Hero placement: "below-headline" (default — hero sits between byline
-   * and body) or "above-headline" (hero is the page-1 dominant element,
-   * full-width across all columns, headline + deck + byline come BELOW
-   * the image). Image-led photo essays use "above-headline".
+   * Hero placement on page 1:
+   *   "below-headline" — default; hero sits between byline and body.
+   *   "above-headline" — hero is the page-1 dominant element above the
+   *                      headline. Image-led photo essay treatment.
+   *   "full-bleed"     — hero fills the entire trim edge-to-edge with
+   *                      headline + deck + byline overlaid in white.
+   *                      Body starts on page 2.
    */
-  heroPlacement?: "below-headline" | "above-headline";
+  heroPlacement?: "below-headline" | "above-headline" | "full-bleed";
   pullQuote?: string;
   /**
    * Pre-broken body lines per page per column, usually produced upstream

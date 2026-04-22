@@ -590,11 +590,112 @@ function addPlacementSlides(
     let bodyStartY = marginTop;
 
     if (isFirstPage) {
-      // Decide hero placement. Image-led ("above-headline") puts the hero
-      // first, full-width, with photographer credit + caption beneath, then
-      // headline + deck + byline below. Headline-led (default) shows
-      // headline → deck → byline → hero → body.
+      // Decide hero placement. Three options:
+      //   below-headline — classic: headline → deck → byline → hero → body
+      //   above-headline — image-led: hero → caption + credit → headline → body
+      //   full-bleed     — image fills the entire trim edge-to-edge,
+      //                    headline + deck + byline overlay the lower
+      //                    third in white. Body starts on page 2.
       const heroPlacement = article.heroPlacement ?? "below-headline";
+
+      // Full-bleed: the image fills the page and the headline overlays.
+      // Body content goes to page 2 onwards (first body slot is empty).
+      if (heroPlacement === "full-bleed" && article.heroImage) {
+        slide.addImage({
+          data: `data:${article.heroImage.mimeType};base64,${article.heroImage.base64}`,
+          x: 0,
+          y: 0,
+          w: trimWidthIn + bleedIn * 2,
+          h: trimHeightIn + bleedIn * 2,
+          sizing: { type: "cover", w: trimWidthIn + bleedIn * 2, h: trimHeightIn + bleedIn * 2 },
+        });
+        // Dark scrim at bottom for text legibility
+        slide.addShape("rect", {
+          x: 0,
+          y: bleedIn + trimHeightIn * 0.55,
+          w: trimWidthIn + bleedIn * 2,
+          h: trimHeightIn * 0.45 + bleedIn,
+          fill: { color: "1A1A1A", transparency: 35 },
+          line: { color: "1A1A1A", width: 0 },
+        });
+        // Section / caption (small white caps) above the headline
+        if (article.section || article.heroCaption) {
+          slide.addText((article.section ?? article.heroCaption ?? "").toUpperCase(), {
+            x: marginLeft,
+            y: bleedIn + trimHeightIn * 0.62,
+            w: pageContentWidth,
+            h: pt2in(14),
+            fontSize: 9,
+            fontFace: sansFont,
+            color: "FEFCF8",
+            charSpacing: 8,
+            bold: true,
+          });
+        }
+        // Headline — large white display centered horizontally on left margin
+        const fbHeadlinePt = Math.max(typ.headline_pt, 56);
+        slide.addText(article.headline, {
+          x: marginLeft,
+          y: bleedIn + trimHeightIn * 0.66,
+          w: pageContentWidth,
+          h: pt2in(fbHeadlinePt * 1.1 * 3),
+          fontSize: fbHeadlinePt,
+          fontFace: displayFont,
+          bold: true,
+          color: "FEFCF8",
+          valign: "top",
+        });
+        // Optional deck under the headline
+        if (article.deck) {
+          slide.addText(article.deck, {
+            x: marginLeft,
+            y: bleedIn + trimHeightIn * 0.85,
+            w: pageContentWidth,
+            h: pt2in((typ.deck_pt ?? 16) * 1.4 * 2),
+            fontSize: typ.deck_pt ?? 16,
+            fontFace: sansFont,
+            italic: true,
+            color: "F5EFE7",
+          });
+        }
+        // Photographer credit, vertical along the right edge in small caps
+        if (article.heroCredit) {
+          slide.addText(`Photograph: ${article.heroCredit}`, {
+            x: marginLeft,
+            y: bleedIn + trimHeightIn - pt2in(20),
+            w: pageContentWidth,
+            h: pt2in(12),
+            fontSize: 7,
+            fontFace: sansFont,
+            color: "F5EFE7",
+            italic: true,
+            charSpacing: 2,
+          });
+        }
+        // Byline (rust caps, white background overlap)
+        if (article.byline && (article.bylinePosition ?? "top") === "top") {
+          slide.addText(article.byline.toUpperCase(), {
+            x: marginLeft,
+            y: bleedIn + trimHeightIn * 0.93,
+            w: pageContentWidth,
+            h: pt2in(14),
+            fontSize: 10,
+            fontFace: sansFont,
+            bold: true,
+            color: "C96E4E",
+            charSpacing: 3,
+          });
+        }
+        // Page furniture suppressed on full-bleed (would conflict with image).
+        if (ctx) {
+          const pageCtx = { ...ctx, pageNumber: ctx.pageNumber + pageIdx };
+          // Folio only, no header — header would overlay the image awkwardly.
+          addPageFurniture(slide, pageCtx, null);
+        }
+        // Skip the rest of the first-page rendering — body starts page 2.
+        bodyStartY = trimHeightIn + bleedIn; // signals "no body on this page"
+        continue;
+      }
 
       let cursorY = marginTop;
 
@@ -681,11 +782,18 @@ function addPlacementSlides(
         cursorY = drawHeroBlock(cursorY);
       }
 
-      // Headline — always reserve space for up to 3 lines, even if the
-      // headline is short. Under-reserving (based on a character-width
-      // estimate) caused the deck to overlap the second headline line.
-      const HEADLINE_LINES = 3;
-      const headlineHeight = pt2in(typ.headline_pt * 1.15) * HEADLINE_LINES;
+      // Headline — estimate visual line count from character width so
+      // short headlines don't reserve excess space. Display fonts run
+      // ~0.55em average, so chars-per-line ≈ pageContentWidth / (pt * 0.55).
+      const headlineCharsPerLine = Math.max(
+        8,
+        Math.floor((pageContentWidth * PT_PER_INCH) / (typ.headline_pt * 0.55))
+      );
+      const headlineLines = Math.min(
+        3,
+        Math.max(1, Math.ceil(article.headline.length / headlineCharsPerLine))
+      );
+      const headlineHeight = pt2in(typ.headline_pt * 1.1 * headlineLines + 4);
       slide.addText(article.headline, {
         x: marginLeft,
         y: cursorY,
@@ -697,26 +805,33 @@ function addPlacementSlides(
         color: "1A1A1A",
         valign: "top",
       });
-      cursorY += headlineHeight + pt2in(8);
+      cursorY += headlineHeight + pt2in(2);
 
-      // Deck (italic sans). Reserve 3 lines — long decks easily wrap to 3
-      // and a 2-line reserve caused the byline to collide with the last
-      // deck line. Short decks just leave a bit of whitespace below.
+      // Deck (italic sans). Estimate from character width so short decks
+      // don't push the byline 80pt down the page.
       if (article.deck) {
-        const DECK_LINES = 3;
-        const deckHeight = pt2in((typ.deck_pt ?? 16) * 1.35 * DECK_LINES);
+        const deckPt = typ.deck_pt ?? 16;
+        const deckCharsPerLine = Math.max(
+          16,
+          Math.floor((pageContentWidth * PT_PER_INCH) / (deckPt * 0.5))
+        );
+        const deckLines = Math.min(
+          4,
+          Math.max(1, Math.ceil(article.deck.length / deckCharsPerLine))
+        );
+        const deckHeight = pt2in(deckPt * 1.3 * deckLines + 4);
         slide.addText(article.deck, {
           x: marginLeft,
           y: cursorY,
           w: pageContentWidth,
           h: deckHeight,
-          fontSize: typ.deck_pt ?? 16,
+          fontSize: deckPt,
           fontFace: sansFont,
           italic: true,
           color: "5C5853",
           valign: "top",
         });
-        cursorY += deckHeight + pt2in(4);
+        cursorY += deckHeight + pt2in(2);
       }
 
       // Byline (small caps sans, rust) — only at top when position is "top".
@@ -734,7 +849,7 @@ function addPlacementSlides(
           charSpacing: 3,
           valign: "top",
         });
-        cursorY += pt2in(14) + pt2in(8);
+        cursorY += pt2in(14) + pt2in(6);
       }
 
       // Headline-led: hero AFTER the byline (default)

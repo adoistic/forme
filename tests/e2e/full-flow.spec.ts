@@ -25,6 +25,7 @@ import { spawn } from "node:child_process";
 const repoRoot = process.cwd();
 const FIXTURES = path.join(repoRoot, "tests/fixtures");
 const ARTICLES = [
+  "ladakh-feature.docx",
   "chandrayaan-3.docx",
   "typography.docx",
   "movable-type.docx",
@@ -78,12 +79,34 @@ test("full flow: create issue → import docs → add classified → upload ad �
   // Success toast proves the IPC round-trip
   await expect(window.getByText(/new issue created/i)).toBeVisible({ timeout: 10_000 });
 
-  // 2) Import 3 Wikipedia articles via the hidden file input ────────
+  // 2) Import 6 Wikipedia articles via the hidden file input ────────
   await window.getByTestId("nav-articles").click();
   await window.getByTestId("import-docx-input").setInputFiles(ARTICLES);
   // Each import round-trips through IPC + blob store + mammoth. Allow time.
   await expect(window.getByText(/imported \d+ article/i)).toBeVisible({
     timeout: 60_000,
+  });
+
+  // 2b) Drive the EditArticleModal to demonstrate operator overrides.
+  // Set the Ladakh feature to a full-bleed image-overlay layout so the
+  // exported PDF includes a third hero variant (in addition to the
+  // headline-led standard feature and the image-led photo essay).
+  const ladakhRow = window
+    .locator('button[data-testid^="article-edit-"]', { hasText: "Ladakh" })
+    .first();
+  await ladakhRow.click();
+  await window.getByTestId("edit-article-modal").waitFor({ state: "visible" });
+  await window.getByTestId("edit-article-hero-placement-full-bleed").click();
+  await window.getByTestId("edit-article-hero-caption").fill(
+    "High-altitude desert at dusk."
+  );
+  await window.getByTestId("edit-article-hero-credit").fill(
+    "Tenzin Namgyal / Magnum"
+  );
+  await window.getByTestId("edit-article-section").fill("Travel");
+  await window.getByTestId("edit-article-submit").click();
+  await expect(window.getByTestId("edit-article-modal")).toBeHidden({
+    timeout: 10_000,
   });
 
   // 3) Bulk-import classifieds via CSV (covers the realistic operator flow:

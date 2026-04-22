@@ -229,6 +229,12 @@ export async function preLayoutForTemplate(args: {
   hasDeck: boolean;
   hasTopByline: boolean;
   hasHero: boolean;
+  /**
+   * "full-bleed" reserves the entire first page for the hero image — body
+   * starts on page 2. "above-headline" / "below-headline" both leave
+   * room for body on page 1.
+   */
+  heroPlacement?: "below-headline" | "above-headline" | "full-bleed";
   template: {
     trim_mm: [number, number];
     margins_mm: { top: number; right: number; bottom: number; left: number };
@@ -276,7 +282,12 @@ export async function preLayoutForTemplate(args: {
 
   const pageHeights: number[] = [];
   for (let p = 0; p < t.page_count_range[1]; p += 1) {
-    pageHeights.push(p === 0 ? firstPageBodyIn : pageContentHeightIn);
+    if (p === 0) {
+      // Full-bleed reserves the entire first page for the hero image.
+      pageHeights.push(args.heroPlacement === "full-bleed" ? 0 : firstPageBodyIn);
+    } else {
+      pageHeights.push(pageContentHeightIn);
+    }
   }
 
   const fontFace = args.language === "hi" ? "Mukta" : "Fraunces";

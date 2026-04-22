@@ -236,6 +236,22 @@ const MIGRATIONS: Migration[] = [
       );
     },
   },
+  {
+    version: 3,
+    name: "add_article_hero_metadata",
+    async up(db) {
+      // Hero image placement, caption, photographer credit — operator-
+      // editable from the article edit modal. hero_placement governs
+      // whether the hero sits below the headline (default), above it
+      // (image-led photo essay), or fills the page edge-to-edge.
+      await sql`ALTER TABLE articles ADD COLUMN hero_placement TEXT NOT NULL DEFAULT 'below-headline'`.execute(
+        db
+      );
+      await sql`ALTER TABLE articles ADD COLUMN hero_caption TEXT`.execute(db);
+      await sql`ALTER TABLE articles ADD COLUMN hero_credit TEXT`.execute(db);
+      await sql`ALTER TABLE articles ADD COLUMN section TEXT`.execute(db);
+    },
+  },
 ];
 
 export async function runMigrations(db: Kysely<Database>): Promise<{ applied: number[] }> {

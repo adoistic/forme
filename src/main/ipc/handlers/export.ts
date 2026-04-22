@@ -256,6 +256,32 @@ export function registerExportHandlers(): void {
       const language = article.language as "en" | "hi" | "bilingual";
       const chosenTemplate = pickTemplate(article, !!heroImage);
 
+      // Hero placement: prefer the operator-set value from the article
+      // edit modal. Fall back to "above-headline" for any article routed
+      // to the photo_essay template. Final fallback is "below-headline".
+      const dbHeroPlacement = article.hero_placement as
+        | "below-headline"
+        | "above-headline"
+        | "full-bleed"
+        | undefined;
+      let heroPlacement: "below-headline" | "above-headline" | "full-bleed";
+      if (
+        dbHeroPlacement === "above-headline" ||
+        dbHeroPlacement === "full-bleed" ||
+        dbHeroPlacement === "below-headline"
+      ) {
+        heroPlacement = dbHeroPlacement;
+      } else if (
+        chosenTemplate.family === "photo_essay" ||
+        article.content_type === "Photo Essay"
+      ) {
+        heroPlacement = heroImage ? "above-headline" : "below-headline";
+      } else {
+        heroPlacement = "below-headline";
+      }
+      // No hero → no point honoring above-headline / full-bleed.
+      if (!heroImage) heroPlacement = "below-headline";
+
       // Pre-break the body into per-page-per-column lines so PowerPoint's
       // text engine can't re-wrap and overflow the column boxes.
       let prelaidPages: string[][][] = [];
@@ -266,6 +292,7 @@ export function registerExportHandlers(): void {
           hasDeck: !!article.deck,
           hasTopByline: !!article.byline && bylinePosition === "top",
           hasHero: !!heroImage,
+          heroPlacement,
           template: {
             trim_mm: chosenTemplate.geometry.trim_mm,
             margins_mm: chosenTemplate.geometry.margins_mm,
@@ -289,27 +316,25 @@ export function registerExportHandlers(): void {
         );
       }
 
-      // Photo Essay articles render image-led: hero on top, then caption +
-      // photographer credit, then headline below. We treat any article
-      // routed to the photo_essay template (or explicitly typed
-      // "Photo Essay") as image-led. Headline-led is the default.
-      const isPhotoEssay =
-        chosenTemplate.family === "photo_essay" ||
-        article.content_type === "Photo Essay";
-      const heroPlacement: "above-headline" | "below-headline" =
-        isPhotoEssay && heroImage ? "above-headline" : "below-headline";
+      // Caption + credit: prefer operator-set; fall back to deck +
+      // generic credit for image-led layouts.
       const heroCaption =
-        heroPlacement === "above-headline" && article.deck ? article.deck : undefined;
+        article.hero_caption ??
+        (heroPlacement !== "below-headline" && article.deck ? article.deck : undefined);
       const heroCredit =
-        heroPlacement === "above-headline" ? "Lorem Picsum / Unsplash" : undefined;
+        article.hero_credit ??
+        (heroPlacement !== "below-headline" ? "Lorem Picsum / Unsplash" : undefined);
+
+      // Section override: operator-set value wins.
       const section =
-        chosenTemplate.family === "photo_essay"
+        article.section ??
+        (chosenTemplate.family === "photo_essay"
           ? "Photo Essay"
           : article.content_type === "Opinion"
           ? "Opinion"
           : article.content_type === "Interview"
           ? "Interview"
-          : "Features";
+          : "Features");
 
       placements.push({
         articleId: article.id,
@@ -317,9 +342,12 @@ export function registerExportHandlers(): void {
         startingPageNumber: nextPageNumber,
         article: {
           headline: article.headline,
-          // Drop the deck on photo-essay articles when we've already used
-          // it as the image caption — avoids duplicating the same line.
-          deck: heroPlacement === "above-headline" ? null : article.deck,
+          // Drop the deck on image-led layouts when we've already used it
+          // as the image caption — avoids duplicating the same line.
+          deck:
+            heroPlacement !== "below-headline" && heroCaption === article.deck
+              ? null
+              : article.deck,
           byline: article.byline,
           bylinePosition,
           section,
