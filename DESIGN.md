@@ -1,12 +1,15 @@
 # DESIGN.md — Magazine CMS
 
-Single source of truth for visual language. Locked by `/plan-design-review` on 2026-04-21 using three approved mockups as the reference.
+Single source of truth for visual language. Locked by `/plan-design-review` on 2026-04-21 using three approved mockups as the reference. Extended on 2026-04-22 by `/design-shotgun` (v0.6 net-new surfaces) with three additional approved mockups.
 
 **Approved mockups** (visual ground truth):
 
 - `~/.gstack/projects/PrintCMS/designs/issue-board-20260421/variant-B.png` — Issue Board (THE signature screen).
 - `~/.gstack/projects/PrintCMS/designs/first-run-wizard-20260421/variant-C.png` — First-run wizard, Publisher Profile step.
 - `~/.gstack/projects/PrintCMS/designs/classified-form-20260421/variant-C.png` — Classified form (Matrimonial with Photo, representative modal).
+- `~/.gstack/projects/PrintCMS/designs/edit-article-modal-3pane-20260422/variant-C.png` — EditArticleModal 3-pane (v0.6: 200/516/280 list/editor/print-preview, "Portfolio Spread" direction).
+- `~/.gstack/projects/PrintCMS/designs/scrub-timeline-detail-20260422/variant-A.png` — ScrubTimeline detail (v0.6: vertical typeset list with date dividers, hover callout, ⌘F search).
+- `~/.gstack/projects/PrintCMS/designs/diff-viewer-overlay-20260422/variant-C.png` — DiffViewer overlay (v0.6: modal-on-modal with diff heatmap rail + focused paragraph BEFORE/AFTER).
 
 Any future screen must visually agree with these. If it doesn't, re-review before building.
 
@@ -413,6 +416,75 @@ row: flex, 8px dot marker on left (--color-accent, 8px circle), timestamp + midd
 selected row: --color-accent-bg background + 3px rust left-border
 row hover: reveal "Restore" ghost link on the right
 sections: grouped by date with small-caps "TODAY / YESTERDAY / LAST WEEK" headers
+```
+
+### ScrubTimeline (per-article version history rail) — added 2026-04-22
+
+Approved mockup: `~/.gstack/projects/PrintCMS/designs/scrub-timeline-detail-20260422/variant-A.png`.
+
+The 200px left rail of EditArticleModal in 3-pane mode. Acts as both a chronological list and a scrub control (arrow keys step versions, PgUp/PgDn jumps 10).
+
+```
+container: 200px wide, full modal-content height, --color-bg-surface, border-right --color-border-default
+header: 11px label-caps "VERSION HISTORY" + Inter 11px caption count "12 versions" right-aligned, padding --space-3
+search: Inter 13px input "Find a version..." with ⌘F kbd hint at right edge, --space-3 horizontal padding
+date-divider: small-caps Inter 11px ("TODAY", "YESTERDAY", "LAST WEEK", "OLDER"), 1px hairline below in --color-border-default
+row: 56px tall, --space-3 horizontal padding, two-column flex
+  left col: timestamp (Inter 13px charcoal) + caption-style version label (Inter 13px charcoal-secondary)
+  right col: optional 8px star dot (--color-accent) for starred versions; optional Mukta Devanagari char for Hindi-content edits
+row hover: 1px --color-accent horizontal indicator + floating callout card to the right (Inter 11px on white, --shadow-md)
+  callout content: "v[N] · [±W words] · [optional ★ name]"
+row selected: --color-bg-canvas background + 2px --color-accent left-border
+keyboard hints: 11px tertiary at bottom of rail "↑ ↓ to step  ·  PgUp PgDn for ×10  ·  ⌘F to search"
+empty state: "No version history yet. Save the article to start a timeline." in --color-text-tertiary, italic Fraunces 14px
+react-window virtualization: required if version count > 50
+```
+
+### DiffViewer overlay (modal-on-modal version comparison) — added 2026-04-22
+
+Approved mockup: `~/.gstack/projects/PrintCMS/designs/diff-viewer-overlay-20260422/variant-C.png`.
+
+Full-bleed Radix `Dialog.Root` overlay above EditArticleModal (per eng review #2 ER2-2). Map+Detail composition: 200px diff-heatmap rail on left, focused paragraph BEFORE/AFTER on the right.
+
+```
+backdrop: --color-bg-overlay (rgba(26,26,26,0.50))
+container: full viewport, white surface, --shadow-window
+header: 64px tall, white, --space-8 horizontal padding
+  title: Fraunces 22px bold "Compare versions"
+  version pills: two pill selectors "v[N] · [time]" → "v[N] · current" (segmented-control style)
+  close: X icon top-right with kbd hint "ESC" below in 11px tertiary
+sub-header: 40px strip, --color-bg-canvas (cream wash)
+  left: change summary "N paragraphs changed · M added · K removed · ±W words" in Inter 13px charcoal-secondary
+  right: nav arrows ↑/↓ + kbd hint "J/K to step" in Inter 11px tertiary
+diff area: flex row, full remaining height
+  LEFT RAIL (200px diff-map):
+    label-caps "DIFF MAP" 11px at top
+    paragraph rows: 16px tall, full-width tinted bars
+      unchanged: --color-bg-canvas tint
+      changed: --color-accent-muted (#E8C4B3)
+      added: --color-accent (#C96E4E) + tiny "+" marker
+      removed: --color-error (#B84545) + tiny "−" marker
+    paragraph numbers: label-caps 10px on left
+    row labels: Inter 11px caption clipped first 24 chars of paragraph plain-text
+    focused row: 2px --color-accent outline (matches the paragraph in the main pane)
+    react-window virtualization: required if paragraph count > 75
+  MAIN PANE (~1080px or remaining width):
+    title: label-caps "PARAGRAPH N · [CHANGED|ADDED|REMOVED]"
+    side-by-side BEFORE/AFTER: two equal sub-columns, --space-10 gutter between
+    sub-column header: label-caps "BEFORE v[N]" / "AFTER v[N]"
+    paragraph body: Fraunces 16px serif (larger than typical diff because focused on one block)
+    intra-block diff highlights:
+      removed words (BEFORE col): single-line strikethrough in --color-error
+      added words (AFTER col): underline in --color-accent
+    bottom caption: "Use ↑ ↓ on map to step through changes · J/K stays focused on changes only"
+footer: bottom-right, --space-8 padding
+  primary: filled rust "Restore v[N]" (dynamically reflects whichever version is on the LEFT)
+  secondary: outlined "Cancel"
+focus restoration: closes return focus to the "Compare" trigger button in EditArticleModal
+ESC handling: ESC closes diff only; EditArticleModal stays open. Tiptap floating UI must be pre-closed before opening DiffViewer (per eng review #2 ER2-7).
+prefers-reduced-motion: overlay fade-in disabled; instant appearance
+empty state: identical bodies show "Identical." in display-md italic charcoal-secondary, no diff highlights, no map markers
+fallback: very large blocks (>75KB single paragraph) fall back to "block too large for character-level diff" notice; block-level diff still shown
 ```
 
 ### Empty-state card (any tab or screen)
