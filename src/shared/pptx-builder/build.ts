@@ -871,11 +871,23 @@ function addPlacementSlides(
     //     pretext-driven splitting.
     if (pageColumns) {
       const cols = pageColumns[pageIdx] ?? [];
+      // Print-style paragraphs: tight set with a first-line indent on
+      // every paragraph EXCEPT the first one in a column. PowerPoint
+      // doesn't expose a "first-line-indent" knob in pptxgenjs, so we
+      // prepend a tab character — PowerPoint renders the default tab
+      // stop at ~0.5", which gives a magazine-y indent. paraSpaceAfter
+      // drops to ~0 because the indent itself signals the new paragraph.
+      const INDENT = "\u00A0\u00A0\u00A0"; // three non-breaking spaces ≈ 1em indent
       for (let col = 0; col < columnCount; col += 1) {
         const paragraphs = cols[col] ?? [];
         if (paragraphs.length === 0) continue;
         const colX = marginLeft + col * (columnWidth + gutterIn);
-        slide.addText(paragraphs.join("\n"), {
+        // Indent every paragraph except the first in the column. The
+        // continuation paragraph at the top of cols 2/3 also gets no
+        // indent — it's the visual continuation of col 1's last
+        // paragraph from the operator's reading flow's POV.
+        const styled = paragraphs.map((p, i) => (i === 0 ? p : INDENT + p));
+        slide.addText(styled.join("\n"), {
           x: colX,
           y: bodyStartY,
           w: columnWidth,
@@ -886,9 +898,9 @@ function addPlacementSlides(
           color: "1A1A1A",
           valign: "top",
           align: "justify",
-          // Small inter-paragraph gap (~half a body line), matches the
-          // line accounted for during packing.
-          paraSpaceAfter: typ.body_leading_pt * 0.4,
+          // Tight set — paragraph break is signaled by the first-line
+          // indent, not by extra vertical space.
+          paraSpaceAfter: 0,
         });
       }
     } else {

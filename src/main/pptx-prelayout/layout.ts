@@ -73,9 +73,14 @@ export async function preLayoutArticleBody(
   const pretext = await getPretext();
   const fontSizePx = ptToPx(input.bodyPt);
   const fontStr = `${fontSizePx}px ${JSON.stringify(input.bodyFontFace)}`;
-  // Measure at 96% of column width — gives PowerPoint 4% slack to wrap
-  // without surprising us by needing one extra line.
-  const measureColPx = inToPx(input.columnWidthIn) * 0.96;
+  // Measure at a fraction of column width to leave PowerPoint slack to
+  // re-wrap. Devanagari needs MORE slack: Skia's measurement of Mukta
+  // doesn't account for matra/conjunct stacking the same way LibreOffice
+  // does, so Hindi text rendered ~6-8% wider than measured. We use 88%
+  // for hi/bilingual (12% slack) vs 96% for Latin (4% slack).
+  const safetyFactor =
+    input.language === "hi" || input.language === "bilingual" ? 0.88 : 0.96;
+  const measureColPx = inToPx(input.columnWidthIn) * safetyFactor;
 
   const measure = (text: string): number => {
     if (!text.trim()) return 0;
@@ -88,10 +93,30 @@ export async function preLayoutArticleBody(
     .map((p) => p.replace(/\s+/g, " ").trim())
     .filter((p) => p.length > 0);
 
-  const measured: MeasuredParagraph[] = rawParagraphs.map((p) => ({
-    text: p,
-    lines: measure(p),
-  }));
+  // Belt-and-braces line-count: take pretext's measurement, but floor it
+  // to a character-width estimate so a paragraph never reports 0 lines
+  // when it has visible text. Mukta on Skia sometimes returns 0/1 for
+  // multi-line Devanagari paragraphs because Skia's shaper doesn't size
+  // the conjuncts the same way LibreOffice's HarfBuzz pipeline does.
+  // Without this floor, the last-page balancer fires too early and the
+  // packer leaves half the article on the floor.
+  //
+  // Per-script character-width ratio (em-units per glyph):
+  //   Latin (Inter/Fraunces) ≈ 0.45em average
+  //   Devanagari (Mukta) ≈ 0.65em — wider base + conjuncts add stacking
+  // Bilingual content gets the wider Devanagari ratio so we don't under-
+  // estimate when Hindi paragraphs show up.
+  const charWidthRatio =
+    input.language === "hi" || input.language === "bilingual" ? 0.65 : 0.45;
+  const charsPerLineFallback = Math.max(
+    14,
+    Math.floor(inToPx(input.columnWidthIn) / (fontSizePx * charWidthRatio))
+  );
+  const measured: MeasuredParagraph[] = rawParagraphs.map((p) => {
+    const measuredLines = measure(p);
+    const fallback = Math.max(1, Math.ceil(p.length / charsPerLineFallback));
+    return { text: p, lines: Math.max(measuredLines, fallback) };
+  });
 
   // Pack paragraphs into columns. The visual paragraph gap PowerPoint
   // renders is paraSpaceAfter (≈ 0.4 × leading), not a full line. Counting
@@ -103,28 +128,46 @@ export async function preLayoutArticleBody(
   let pageIdx = 0;
   let pendingParagraph: MeasuredParagraph | null = null;
 
+  // Helper to compute remaining body lines (used to detect the LAST page
+  // and balance its columns instead of fill-greedy).
+  const remainingLines = (): number => {
+    const pendingLn = pendingParagraph?.lines ?? 0;
+    const measuredLn = measured.reduce((acc, m) => acc + m.lines, 0);
+    return pendingLn + measuredLn;
+  };
+
   while (
     pageIdx < input.pageBodyHeightsIn.length &&
     (pendingParagraph !== null || measured.length > 0)
   ) {
     const heightIn = input.pageBodyHeightsIn[pageIdx] ?? 0;
-    const linesPerCol = Math.max(
+    const fullLinesPerCol = Math.max(
       1,
       Math.floor((heightIn * PT_PER_INCH) / input.bodyLeadingPt)
     );
-    const cols: string[][] = [];
 
+    // Last-page detection: if all remaining content fits within one
+    // page's worth of capacity (colCount × fullLinesPerCol), we're on
+    // the last page — set the per-col target to ceil(remaining / colCount)
+    // so the last page's columns are balanced. Without this the greedy
+    // packer fills col 1 to capacity and col 3 ends up much shorter.
+    const remaining = remainingLines();
+    const onLastPage = remaining <= fullLinesPerCol * input.columnCount;
+    // For balancing: target = ceil(remaining / colCount), capped by
+    // capacity. +1 line of slack so we don't lose content to rounding.
+    const balancedTarget = Math.min(
+      fullLinesPerCol,
+      Math.ceil(remaining / input.columnCount) + 1
+    );
+    const linesPerCol = onLastPage ? balancedTarget : fullLinesPerCol;
+
+    const cols: string[][] = [];
     for (let c = 0; c < input.columnCount; c += 1) {
       const col: string[] = [];
       let used = 0;
 
-      // 1) Resume any paragraph spilled from the previous column.
       if (pendingParagraph) {
-        const fit = fitParagraph(
-          pendingParagraph,
-          linesPerCol - used,
-          measure
-        );
+        const fit = fitParagraph(pendingParagraph, linesPerCol - used, measure);
         if (fit.fitting) {
           col.push(fit.fitting.text);
           used += fit.fitting.lines + PARAGRAPH_GAP_LINES;
@@ -132,16 +175,13 @@ export async function preLayoutArticleBody(
         pendingParagraph = fit.rest;
       }
 
-      // 2) Pull fresh paragraphs.
       while (used < linesPerCol && measured.length > 0 && !pendingParagraph) {
         const next = measured[0]!;
         if (next.lines + (col.length > 0 ? PARAGRAPH_GAP_LINES : 0) <= linesPerCol - used) {
-          // Whole paragraph fits.
           measured.shift();
           col.push(next.text);
           used += next.lines + PARAGRAPH_GAP_LINES;
         } else {
-          // Try splitting.
           measured.shift();
           const fit = fitParagraph(next, linesPerCol - used, measure);
           if (fit.fitting) {
