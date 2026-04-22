@@ -13,7 +13,7 @@ export function App(): React.ReactElement {
 
   return (
     <ToastProvider>
-      <div className="flex h-full w-full bg-bg-canvas">
+      <div className="bg-bg-canvas flex h-full w-full">
         <Sidebar />
         <Canvas />
       </div>

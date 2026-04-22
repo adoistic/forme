@@ -68,8 +68,7 @@ async function main() {
   const marginTopIn = t.geometry.margins_mm.top / MM_PER_INCH;
   const marginBotIn = t.geometry.margins_mm.bottom / MM_PER_INCH;
   const pageContentIn = trimHIn - marginTopIn - marginBotIn;
-  const linesPerColFull =
-    (pageContentIn * PT_PER_INCH) / t.typography.body_leading_pt;
+  const linesPerColFull = (pageContentIn * PT_PER_INCH) / t.typography.body_leading_pt;
 
   console.log(
     `         page content height: ${pageContentIn.toFixed(2)}" = ${linesPerColFull.toFixed(1)} lines/col (full)`
@@ -89,9 +88,7 @@ async function main() {
       gutter_mm: t.geometry.gutter_mm,
       typography: {
         headline_pt: t.typography.headline_pt,
-        ...(t.typography.deck_pt !== undefined
-          ? { deck_pt: t.typography.deck_pt }
-          : {}),
+        ...(t.typography.deck_pt !== undefined ? { deck_pt: t.typography.deck_pt } : {}),
         body_pt: t.typography.body_pt,
         body_leading_pt: t.typography.body_leading_pt,
       },
@@ -114,7 +111,9 @@ async function main() {
       totalLines += estLines;
     }
     const cap = p === 0 ? "FIRST PAGE" : `${linesPerColFull.toFixed(0)}`;
-    console.log(`  page ${p + 1} (cap ${cap} lines/col): avg ${(totalLines / cols.length).toFixed(0)} est lines/col`);
+    console.log(
+      `  page ${p + 1} (cap ${cap} lines/col): avg ${(totalLines / cols.length).toFixed(0)} est lines/col`
+    );
     for (const cl of colLines) console.log(`    ${cl}`);
   }
 }

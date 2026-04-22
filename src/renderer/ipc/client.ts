@@ -1,7 +1,4 @@
-import type {
-  ChannelMap,
-  ChannelName,
-} from "@shared/ipc-contracts/channels.js";
+import type { ChannelMap, ChannelName } from "@shared/ipc-contracts/channels.js";
 import type { Result } from "@shared/ipc-contracts/result.js";
 import type { StructuredError } from "@shared/errors/structured.js";
 
@@ -21,10 +18,10 @@ export async function invoke<C extends ChannelName>(
   channel: C,
   data: ChannelMap[C]["request"]
 ): Promise<ChannelMap[C]["response"]> {
-  const response = (await window.forme.invoke<Result<ChannelMap[C]["response"]>>(
-    "forme:dispatch",
-    { channel, data }
-  )) as Result<ChannelMap[C]["response"]>;
+  const response = (await window.forme.invoke<Result<ChannelMap[C]["response"]>>("forme:dispatch", {
+    channel,
+    data,
+  })) as Result<ChannelMap[C]["response"]>;
 
   if (!response.ok) {
     throw new IpcError(response.error);

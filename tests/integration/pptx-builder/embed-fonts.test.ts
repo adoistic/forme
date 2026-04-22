@@ -77,9 +77,7 @@ describe("buildPptx → font embedding", () => {
     expect(ctXml).toContain('Extension="fntdata"');
     expect(ctXml).toContain("obfuscatedFont");
 
-    const relsXml = await zip
-      .file("ppt/_rels/presentation.xml.rels")!
-      .async("string");
+    const relsXml = await zip.file("ppt/_rels/presentation.xml.rels")!.async("string");
     expect(relsXml).toContain("rIdFormeFont1");
     // One relationship per font face
     const matches = relsXml.match(/rIdFormeFont\d+/g) ?? [];

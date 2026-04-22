@@ -35,8 +35,7 @@ const ARTICLES: ArticleSpec[] = [
   {
     slug: "delhi-bilingual",
     byline: "By QA Harness · क्यूए परीक्षक",
-    deck:
-      "A bilingual feature: English Wikipedia introduction followed by a Hindi Wikipedia passage on the same subject.",
+    deck: "A bilingual feature: English Wikipedia introduction followed by a Hindi Wikipedia passage on the same subject.",
     contentType: "Article",
   },
 ];
@@ -92,7 +91,9 @@ async function main() {
           return acc + Math.max(1, Math.ceil(para.length / 30));
         }, 0);
       });
-      console.log(`    page ${p + 1}: cols ~ [${sizes.join(", ")}] lines (paras [${cols.map(c => c.length).join(", ")}])`);
+      console.log(
+        `    page ${p + 1}: cols ~ [${sizes.join(", ")}] lines (paras [${cols.map((c) => c.length).join(", ")}])`
+      );
     });
 
     placements.push({
@@ -135,7 +136,9 @@ async function main() {
   const pdfPath = path.join(OUT_DIR, "hindi-demo.pdf");
   await fs.copyFile(v.pdfPath, pdfPath);
   await new Promise<void>((resolve, reject) => {
-    const p = spawn("pdftoppm", ["-png", "-r", "120", pdfPath, path.join(OUT_DIR, "page")], { stdio: "inherit" });
+    const p = spawn("pdftoppm", ["-png", "-r", "120", pdfPath, path.join(OUT_DIR, "page")], {
+      stdio: "inherit",
+    });
     p.on("exit", (c) => (c === 0 ? resolve() : reject(new Error(`pdftoppm ${c}`))));
   });
   // Open PDF

@@ -66,14 +66,7 @@ export function createSnapshotStore(db: Kysely<Database>): SnapshotStore {
     async list(issueId, limit = 100) {
       const rows = await db
         .selectFrom("snapshots")
-        .select([
-          "id",
-          "issue_id",
-          "created_at",
-          "description",
-          "size_bytes",
-          "is_full",
-        ])
+        .select(["id", "issue_id", "created_at", "description", "size_bytes", "is_full"])
         .where("issue_id", "=", issueId)
         .orderBy("created_at", "desc")
         .limit(limit)
@@ -110,14 +103,7 @@ export function createSnapshotStore(db: Kysely<Database>): SnapshotStore {
     async latest(issueId) {
       const row = await db
         .selectFrom("snapshots")
-        .select([
-          "id",
-          "issue_id",
-          "created_at",
-          "description",
-          "size_bytes",
-          "is_full",
-        ])
+        .select(["id", "issue_id", "created_at", "description", "size_bytes", "is_full"])
         .where("issue_id", "=", issueId)
         .orderBy("created_at", "desc")
         .limit(1)

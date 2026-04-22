@@ -58,10 +58,7 @@ describe("scoreArticleAgainstTemplates", () => {
   test("filters by content_type", () => {
     const article = baseTemplate({ id: "article" });
     const poem = baseTemplate({ id: "poem", content_type: "Poem" });
-    const r = scoreArticleAgainstTemplates(
-      baseInput({ content_type: "Article" }),
-      [article, poem]
-    );
+    const r = scoreArticleAgainstTemplates(baseInput({ content_type: "Article" }), [article, poem]);
     expect(r.candidates).toHaveLength(1);
     expect(r.best?.template.id).toBe("article");
   });
@@ -69,10 +66,10 @@ describe("scoreArticleAgainstTemplates", () => {
   test("filters by language support", () => {
     const enOnly = baseTemplate({ id: "en", language_modes: ["en"] });
     const hiOnly = baseTemplate({ id: "hi", language_modes: ["hi"] });
-    const r = scoreArticleAgainstTemplates(
-      baseInput({ language: "hi", word_count: 1000 }),
-      [enOnly, hiOnly]
-    );
+    const r = scoreArticleAgainstTemplates(baseInput({ language: "hi", word_count: 1000 }), [
+      enOnly,
+      hiOnly,
+    ]);
     expect(r.candidates).toHaveLength(1);
     expect(r.best?.template.id).toBe("hi");
   });
@@ -86,10 +83,10 @@ describe("scoreArticleAgainstTemplates", () => {
       id: "compact",
       word_count_range: { en: [400, 900], hi: [300, 700] },
     });
-    const r = scoreArticleAgainstTemplates(
-      baseInput({ word_count: 1200 }),
-      [featureStandard, featureCompact]
-    );
+    const r = scoreArticleAgainstTemplates(baseInput({ word_count: 1200 }), [
+      featureStandard,
+      featureCompact,
+    ]);
     // 1200 is inside "standard" (900-1800) but outside "compact" (400-900)
     expect(r.candidates).toHaveLength(1);
     expect(r.best?.template.id).toBe("standard");

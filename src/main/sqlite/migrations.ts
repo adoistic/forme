@@ -29,9 +29,7 @@ const MIGRATIONS: Migration[] = [
         .addColumn("masthead_blob_hash", "text")
         .addColumn("accent_color", "text")
         .addColumn("typography_pairing_default", "text")
-        .addColumn("primary_language_default", "text", (col) =>
-          col.notNull().defaultTo("en")
-        )
+        .addColumn("primary_language_default", "text", (col) => col.notNull().defaultTo("en"))
         .addColumn("page_size_default", "text", (col) => col.notNull().defaultTo("A4"))
         .addColumn("issue_cadence", "text")
         .addColumn("printer_contact", "text")
@@ -162,9 +160,7 @@ const MIGRATIONS: Migration[] = [
         .createTable("classifieds")
         .ifNotExists()
         .addColumn("id", "text", (col) => col.primaryKey())
-        .addColumn("issue_id", "text", (col) =>
-          col.references("issues.id").onDelete("set null")
-        )
+        .addColumn("issue_id", "text", (col) => col.references("issues.id").onDelete("set null"))
         .addColumn("type", "text", (col) => col.notNull())
         .addColumn("language", "text", (col) => col.notNull().defaultTo("en"))
         .addColumn("weeks_to_run", "integer", (col) => col.notNull().defaultTo(1))
@@ -187,9 +183,7 @@ const MIGRATIONS: Migration[] = [
         .createTable("ads")
         .ifNotExists()
         .addColumn("id", "text", (col) => col.primaryKey())
-        .addColumn("issue_id", "text", (col) =>
-          col.references("issues.id").onDelete("set null")
-        )
+        .addColumn("issue_id", "text", (col) => col.references("issues.id").onDelete("set null"))
         .addColumn("slot_type", "text", (col) => col.notNull())
         .addColumn("position_label", "text", (col) => col.notNull())
         .addColumn("bw_flag", "integer", (col) => col.notNull().defaultTo(0))

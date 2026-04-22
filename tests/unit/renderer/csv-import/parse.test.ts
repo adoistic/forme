@@ -55,7 +55,8 @@ describe("parseClassifiedsCsv — matrimonial_with_photo", () => {
   });
 
   test("contact_phones string gets split into array", async () => {
-    const csv = "name,age,location,contact_name,contact_phones,language,weeks_to_run\nTest,25,Mumbai,Self,+91 11111 00000;+91 22222 00000,en,1";
+    const csv =
+      "name,age,location,contact_name,contact_phones,language,weeks_to_run\nTest,25,Mumbai,Self,+91 11111 00000;+91 22222 00000,en,1";
     const result = parseClassifiedsCsv({
       type: "matrimonial_with_photo",
       csv,
@@ -100,22 +101,19 @@ describe("parseClassifiedsCsv — limits + errors", () => {
     const row = "Test,25,Mumbai,Self,+91 11111 00000,en,1";
     const rows = Array.from({ length: 1001 }, () => row).join("\n");
     const csv = `${header}\n${rows}`;
-    expect(() =>
-      parseClassifiedsCsv({ type: "matrimonial_with_photo", csv })
-    ).toThrow();
+    expect(() => parseClassifiedsCsv({ type: "matrimonial_with_photo", csv })).toThrow();
   });
 
   test("custom maxRows respected", () => {
     const header = "name_of_deceased,date_of_death";
-    const data = Array.from(
-      { length: 10 },
-      (_, i) => `Person ${i},2026-04-${10 + (i % 20)}`
-    ).join("\n");
+    const data = Array.from({ length: 10 }, (_, i) => `Person ${i},2026-04-${10 + (i % 20)}`).join(
+      "\n"
+    );
     const csv = `${header}\n${data}`;
 
-    expect(() =>
-      parseClassifiedsCsv({ type: "obituary", csv, maxRows: 5 })
-    ).toThrow(/size_cap_exceeded|./);
+    expect(() => parseClassifiedsCsv({ type: "obituary", csv, maxRows: 5 })).toThrow(
+      /size_cap_exceeded|./
+    );
   });
 
   test("duplicate on (phone + billing_ref) detected", () => {

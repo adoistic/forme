@@ -48,7 +48,10 @@ export function ClassifiedsScreen(): React.ReactElement {
       });
       await Promise.all([refreshClassifieds(), refreshIssues()]);
       if (res.errors.length === 0) {
-        toast.push("success", `Imported ${res.imported} classified${res.imported === 1 ? "" : "s"}.`);
+        toast.push(
+          "success",
+          `Imported ${res.imported} classified${res.imported === 1 ? "" : "s"}.`
+        );
       } else {
         toast.push(
           res.imported > 0 ? "info" : "error",
@@ -64,7 +67,7 @@ export function ClassifiedsScreen(): React.ReactElement {
 
   return (
     <div className="flex h-full flex-col overflow-hidden">
-      <header className="flex h-16 shrink-0 items-center justify-between border-b border-border-default px-8">
+      <header className="border-border-default flex h-16 shrink-0 items-center justify-between border-b px-8">
         <div>
           <h1 className="font-display text-display-md text-text-primary">Classifieds</h1>
           <div className="text-caption text-text-tertiary">
@@ -75,7 +78,7 @@ export function ClassifiedsScreen(): React.ReactElement {
         </div>
         <div className="flex items-center gap-3">
           <label
-            className="cursor-pointer rounded-md border-[1.5px] border-accent px-4 py-1.5 text-title-sm text-accent hover:bg-accent-bg"
+            className="border-accent text-title-sm text-accent hover:bg-accent-bg cursor-pointer rounded-md border-[1.5px] px-4 py-1.5"
             data-testid="import-csv-button"
           >
             {importing ? "Importing..." : "Import CSV"}
@@ -90,7 +93,7 @@ export function ClassifiedsScreen(): React.ReactElement {
           <button
             type="button"
             onClick={() => setPickingType(true)}
-            className="rounded-md bg-accent px-4 py-2 text-title-sm font-semibold text-text-inverse hover:bg-accent-hover"
+            className="bg-accent text-title-sm text-text-inverse hover:bg-accent-hover rounded-md px-4 py-2 font-semibold"
             data-testid="add-classified-button"
           >
             + Add classified
@@ -102,8 +105,8 @@ export function ClassifiedsScreen(): React.ReactElement {
         {classifieds.length === 0 ? (
           <div className="flex h-full items-center justify-center">
             <div className="max-w-[480px] text-center">
-              <div className="mb-2 text-label-caps text-accent">NO CLASSIFIEDS YET</div>
-              <h2 className="mb-3 font-display text-display-md text-text-primary">
+              <div className="text-label-caps text-accent mb-2">NO CLASSIFIEDS YET</div>
+              <h2 className="font-display text-display-md text-text-primary mb-3">
                 Add your first classified.
               </h2>
               <p className="text-body text-text-secondary">
@@ -162,19 +165,23 @@ function ClassifiedList({
     <div className="mx-auto max-w-[920px] space-y-8">
       {[...byType.entries()].map(([type, entries]) => (
         <section key={type}>
-          <h2 className="mb-3 font-display text-title-lg text-text-primary">
+          <h2 className="font-display text-title-lg text-text-primary mb-3">
             {typeLabels[type]} <span className="text-text-tertiary">({entries.length})</span>
           </h2>
-          <ul className="divide-y divide-border-default rounded-lg border border-border-default bg-bg-surface">
+          <ul className="divide-border-default border-border-default bg-bg-surface divide-y rounded-lg border">
             {entries.map((c) => (
-              <li key={c.id} className="flex items-center gap-4 px-4 py-3" data-testid={`classified-row-${c.id}`}>
-                <div className="flex-1 min-w-0 truncate text-body text-text-primary">{c.displayName}</div>
-                <span className="rounded-full bg-border-default px-2 py-0.5 text-label-caps text-text-secondary">
+              <li
+                key={c.id}
+                className="flex items-center gap-4 px-4 py-3"
+                data-testid={`classified-row-${c.id}`}
+              >
+                <div className="text-body text-text-primary min-w-0 flex-1 truncate">
+                  {c.displayName}
+                </div>
+                <span className="bg-border-default text-label-caps text-text-secondary rounded-full px-2 py-0.5">
                   {c.language === "hi" ? "HI" : "EN"}
                 </span>
-                <span className="text-caption text-text-tertiary">
-                  {c.weeksToRun} weeks
-                </span>
+                <span className="text-caption text-text-tertiary">{c.weeksToRun} weeks</span>
               </li>
             ))}
           </ul>
@@ -193,22 +200,22 @@ function TypePicker({
 }): React.ReactElement {
   return (
     <div
-      className="fixed inset-0 z-40 flex items-center justify-center bg-bg-overlay"
+      className="bg-bg-overlay fixed inset-0 z-40 flex items-center justify-center"
       onClick={onClose}
     >
       <div
         onClick={(e) => e.stopPropagation()}
-        className="w-[560px] rounded-xl bg-bg-surface p-8 shadow-lg"
+        className="bg-bg-surface w-[560px] rounded-xl p-8 shadow-lg"
       >
-        <div className="mb-1 text-label-caps text-accent">NEW CLASSIFIED</div>
-        <h2 className="mb-6 font-display text-display-md text-text-primary">Pick a type.</h2>
+        <div className="text-label-caps text-accent mb-1">NEW CLASSIFIED</div>
+        <h2 className="font-display text-display-md text-text-primary mb-6">Pick a type.</h2>
         <div className="grid grid-cols-2 gap-2">
           {(Object.keys(CLASSIFIED_TYPE_LABELS) as ClassifiedType[]).map((t) => (
             <button
               key={t}
               type="button"
               onClick={() => onPick(t)}
-              className="rounded-md border border-border-default px-4 py-3 text-left text-title-sm text-text-primary transition-colors hover:border-accent hover:bg-accent-bg"
+              className="border-border-default text-title-sm text-text-primary hover:border-accent hover:bg-accent-bg rounded-md border px-4 py-3 text-left transition-colors"
               data-testid={`pick-type-${t}`}
             >
               {CLASSIFIED_TYPE_LABELS[t]}
@@ -219,7 +226,7 @@ function TypePicker({
           <button
             type="button"
             onClick={onClose}
-            className="rounded-md px-4 py-2 text-title-sm text-text-secondary hover:bg-black/[0.04]"
+            className="text-title-sm text-text-secondary rounded-md px-4 py-2 hover:bg-black/[0.04]"
           >
             Cancel
           </button>

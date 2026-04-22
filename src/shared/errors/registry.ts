@@ -13,7 +13,8 @@ export const errorMessages: Record<string, string> = {
   language_ambiguous: "We couldn't detect the language. Assumed English; click to change.",
 
   // Image ingest
-  resolution_warning: "This image is {dpi} DPI at print size. It may look soft. Upload a higher-res version?",
+  resolution_warning:
+    "This image is {dpi} DPI at print size. It may look soft. Upload a higher-res version?",
   resolution_below_hard_min: "This image is {dpi} DPI. Too low for print. Override anyway?",
   color_profile_converted: "Image color profile was converted to sRGB.",
   corrupt_image: "This image file is corrupt. Try a fresh export from your source.",
@@ -22,28 +23,33 @@ export const errorMessages: Record<string, string> = {
   // Ad ingest
   ad_aspect_mismatch:
     "This slot expects {expected_aspect}. Your image is {actual_aspect}. Please supply a correctly proportioned creative.",
-  ad_resolution_error:
-    "This ad is below 300 DPI at print size. Override or re-upload?",
-  dps_gutter_warning: "The center of this double-page spread looks busy — faces or text may be cut by the gutter.",
+  ad_resolution_error: "This ad is below 300 DPI at print size. Override or re-upload?",
+  dps_gutter_warning:
+    "The center of this double-page spread looks busy — faces or text may be cut by the gutter.",
   cover_strip_too_short: "This cover strip is too short — expected at least 30mm tall.",
 
   // Pretext / fonts
   font_not_loaded: "Required fonts are missing. Reinstall fonts?",
-  column_too_narrow: "This template's column is too narrow for the chosen font. Pick a different template or pairing.",
-  glyph_missing: "Some characters in this article don't have glyphs in {font}. Review the marked positions.",
+  column_too_narrow:
+    "This template's column is too narrow for the chosen font. Pick a different template or pairing.",
+  glyph_missing:
+    "Some characters in this article don't have glyphs in {font}. Review the marked positions.",
 
   // Auto-fit
   no_viable_template: "No template fits this article. {reason}",
-  article_too_long: "This article is {words} words. The longest template supports {max}. Split into Part 1 / Part 2?",
+  article_too_long:
+    "This article is {words} words. The longest template supports {max}. Split into Part 1 / Part 2?",
   article_too_short: "This article is {words} words. Try News Brief or Short Piece template?",
   image_count_mismatch: "Article has {article_images} images; templates need {template_images}.",
   ambiguous_match: "Multiple templates fit almost equally. Pick one.",
 
   // PPTX generate
   template_incomplete: "Can't export: {article_title} is missing {field}. Fix?",
-  font_subset_too_large: "Font subset is larger than expected. Embed full font? (file size larger.)",
+  font_subset_too_large:
+    "Font subset is larger than expected. Embed full font? (file size larger.)",
   blob_missing: "Image missing from asset store. Replace or mark for review?",
-  ooxml_validation_error: "Export blocked — the PPTX file failed validation. Bug report generated at {path}.",
+  ooxml_validation_error:
+    "Export blocked — the PPTX file failed validation. Bug report generated at {path}.",
   disk_full: "Ran out of disk space. Clear some files and try again.",
   invalid_export_path: "That file path isn't valid. Try another?",
 
@@ -68,8 +74,10 @@ export const errorMessages: Record<string, string> = {
   duplicate_entry: "Row {row} looks like an existing classified ({name} / {phone}).",
 
   // Classifieds packing
-  entry_too_tall: "This classified is too tall for a single column. It will run as an Extended Notice (full-width page).",
-  packing_overflow: "Classifieds section overflows the allocated pages. Moving overflow to a new page.",
+  entry_too_tall:
+    "This classified is too tall for a single column. It will run as an Extended Notice (full-width page).",
+  packing_overflow:
+    "Classifieds section overflows the allocated pages. Moving overflow to a new page.",
 
   // OOXML / LibreOffice validator
   libreoffice_not_installed:

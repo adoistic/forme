@@ -1,5 +1,4 @@
 import fs from "node:fs/promises";
-import path from "node:path";
 import JSZip from "jszip";
 import type { FontBundle } from "./fonts.js";
 
@@ -22,12 +21,9 @@ import type { FontBundle } from "./fonts.js";
 
 const FONT_RELATIONSHIP_TYPE =
   "http://schemas.openxmlformats.org/officeDocument/2006/relationships/font";
-const OBFUSCATED_FONT_CONTENT_TYPE =
-  "application/vnd.openxmlformats-officedocument.obfuscatedFont";
-const RELATIONSHIPS_NS =
-  "http://schemas.openxmlformats.org/package/2006/relationships";
-const CONTENT_TYPES_NS =
-  "http://schemas.openxmlformats.org/package/2006/content-types";
+const OBFUSCATED_FONT_CONTENT_TYPE = "application/vnd.openxmlformats-officedocument.obfuscatedFont";
+const _RELATIONSHIPS_NS = "http://schemas.openxmlformats.org/package/2006/relationships";
+const _CONTENT_TYPES_NS = "http://schemas.openxmlformats.org/package/2006/content-types";
 
 /**
  * Group bundled font files by logical typeface name ("Fraunces", "Inter",
@@ -104,19 +100,14 @@ interface EmbedPlan {
  * Read zip, insert font streams + relationship + content-type + embedded
  * font list, write zip back to disk. Mutates the .pptx in place.
  */
-export async function embedFontsIntoPptx(
-  pptxPath: string,
-  bundles: FontBundle[]
-): Promise<void> {
+export async function embedFontsIntoPptx(pptxPath: string, bundles: FontBundle[]): Promise<void> {
   if (bundles.length === 0) return;
 
   const original = await fs.readFile(pptxPath);
   const zip = await JSZip.loadAsync(original);
 
   const contentTypesXml = await zip.file("[Content_Types].xml")?.async("string");
-  const relsXml = await zip
-    .file("ppt/_rels/presentation.xml.rels")
-    ?.async("string");
+  const relsXml = await zip.file("ppt/_rels/presentation.xml.rels")?.async("string");
   const presXml = await zip.file("ppt/presentation.xml")?.async("string");
 
   if (!contentTypesXml || !relsXml || !presXml) {
@@ -158,18 +149,15 @@ export async function embedFontsIntoPptx(
   zip.file("[Content_Types].xml", newContentTypes);
 
   // 3) Patch ppt/_rels/presentation.xml.rels — append one Relationship per font
-  const newRelsXml = relsXml.replace(
-    /<\/Relationships>\s*$/,
-    () => {
-      const items = plans
-        .map(
-          (p) =>
-            `<Relationship Id="${p.relId}" Type="${FONT_RELATIONSHIP_TYPE}" Target="fonts/${p.fileName}"/>`
-        )
-        .join("");
-      return `${items}</Relationships>`;
-    }
-  );
+  const newRelsXml = relsXml.replace(/<\/Relationships>\s*$/, () => {
+    const items = plans
+      .map(
+        (p) =>
+          `<Relationship Id="${p.relId}" Type="${FONT_RELATIONSHIP_TYPE}" Target="fonts/${p.fileName}"/>`
+      )
+      .join("");
+    return `${items}</Relationships>`;
+  });
   zip.file("ppt/_rels/presentation.xml.rels", newRelsXml);
 
   // 4) Patch ppt/presentation.xml — inject <p:embeddedFontLst> just before
@@ -196,10 +184,7 @@ export async function embedFontsIntoPptx(
         .map(([tag, p]) => `<p:${tag} r:id="${p!.relId}"/>`)
         .join("");
       return (
-        `<p:embeddedFont>` +
-        `<p:font typeface="${typeface}"/>` +
-        faceEntries +
-        `</p:embeddedFont>`
+        `<p:embeddedFont>` + `<p:font typeface="${typeface}"/>` + faceEntries + `</p:embeddedFont>`
       );
     })
     .join("");

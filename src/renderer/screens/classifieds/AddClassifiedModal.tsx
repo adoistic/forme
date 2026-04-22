@@ -53,18 +53,18 @@ export function AddClassifiedModal(props: Props): React.ReactElement {
 
   return (
     <div
-      className="fixed inset-0 z-40 flex items-center justify-center bg-bg-overlay"
+      className="bg-bg-overlay fixed inset-0 z-40 flex items-center justify-center"
       onClick={props.onClose}
     >
       <form
         onSubmit={handleSubmit}
         onClick={(e) => e.stopPropagation()}
-        className="max-h-[90vh] w-[620px] overflow-y-auto rounded-xl bg-bg-surface p-8 shadow-lg"
+        className="bg-bg-surface max-h-[90vh] w-[620px] overflow-y-auto rounded-xl p-8 shadow-lg"
         data-testid="add-classified-modal"
       >
         <div className="mb-1 flex items-start justify-between">
           <div>
-            <div className="mb-1 text-label-caps text-accent">NEW CLASSIFIED</div>
+            <div className="text-label-caps text-accent mb-1">NEW CLASSIFIED</div>
             <h2 className="font-display text-display-md text-text-primary">{props.typeLabel}</h2>
           </div>
           <button
@@ -77,9 +77,9 @@ export function AddClassifiedModal(props: Props): React.ReactElement {
         </div>
 
         {/* Language + weeks row */}
-        <div className="mb-4 mt-6 grid grid-cols-2 gap-4">
+        <div className="mt-6 mb-4 grid grid-cols-2 gap-4">
           <div>
-            <span className="mb-1 block text-label-caps text-text-secondary">Content language</span>
+            <span className="text-label-caps text-text-secondary mb-1 block">Content language</span>
             <div className="flex gap-1">
               {(["en", "hi"] as const).map((l) => (
                 <button
@@ -87,7 +87,7 @@ export function AddClassifiedModal(props: Props): React.ReactElement {
                   type="button"
                   onClick={() => setLanguage(l)}
                   className={[
-                    "flex-1 rounded-full px-3 py-1.5 text-title-sm transition-colors",
+                    "text-title-sm flex-1 rounded-full px-3 py-1.5 transition-colors",
                     language === l
                       ? "bg-accent text-text-inverse"
                       : "text-text-secondary hover:bg-black/[0.04]",
@@ -99,14 +99,14 @@ export function AddClassifiedModal(props: Props): React.ReactElement {
             </div>
           </div>
           <label className="block">
-            <span className="mb-1 block text-label-caps text-text-secondary">Weeks to run</span>
+            <span className="text-label-caps text-text-secondary mb-1 block">Weeks to run</span>
             <input
               type="number"
               min={1}
               max={52}
               value={weeksToRun}
               onChange={(e) => setWeeksToRun(Math.max(0, Math.min(52, Number(e.target.value))))}
-              className="w-full rounded-md border-[1.5px] border-border-default bg-bg-surface px-3 py-2.5 text-body focus:border-accent focus:outline-none"
+              className="border-border-default bg-bg-surface text-body focus:border-accent w-full rounded-md border-[1.5px] px-3 py-2.5 focus:outline-none"
             />
           </label>
         </div>
@@ -120,15 +120,16 @@ export function AddClassifiedModal(props: Props): React.ReactElement {
 
         {/* Billing ref (internal only) */}
         <label className="mt-4 block">
-          <span className="mb-1 block text-label-caps text-text-secondary">
-            Billing reference <span className="ml-1 italic text-text-tertiary">internal · never printed</span>
+          <span className="text-label-caps text-text-secondary mb-1 block">
+            Billing reference{" "}
+            <span className="text-text-tertiary ml-1 italic">internal · never printed</span>
           </span>
           <input
             type="text"
             value={billing}
             onChange={(e) => setBilling(e.target.value)}
             placeholder="INV-0001"
-            className="w-full rounded-md border-[1.5px] border-border-default bg-bg-surface px-3 py-2.5 text-body focus:border-accent focus:outline-none"
+            className="border-border-default bg-bg-surface text-body focus:border-accent w-full rounded-md border-[1.5px] px-3 py-2.5 focus:outline-none"
           />
         </label>
 
@@ -137,14 +138,14 @@ export function AddClassifiedModal(props: Props): React.ReactElement {
           <button
             type="button"
             onClick={props.onClose}
-            className="rounded-md px-4 py-2 text-title-sm text-text-secondary hover:bg-black/[0.04]"
+            className="text-title-sm text-text-secondary rounded-md px-4 py-2 hover:bg-black/[0.04]"
           >
             Cancel
           </button>
           <button
             type="submit"
             disabled={busy}
-            className="rounded-md bg-accent px-5 py-2 text-title-sm font-semibold text-text-inverse hover:bg-accent-hover disabled:opacity-40"
+            className="bg-accent text-title-sm text-text-inverse hover:bg-accent-hover rounded-md px-5 py-2 font-semibold disabled:opacity-40"
             data-testid="classified-submit"
           >
             {busy ? "Saving..." : "Save to queue"}
@@ -168,7 +169,7 @@ function TypeSpecificForm({
 
   const text = (name: string, label: string, required = false): React.ReactElement => (
     <label className="block">
-      <span className="mb-1 block text-label-caps text-text-secondary">
+      <span className="text-label-caps text-text-secondary mb-1 block">
         {label} {required ? <span className="text-accent">*</span> : null}
       </span>
       <input
@@ -176,14 +177,14 @@ function TypeSpecificForm({
         value={val(name)}
         onChange={(e) => setField(name, e.target.value)}
         required={required}
-        className="w-full rounded-md border-[1.5px] border-border-default bg-bg-surface px-3 py-2 text-body focus:border-accent focus:outline-none"
+        className="border-border-default bg-bg-surface text-body focus:border-accent w-full rounded-md border-[1.5px] px-3 py-2 focus:outline-none"
       />
     </label>
   );
 
   const number = (name: string, label: string, required = false): React.ReactElement => (
     <label className="block">
-      <span className="mb-1 block text-label-caps text-text-secondary">
+      <span className="text-label-caps text-text-secondary mb-1 block">
         {label} {required ? <span className="text-accent">*</span> : null}
       </span>
       <input
@@ -191,14 +192,14 @@ function TypeSpecificForm({
         value={(fields[name] as number | undefined) ?? ""}
         onChange={(e) => setField(name, e.target.value ? Number(e.target.value) : undefined)}
         required={required}
-        className="w-full rounded-md border-[1.5px] border-border-default bg-bg-surface px-3 py-2 text-body focus:border-accent focus:outline-none"
+        className="border-border-default bg-bg-surface text-body focus:border-accent w-full rounded-md border-[1.5px] px-3 py-2 focus:outline-none"
       />
     </label>
   );
 
   const textarea = (name: string, label: string, required = false): React.ReactElement => (
     <label className="block">
-      <span className="mb-1 block text-label-caps text-text-secondary">
+      <span className="text-label-caps text-text-secondary mb-1 block">
         {label} {required ? <span className="text-accent">*</span> : null}
       </span>
       <textarea
@@ -206,7 +207,7 @@ function TypeSpecificForm({
         onChange={(e) => setField(name, e.target.value)}
         required={required}
         rows={4}
-        className="w-full rounded-md border-[1.5px] border-border-default bg-bg-surface px-3 py-2 text-body focus:border-accent focus:outline-none"
+        className="border-border-default bg-bg-surface text-body focus:border-accent w-full rounded-md border-[1.5px] px-3 py-2 focus:outline-none"
       />
     </label>
   );
@@ -249,13 +250,13 @@ function TypeSpecificForm({
       return (
         <div className="space-y-3">
           <label className="block">
-            <span className="mb-1 block text-label-caps text-text-secondary">
+            <span className="text-label-caps text-text-secondary mb-1 block">
               Notice type <span className="text-accent">*</span>
             </span>
             <select
               value={val("notice_type") || "other"}
               onChange={(e) => setField("notice_type", e.target.value)}
-              className="w-full rounded-md border-[1.5px] border-border-default bg-bg-surface px-3 py-2 text-body focus:border-accent focus:outline-none"
+              className="border-border-default bg-bg-surface text-body focus:border-accent w-full rounded-md border-[1.5px] px-3 py-2 focus:outline-none"
             >
               <option value="name_change">Name change</option>
               <option value="lost_document">Lost document</option>
@@ -273,11 +274,11 @@ function TypeSpecificForm({
       return (
         <div className="space-y-3">
           <label className="block">
-            <span className="mb-1 block text-label-caps text-text-secondary">Occasion</span>
+            <span className="text-label-caps text-text-secondary mb-1 block">Occasion</span>
             <select
               value={val("occasion_type") || "birthday"}
               onChange={(e) => setField("occasion_type", e.target.value)}
-              className="w-full rounded-md border-[1.5px] border-border-default bg-bg-surface px-3 py-2 text-body focus:border-accent focus:outline-none"
+              className="border-border-default bg-bg-surface text-body focus:border-accent w-full rounded-md border-[1.5px] px-3 py-2 focus:outline-none"
             >
               <option value="birthday">Birthday</option>
               <option value="anniversary">Anniversary</option>
@@ -311,11 +312,11 @@ function TypeSpecificForm({
       );
     default:
       return (
-        <div className="rounded-md bg-accent-bg p-4 text-caption text-text-secondary">
+        <div className="bg-accent-bg text-caption text-text-secondary rounded-md p-4">
           This type isn&apos;t wired to a custom form yet. Use the JSON view (top-right) to fill
           fields until Phase 9 lands the full form. Example:
-          <pre className="mt-2 overflow-x-auto whitespace-pre-wrap font-mono text-caption text-text-primary">
-{`{ "field1": "value", "field2": 123 }`}
+          <pre className="text-caption text-text-primary mt-2 overflow-x-auto font-mono whitespace-pre-wrap">
+            {`{ "field1": "value", "field2": 123 }`}
           </pre>
         </div>
       );
@@ -331,14 +332,12 @@ function JsonModeEditor({
 }): React.ReactElement {
   return (
     <label className="block">
-      <span className="mb-1 block text-label-caps text-text-secondary">
-        Fields (JSON)
-      </span>
+      <span className="text-label-caps text-text-secondary mb-1 block">Fields (JSON)</span>
       <textarea
         value={value}
         onChange={(e) => onChange(e.target.value)}
         rows={10}
-        className="w-full rounded-md border-[1.5px] border-border-default bg-bg-surface px-3 py-2 font-mono text-caption text-text-primary focus:border-accent focus:outline-none"
+        className="border-border-default bg-bg-surface text-caption text-text-primary focus:border-accent w-full rounded-md border-[1.5px] px-3 py-2 font-mono focus:outline-none"
       />
     </label>
   );

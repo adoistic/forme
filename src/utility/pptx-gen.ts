@@ -13,9 +13,7 @@ import { parentPort } from "node:worker_threads";
 // UtilityProcess.postMessage; in worker_threads mode (when bundled as a
 // Node worker) we use parentPort. Both API shapes are handled.
 
-type UtilityMessage =
-  | { type: "ping"; id: string }
-  | { type: "shutdown" };
+type UtilityMessage = { type: "ping"; id: string } | { type: "shutdown" };
 
 function handle(message: UtilityMessage): void {
   if (message.type === "ping") {

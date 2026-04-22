@@ -26,9 +26,7 @@ async function resolveFontsDir(): Promise<string | null> {
   const candidates = [
     path.resolve(process.cwd(), "src/assets/fonts"),
     path.resolve(process.cwd(), "assets/fonts"),
-    process.resourcesPath
-      ? path.join(process.resourcesPath, "fonts")
-      : null,
+    process.resourcesPath ? path.join(process.resourcesPath, "fonts") : null,
   ].filter((p): p is string => !!p);
 
   for (const dir of candidates) {

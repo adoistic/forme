@@ -1,10 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { addHandler } from "../register.js";
 import { getState } from "../../app-state.js";
-import type {
-  CreateIssueInput,
-  IssueSummary,
-} from "@shared/ipc-contracts/channels.js";
+import type { CreateIssueInput, IssueSummary } from "@shared/ipc-contracts/channels.js";
 
 function nowISO(): string {
   return new Date().toISOString();
@@ -60,11 +57,7 @@ async function toSummary(issueRow: {
 export function registerIssueHandlers(): void {
   addHandler("issue:list", async () => {
     const { db } = getState();
-    const rows = await db
-      .selectFrom("issues")
-      .selectAll()
-      .orderBy("created_at", "desc")
-      .execute();
+    const rows = await db.selectFrom("issues").selectAll().orderBy("created_at", "desc").execute();
     return Promise.all(rows.map((r) => toSummary(r)));
   });
 

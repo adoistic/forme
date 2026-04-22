@@ -16,9 +16,6 @@ import path from "node:path";
 
 const cjsPkgPath = path.join(process.cwd(), "dist/main/package.json");
 await fs.mkdir(path.dirname(cjsPkgPath), { recursive: true });
-await fs.writeFile(
-  cjsPkgPath,
-  JSON.stringify({ type: "commonjs" }, null, 2) + "\n"
-);
+await fs.writeFile(cjsPkgPath, JSON.stringify({ type: "commonjs" }, null, 2) + "\n");
 // eslint-disable-next-line no-console
 console.log("stamped dist/main/package.json as CommonJS");

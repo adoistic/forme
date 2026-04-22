@@ -117,18 +117,18 @@ export function NewArticleModal({ issueId, onClose, onSaved }: Props): React.Rea
 
   return (
     <div
-      className="fixed inset-0 z-40 flex items-center justify-center bg-bg-overlay"
+      className="bg-bg-overlay fixed inset-0 z-40 flex items-center justify-center"
       onClick={onClose}
     >
       <form
         onSubmit={handleSubmit}
         onClick={(e) => e.stopPropagation()}
-        className="flex max-h-[94vh] w-[920px] flex-col overflow-hidden rounded-xl bg-bg-surface shadow-lg"
+        className="bg-bg-surface flex max-h-[94vh] w-[920px] flex-col overflow-hidden rounded-xl shadow-lg"
         data-testid="new-article-modal"
       >
         {/* Header strip */}
-        <div className="border-b border-border-default px-8 pb-4 pt-6">
-          <div className="mb-1 text-label-caps text-accent">NEW ARTICLE</div>
+        <div className="border-border-default border-b px-8 pt-6 pb-4">
+          <div className="text-label-caps text-accent mb-1">NEW ARTICLE</div>
           <input
             autoFocus
             required
@@ -136,7 +136,7 @@ export function NewArticleModal({ issueId, onClose, onSaved }: Props): React.Rea
             value={headline}
             onChange={(e) => setHeadline(e.target.value)}
             placeholder="Headline goes here…"
-            className="w-full bg-transparent font-display text-display-md text-text-primary placeholder:text-text-tertiary focus:outline-none"
+            className="font-display text-display-md text-text-primary placeholder:text-text-tertiary w-full bg-transparent focus:outline-none"
             data-testid="new-article-headline"
           />
           <input
@@ -144,13 +144,13 @@ export function NewArticleModal({ issueId, onClose, onSaved }: Props): React.Rea
             value={deck}
             onChange={(e) => setDeck(e.target.value)}
             placeholder="A short subtitle (deck) — optional"
-            className="mt-1 w-full bg-transparent text-body italic text-text-secondary placeholder:text-text-tertiary focus:outline-none"
+            className="text-body text-text-secondary placeholder:text-text-tertiary mt-1 w-full bg-transparent italic focus:outline-none"
             data-testid="new-article-deck"
           />
         </div>
 
         {/* Meta strip */}
-        <div className="flex items-center gap-3 border-b border-border-default px-8 py-3">
+        <div className="border-border-default flex items-center gap-3 border-b px-8 py-3">
           <div className="flex items-center gap-2">
             <span className="text-label-caps text-text-secondary">Author</span>
             <input
@@ -158,7 +158,7 @@ export function NewArticleModal({ issueId, onClose, onSaved }: Props): React.Rea
               value={byline}
               onChange={(e) => setByline(e.target.value)}
               placeholder="By Jane Doe"
-              className="w-[180px] rounded-md border border-border-default bg-bg-surface px-2 py-1 text-caption text-text-primary focus:border-accent focus:outline-none"
+              className="border-border-default bg-bg-surface text-caption text-text-primary focus:border-accent w-[180px] rounded-md border px-2 py-1 focus:outline-none"
               data-testid="new-article-byline"
             />
           </div>
@@ -167,7 +167,7 @@ export function NewArticleModal({ issueId, onClose, onSaved }: Props): React.Rea
             <select
               value={contentType}
               onChange={(e) => setContentType(e.target.value as ContentType)}
-              className="rounded-md border border-border-default bg-bg-surface px-2 py-1 text-caption text-text-primary focus:border-accent focus:outline-none"
+              className="border-border-default bg-bg-surface text-caption text-text-primary focus:border-accent rounded-md border px-2 py-1 focus:outline-none"
               data-testid="new-article-content-type"
             >
               {CONTENT_TYPES.map((ct) => (
@@ -180,7 +180,7 @@ export function NewArticleModal({ issueId, onClose, onSaved }: Props): React.Rea
           <div className="flex-1" />
           {/* Mode tabs */}
           <div
-            className="flex rounded-full border border-border-default p-0.5"
+            className="border-border-default flex rounded-full border p-0.5"
             role="tablist"
             aria-label="Editor mode"
           >
@@ -192,7 +192,7 @@ export function NewArticleModal({ issueId, onClose, onSaved }: Props): React.Rea
                 aria-selected={mode === m}
                 onClick={() => switchTo(m)}
                 className={[
-                  "rounded-full px-4 py-1 text-caption font-semibold transition-colors",
+                  "text-caption rounded-full px-4 py-1 font-semibold transition-colors",
                   mode === m
                     ? "bg-accent text-text-inverse"
                     : "text-text-secondary hover:bg-black/[0.04]",
@@ -210,27 +210,23 @@ export function NewArticleModal({ issueId, onClose, onSaved }: Props): React.Rea
           {mode === "richtext" ? (
             <RichEditor editor={editor} />
           ) : (
-            <MarkdownEditor
-              markdown={markdown}
-              onChange={setMarkdown}
-              previewHtml={previewHtml}
-            />
+            <MarkdownEditor markdown={markdown} onChange={setMarkdown} previewHtml={previewHtml} />
           )}
         </div>
 
         {/* Footer */}
-        <div className="flex items-center justify-end gap-3 border-t border-border-default px-8 py-4">
+        <div className="border-border-default flex items-center justify-end gap-3 border-t px-8 py-4">
           <button
             type="button"
             onClick={onClose}
-            className="rounded-md px-4 py-2 text-title-sm text-text-secondary hover:bg-black/[0.04]"
+            className="text-title-sm text-text-secondary rounded-md px-4 py-2 hover:bg-black/[0.04]"
           >
             Cancel
           </button>
           <button
             type="submit"
             disabled={busy || !headline.trim()}
-            className="rounded-md bg-accent px-5 py-2 text-title-sm font-semibold text-text-inverse hover:bg-accent-hover disabled:opacity-40"
+            className="bg-accent text-title-sm text-text-inverse hover:bg-accent-hover rounded-md px-5 py-2 font-semibold disabled:opacity-40"
             data-testid="new-article-submit"
           >
             {busy ? "Saving..." : "Save article"}
@@ -241,12 +237,8 @@ export function NewArticleModal({ issueId, onClose, onSaved }: Props): React.Rea
   );
 }
 
-function RichEditor({
-  editor,
-}: {
-  editor: ReturnType<typeof useEditor>;
-}): React.ReactElement {
-  if (!editor) return <div className="p-8 text-text-tertiary">Loading editor…</div>;
+function RichEditor({ editor }: { editor: ReturnType<typeof useEditor> }): React.ReactElement {
+  if (!editor) return <div className="text-text-tertiary p-8">Loading editor…</div>;
   const buttons: { label: string; cmd: () => void; active: () => boolean }[] = [
     {
       label: "B",
@@ -286,17 +278,15 @@ function RichEditor({
   ];
   return (
     <div className="flex h-full flex-col">
-      <div className="flex items-center gap-1 border-b border-border-default px-8 py-2">
+      <div className="border-border-default flex items-center gap-1 border-b px-8 py-2">
         {buttons.map((b) => (
           <button
             key={b.label}
             type="button"
             onClick={b.cmd}
             className={[
-              "h-8 min-w-[32px] rounded-md px-2 text-caption font-semibold transition-colors",
-              b.active()
-                ? "bg-accent-bg text-accent"
-                : "text-text-secondary hover:bg-black/[0.04]",
+              "text-caption h-8 min-w-[32px] rounded-md px-2 font-semibold transition-colors",
+              b.active() ? "bg-accent-bg text-accent" : "text-text-secondary hover:bg-black/[0.04]",
             ].join(" ")}
           >
             {b.label}
@@ -306,7 +296,7 @@ function RichEditor({
       <div className="flex-1 overflow-auto px-8 py-6">
         <EditorContent
           editor={editor}
-          className="prose prose-stone max-w-none text-body text-text-primary focus:outline-none [&_.ProseMirror]:min-h-[280px] [&_.ProseMirror]:outline-none"
+          className="prose prose-stone text-body text-text-primary max-w-none focus:outline-none [&_.ProseMirror]:min-h-[280px] [&_.ProseMirror]:outline-none"
           data-testid="new-article-richtext-editor"
         />
       </div>
@@ -324,17 +314,17 @@ function MarkdownEditor({
   previewHtml: string;
 }): React.ReactElement {
   return (
-    <div className="grid h-full grid-cols-2 divide-x divide-border-default">
+    <div className="divide-border-default grid h-full grid-cols-2 divide-x">
       <textarea
         value={markdown}
         onChange={(e) => onChange(e.target.value)}
         placeholder="Write or paste markdown…&#10;&#10;## A heading&#10;&#10;A paragraph.&#10;&#10;> A blockquote.&#10;&#10;- bullets too"
-        className="h-full resize-none bg-bg-canvas px-8 py-6 font-mono text-caption leading-6 text-text-primary placeholder:text-text-tertiary focus:outline-none"
+        className="bg-bg-canvas text-caption text-text-primary placeholder:text-text-tertiary h-full resize-none px-8 py-6 font-mono leading-6 focus:outline-none"
         data-testid="new-article-markdown-editor"
         spellCheck={false}
       />
       <div
-        className="h-full overflow-auto bg-bg-surface px-8 py-6 prose prose-stone max-w-none text-body text-text-primary"
+        className="bg-bg-surface prose prose-stone text-body text-text-primary h-full max-w-none overflow-auto px-8 py-6"
         dangerouslySetInnerHTML={{ __html: previewHtml }}
         aria-label="Markdown preview"
       />
@@ -357,8 +347,9 @@ function htmlToMarkdownish(html: string): string {
     .replace(/<b>([\s\S]*?)<\/b>/gi, "**$1**")
     .replace(/<em>([\s\S]*?)<\/em>/gi, "*$1*")
     .replace(/<i>([\s\S]*?)<\/i>/gi, "*$1*")
-    .replace(/<blockquote[^>]*>([\s\S]*?)<\/blockquote>/gi, (_m, inner: string) =>
-      "\n" + inner.replace(/\n/g, "\n> ").trim() + "\n\n"
+    .replace(
+      /<blockquote[^>]*>([\s\S]*?)<\/blockquote>/gi,
+      (_m, inner: string) => "\n" + inner.replace(/\n/g, "\n> ").trim() + "\n\n"
     )
     .replace(/<li[^>]*>([\s\S]*?)<\/li>/gi, "- $1\n")
     .replace(/<\/(?:ul|ol)>/gi, "\n")
@@ -390,5 +381,8 @@ function htmlToParagraphs(html: string): string {
     .replace(/&lt;/g, "<")
     .replace(/&gt;/g, ">")
     .replace(/&quot;/g, '"');
-  return text.replace(/[ \t]+/g, " ").replace(/\n{3,}/g, "\n\n").trim();
+  return text
+    .replace(/[ \t]+/g, " ")
+    .replace(/\n{3,}/g, "\n\n")
+    .trim();
 }

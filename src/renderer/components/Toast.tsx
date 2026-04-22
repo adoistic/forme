@@ -30,13 +30,13 @@ export function ToastProvider({ children }: { children: React.ReactNode }): Reac
   return (
     <ToastContext.Provider value={{ push }}>
       {children}
-      <div className="pointer-events-none fixed bottom-6 right-6 z-50 flex flex-col gap-2">
+      <div className="pointer-events-none fixed right-6 bottom-6 z-50 flex flex-col gap-2">
         {toasts.map((t) => (
           <div
             key={t.id}
             data-testid={`toast-${t.kind}`}
             className={[
-              "pointer-events-auto min-w-[260px] max-w-[480px] rounded-md border bg-bg-surface px-5 py-3 text-body shadow-md",
+              "bg-bg-surface text-body pointer-events-auto max-w-[480px] min-w-[260px] rounded-md border px-5 py-3 shadow-md",
               t.kind === "success" ? "border-success" : "",
               t.kind === "error" ? "border-error" : "",
               t.kind === "info" ? "border-border-default" : "",
@@ -44,7 +44,7 @@ export function ToastProvider({ children }: { children: React.ReactNode }): Reac
           >
             <div
               className={[
-                "mb-1 text-label-caps",
+                "text-label-caps mb-1",
                 t.kind === "success" ? "text-success" : "",
                 t.kind === "error" ? "text-error" : "",
                 t.kind === "info" ? "text-text-secondary" : "",
@@ -52,7 +52,7 @@ export function ToastProvider({ children }: { children: React.ReactNode }): Reac
             >
               {t.kind}
             </div>
-            <div className="whitespace-pre-wrap break-words text-text-primary">{t.message}</div>
+            <div className="text-text-primary break-words whitespace-pre-wrap">{t.message}</div>
           </div>
         ))}
       </div>

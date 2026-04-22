@@ -206,11 +206,7 @@ function formatIssueLabel(input: PptxBuildInput): string {
  * right, verso pages (even) at bottom-left. The header is omitted on cover
  * + section openers; pass section: null to skip it.
  */
-function addPageFurniture(
-  slide: pptxgen.Slide,
-  ctx: BuildContext,
-  section: string | null
-): void {
+function addPageFurniture(slide: pptxgen.Slide, ctx: BuildContext, section: string | null): void {
   const mm2in = (mm: number): number => mm / MM_PER_INCH;
   const pt2in = (pt: number): number => pt / PT_PER_INCH;
   const bleedIn = mm2in(ctx.geometry.bleed_mm);
@@ -218,7 +214,8 @@ function addPageFurniture(
   const trimHeightIn = mm2in(ctx.geometry.trim_mm[1]);
   const marginLeft = mm2in(ctx.geometry.margins_mm.left) + bleedIn;
   const marginRight = mm2in(ctx.geometry.margins_mm.right) + bleedIn;
-  const pageContentWidth = trimWidthIn - mm2in(ctx.geometry.margins_mm.left + ctx.geometry.margins_mm.right);
+  const pageContentWidth =
+    trimWidthIn - mm2in(ctx.geometry.margins_mm.left + ctx.geometry.margins_mm.right);
 
   const isRecto = ctx.pageNumber % 2 === 1;
 
@@ -333,8 +330,7 @@ function addCoverSlide(ctx: BuildContext, input: PptxBuildInput): void {
   // 2. Wordmark — auto-shrink the font for long publication names so it
   // never wraps to two visual lines.
   const wordmark = input.publicationName;
-  const wordmarkFontPt =
-    wordmark.length > 24 ? 36 : wordmark.length > 16 ? 48 : 64;
+  const wordmarkFontPt = wordmark.length > 24 ? 36 : wordmark.length > 16 ? 48 : 64;
   slide.addText(wordmark, {
     x: sideMargin,
     y: bleedIn + mm2in(22),
@@ -351,9 +347,7 @@ function addCoverSlide(ctx: BuildContext, input: PptxBuildInput): void {
   // 3. Cover image — dominant, full-width.
   if (input.coverImage) {
     const aspect =
-      input.coverImage.heightPx > 0
-        ? input.coverImage.widthPx / input.coverImage.heightPx
-        : 1.5;
+      input.coverImage.heightPx > 0 ? input.coverImage.widthPx / input.coverImage.heightPx : 1.5;
     const imgW = totalW - bleedIn * 2; // full bleed left/right
     let imgH = imgW / aspect;
     const maxH = trimHeightIn * 0.55;
@@ -410,7 +404,8 @@ function addTocSlide(
   const marginLeft = mm2in(ctx.geometry.margins_mm.left) + bleedIn;
   const marginRight = mm2in(ctx.geometry.margins_mm.right) + bleedIn;
   const marginTop = mm2in(ctx.geometry.margins_mm.top) + bleedIn;
-  const pageContentWidth = trimWidthIn - mm2in(ctx.geometry.margins_mm.left + ctx.geometry.margins_mm.right);
+  const pageContentWidth =
+    trimWidthIn - mm2in(ctx.geometry.margins_mm.left + ctx.geometry.margins_mm.right);
 
   // Section label
   slide.addText("INSIDE THIS ISSUE", {
@@ -448,8 +443,7 @@ function addTocSlide(
   let cursor = firstArticlePage;
   const entries = placements.map((p) => {
     const startPage = cursor;
-    const pages =
-      p.article.prelaidPages?.length ?? p.template.page_count_range[0];
+    const pages = p.article.prelaidPages?.length ?? p.template.page_count_range[0];
     cursor += pages;
     return { article: p.article, startPage, pages };
   });
@@ -527,22 +521,19 @@ function addPlacementSlides(
 
   const bleedIn = mm2in(geo.bleed_mm);
   const marginLeft = mm2in(geo.margins_mm.left) + bleedIn;
-  const marginRight = mm2in(geo.margins_mm.right) + bleedIn;
+  const _marginRight = mm2in(geo.margins_mm.right) + bleedIn;
   const marginTop = mm2in(geo.margins_mm.top) + bleedIn;
   const marginBottom = mm2in(geo.margins_mm.bottom) + bleedIn;
 
   const trimWidthIn = mm2in(geo.trim_mm[0]);
   const trimHeightIn = mm2in(geo.trim_mm[1]);
 
-  const pageContentWidth =
-    trimWidthIn - mm2in(geo.margins_mm.left + geo.margins_mm.right);
-  const pageContentHeight =
-    trimHeightIn - mm2in(geo.margins_mm.top + geo.margins_mm.bottom);
+  const pageContentWidth = trimWidthIn - mm2in(geo.margins_mm.left + geo.margins_mm.right);
+  const pageContentHeight = trimHeightIn - mm2in(geo.margins_mm.top + geo.margins_mm.bottom);
 
   const columnCount = geo.columns;
   const gutterIn = mm2in(geo.gutter_mm);
-  const columnWidth =
-    (pageContentWidth - gutterIn * (columnCount - 1)) / columnCount;
+  const columnWidth = (pageContentWidth - gutterIn * (columnCount - 1)) / columnCount;
 
   // Font-family selection: Mukta for pure Hindi, Fraunces for English body +
   // headlines. Bilingual uses Fraunces (better Latin) and relies on system
@@ -553,10 +544,7 @@ function addPlacementSlides(
 
   // Estimate body capacity per page given font metrics.
   // Fraunces body_pt=10 with leading 14pt → chars-per-line ~ columnWidth/0.5em.
-  const charsPerLine = Math.max(
-    20,
-    Math.floor((columnWidth * PT_PER_INCH) / (typ.body_pt * 0.52))
-  );
+  const charsPerLine = Math.max(20, Math.floor((columnWidth * PT_PER_INCH) / (typ.body_pt * 0.52)));
   const bodyBlockHeightFirstPage = pageContentHeight - pt2in(160);
   const bodyBlockHeightOtherPages = pageContentHeight;
   const linesPerColFirstPage = Math.max(
@@ -609,10 +597,7 @@ function addPlacementSlides(
         break;
       }
     }
-    const pagesUsed =
-      lastFilledColIdx < 0
-        ? 1
-        : Math.floor(lastFilledColIdx / columnCount) + 1;
+    const pagesUsed = lastFilledColIdx < 0 ? 1 : Math.floor(lastFilledColIdx / columnCount) + 1;
     pagesNeeded = Math.min(maxPages, Math.max(1, pagesUsed));
     if (pagesNeeded < minPages) {
       warnings.push(
@@ -977,7 +962,7 @@ function addPlacementSlides(
       for (let c = columnCount - 1; c >= 0; c -= 1) {
         const hasContent = pageColumns
           ? (pageColumns[pageIdx]?.[c] ?? []).some((l) => l.length > 0)
-          : ((segments[pageIdx * columnCount + c] ?? "").length > 0);
+          : (segments[pageIdx * columnCount + c] ?? "").length > 0;
         if (hasContent) {
           lastColWithText = c;
           break;
@@ -1003,12 +988,7 @@ function addPlacementSlides(
     }
 
     // Pull quote on page 2 center column, if supported + present
-    if (
-      article.pullQuote &&
-      pageIdx === 1 &&
-      template.supports_pull_quote &&
-      columnCount >= 3
-    ) {
+    if (article.pullQuote && pageIdx === 1 && template.supports_pull_quote && columnCount >= 3) {
       const pqX = marginLeft + (columnWidth + gutterIn);
       slide.addText(`"${article.pullQuote}"`, {
         x: pqX,
@@ -1099,8 +1079,7 @@ function drawTrimGuides(
  * thin, leaving every column 80% blank.)
  */
 function distributeToColumns(body: string, capacities: number[]): string[] {
-  if (body.length === 0 || capacities.length === 0)
-    return capacities.map(() => "");
+  if (body.length === 0 || capacities.length === 0) return capacities.map(() => "");
 
   const segments: string[] = [];
   let cursor = 0;
@@ -1112,11 +1091,7 @@ function distributeToColumns(body: string, capacities: number[]): string[] {
     let end = Math.min(body.length, cursor + cap);
     // Snap to word boundary unless we're at the exact end of body
     if (end < body.length) {
-      while (
-        end > cursor &&
-        !/\s/.test(body[end] ?? "") &&
-        !/\s/.test(body[end - 1] ?? "")
-      ) {
+      while (end > cursor && !/\s/.test(body[end] ?? "") && !/\s/.test(body[end - 1] ?? "")) {
         end -= 1;
       }
       if (end === cursor) end = Math.min(body.length, cursor + cap); // fallback
@@ -1128,7 +1103,7 @@ function distributeToColumns(body: string, capacities: number[]): string[] {
 }
 
 /** Estimate effective char count (ignores excess whitespace clustering). */
-function estimateCharsNeeded(body: string): number {
+function _estimateCharsNeeded(body: string): number {
   // Add ~10% buffer for paragraph breaks + leading taking visual space
   return Math.ceil(body.length * 1.1);
 }
@@ -1144,12 +1119,7 @@ interface Geometry {
  * would crop the operator's creative). Ad aspect is enforced upstream at
  * upload time; here we just place it.
  */
-function addAdSlide(
-  pres: pptxgen,
-  ad: PptxAd,
-  geo: Geometry,
-  ctx?: BuildContext
-): void {
+function addAdSlide(pres: pptxgen, ad: PptxAd, geo: Geometry, ctx?: BuildContext): void {
   const slide = pres.addSlide();
   const mm2in = (mm: number): number => mm / MM_PER_INCH;
   const pt2in = (pt: number): number => pt / PT_PER_INCH;
@@ -1162,14 +1132,11 @@ function addAdSlide(
   // Between-the-book ads get the ADVERTISEMENT label + folio so readers
   // know they're not editorial content.
   const isCoverPosition =
-    ad.position === "inside_front" ||
-    ad.position === "inside_back" ||
-    ad.position === "back_cover";
+    ad.position === "inside_front" || ad.position === "inside_back" || ad.position === "back_cover";
 
   // Aspect-respecting cover for full-page slots: scale to fit the trim
   // box, center any overflow as a crop. (Stretching always looked off.)
-  const aspect =
-    ad.heightPx > 0 ? ad.widthPx / ad.heightPx : trimWidthIn / trimHeightIn;
+  const aspect = ad.heightPx > 0 ? ad.widthPx / ad.heightPx : trimWidthIn / trimHeightIn;
   const slotW = trimWidthIn + bleedIn * 2;
   const slotH = trimHeightIn + bleedIn * 2;
   const slotAspect = slotW / slotH;
@@ -1263,7 +1230,7 @@ function addClassifiedsSection(
   const pt2in = (pt: number): number => pt / PT_PER_INCH;
   const bleedIn = mm2in(geo.bleed_mm);
   const marginLeft = mm2in(geo.margins_mm.left) + bleedIn;
-  const marginRight = mm2in(geo.margins_mm.right) + bleedIn;
+  const _marginRight = mm2in(geo.margins_mm.right) + bleedIn;
   const marginTop = mm2in(geo.margins_mm.top) + bleedIn;
   const marginBottom = mm2in(geo.margins_mm.bottom) + bleedIn;
   const trimWidthIn = mm2in(geo.trim_mm[0]);
@@ -1347,10 +1314,7 @@ function addClassifiedsSection(
 
     // Approximate chars per visual line at 8pt body font in a column of
     // columnWidth inches. 8pt avg-char width ≈ 0.42em → 3.36pt → 0.047 in
-    const charsPerLine = Math.max(
-      18,
-      Math.floor((columnWidth * PT_PER_INCH) / (8 * 0.5))
-    );
+    const charsPerLine = Math.max(18, Math.floor((columnWidth * PT_PER_INCH) / (8 * 0.5)));
 
     // Heading is emitted lazily — only when we're about to draw the first
     // entry that actually fits. This prevents the orphan-heading bug where
@@ -1387,8 +1351,7 @@ function addClassifiedsSection(
 
     for (let e = 0; e < entries.length; e += 1) {
       const entry = entries[e]!;
-      const entryHeight =
-        estimateClassifiedHeight(entry, columnWidth, charsPerLine) + ENTRY_GAP;
+      const entryHeight = estimateClassifiedHeight(entry, columnWidth, charsPerLine) + ENTRY_GAP;
       const headingChrome = headingNeeded ? headingHeight + pt2in(10) : 0;
       // Does the (still-pending) heading + this entry fit in current column?
       if (y + headingChrome + entryHeight > bottomY) {

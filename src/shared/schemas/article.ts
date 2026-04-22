@@ -29,11 +29,7 @@ export type BylinePosition = z.infer<typeof BylinePositionSchema>;
 //   full-bleed     — hero fills the entire trim (edge to edge, no margins).
 //                    Headline, deck, byline overlay the lower portion of
 //                    the image. The body starts on page 2.
-export const HeroPlacementSchema = z.enum([
-  "below-headline",
-  "above-headline",
-  "full-bleed",
-]);
+export const HeroPlacementSchema = z.enum(["below-headline", "above-headline", "full-bleed"]);
 export type HeroPlacement = z.infer<typeof HeroPlacementSchema>;
 
 export const ArticleSchema = z.object({

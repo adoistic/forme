@@ -1,5 +1,9 @@
 import { describe, expect, test } from "vitest";
-import { ArticleSchema, ContentTypeSchema, countWords } from "../../../../src/shared/schemas/article.js";
+import {
+  ArticleSchema,
+  ContentTypeSchema,
+  countWords,
+} from "../../../../src/shared/schemas/article.js";
 import { randomUUID } from "node:crypto";
 
 describe("countWords", () => {

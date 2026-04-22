@@ -35,12 +35,14 @@ This project uses the **karpathy-guidelines** skill (installed from [forrestchan
 **Invoke the skill** (`/karpathy-guidelines`) before writing, reviewing, or refactoring code. Its four principles take precedence over the general instinct to "just write it":
 
 ### 1. Think Before Coding
+
 - State your assumptions explicitly. If uncertain, ask.
 - If multiple interpretations exist, present them. Don't pick silently.
 - If a simpler approach exists, say so. Push back when warranted.
 - If something is unclear, stop. Name what's confusing. Ask.
 
 ### 2. Simplicity First
+
 - Minimum code that solves the problem. Nothing speculative.
 - No features beyond what was asked.
 - No abstractions for single-use code.
@@ -49,6 +51,7 @@ This project uses the **karpathy-guidelines** skill (installed from [forrestchan
 - If you write 200 lines and it could be 50, rewrite it.
 
 ### 3. Surgical Changes
+
 - Touch only what you must. Clean up only your own mess.
 - Don't "improve" adjacent code, comments, or formatting.
 - Don't refactor things that aren't broken.
@@ -57,6 +60,7 @@ This project uses the **karpathy-guidelines** skill (installed from [forrestchan
 - Every changed line should trace directly to the user's request.
 
 ### 4. Goal-Driven Execution
+
 - Transform tasks into verifiable goals. "Add validation" → "Write tests for invalid inputs, then make them pass."
 - For multi-step tasks, state a brief plan with per-step verification.
 - Strong success criteria let the agent loop independently. Weak criteria require constant clarification.
@@ -126,20 +130,20 @@ bun run typecheck   # tsc --noEmit
 
 When a matching skill exists, invoke it FIRST. Skills encode disciplined workflows; the default "just answer" path is a last resort.
 
-| Situation | Skill |
-|-----------|-------|
-| Writing, reviewing, or refactoring code | `/karpathy-guidelines` (always, as the coding contract) |
-| Pre-landing diff review | `/review` (or the equivalent in your harness) |
-| Significant new feature or scope change | `/plan-ceo-review` |
-| New architecture decision or library swap | `/plan-eng-review` |
+| Situation                                 | Skill                                                                |
+| ----------------------------------------- | -------------------------------------------------------------------- |
+| Writing, reviewing, or refactoring code   | `/karpathy-guidelines` (always, as the coding contract)              |
+| Pre-landing diff review                   | `/review` (or the equivalent in your harness)                        |
+| Significant new feature or scope change   | `/plan-ceo-review`                                                   |
+| New architecture decision or library swap | `/plan-eng-review`                                                   |
 | New screen, UI direction, or visual audit | `/plan-design-review` (plan-stage) or `/design-review` (implemented) |
-| Explore alternate visual directions | `/design-shotgun` |
-| Turn approved mockup into HTML/CSS | `/design-html` |
-| Bugs, errors, unexpected behavior | `/investigate` |
-| QA the running app | `/qa` |
-| Shipping a PR | `/ship` |
-| Save work-in-progress state | `/checkpoint` |
-| Weekly retrospective | `/retro` |
+| Explore alternate visual directions       | `/design-shotgun`                                                    |
+| Turn approved mockup into HTML/CSS        | `/design-html`                                                       |
+| Bugs, errors, unexpected behavior         | `/investigate`                                                       |
+| QA the running app                        | `/qa`                                                                |
+| Shipping a PR                             | `/ship`                                                              |
+| Save work-in-progress state               | `/checkpoint`                                                        |
+| Weekly retrospective                      | `/retro`                                                             |
 
 Skills run at plan-stage or implementation-stage, not as post-hoc validation. Use them early.
 
@@ -148,6 +152,7 @@ Skills run at plan-stage or implementation-stage, not as post-hoc validation. Us
 ## When to ask vs. when to act
 
 **Always ask when:**
+
 - A request contradicts `docs/ceo-plan.md`, `docs/eng-plan.md`, or `DESIGN.md`.
 - The user's framing is ambiguous and you'd have to pick one interpretation.
 - You're about to introduce a pattern not in `DESIGN.md`.
@@ -155,6 +160,7 @@ Skills run at plan-stage or implementation-stage, not as post-hoc validation. Us
 - The change would require a scope addition (propose a TODO or a `/plan-ceo-review` pass).
 
 **Act without asking when:**
+
 - The work is clearly scoped by an existing doc (e.g., "implement Phase 0 foundation").
 - It's a bug fix for existing code (show the fix + a regression test).
 - The user explicitly says "just do it" or "don't ask, ship it."

@@ -66,7 +66,7 @@ These are the issues the operator hits in normal use of the v0.5 build. Order is
 
 ### [P1] Manual ad placement (which article an ad sits between/after)
 
-**What:** Replace the free-text `positionLabel` field on `AdsScreen` with a structured placement picker: choose between (a) cover positions (IFC / IBC / BC) — current dropdown is fine, (b) "between articles" with a select for *which* gap (between article N and article N+1), (c) "bottom of article" with a select for which article and which page (last page only for now). Persist as `placement_kind` + `placement_target_article_id` + `placement_position` on the `ads` table. Update `export.ts` to walk the explicit placement list instead of substring-matching the label.
+**What:** Replace the free-text `positionLabel` field on `AdsScreen` with a structured placement picker: choose between (a) cover positions (IFC / IBC / BC) — current dropdown is fine, (b) "between articles" with a select for _which_ gap (between article N and article N+1), (c) "bottom of article" with a select for which article and which page (last page only for now). Persist as `placement_kind` + `placement_target_article_id` + `placement_position` on the `ads` table. Update `export.ts` to walk the explicit placement list instead of substring-matching the label.
 
 **Why:** Today's placement is whatever `derivePosition` infers from the label string. There's no way to say "this strip ad goes at the bottom of the Kabir feature's last page" — only "it's a strip" and the export decides. Operator wants explicit control.
 

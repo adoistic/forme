@@ -1,9 +1,6 @@
 import Papa from "papaparse";
 import { z } from "zod";
-import type {
-  ClassifiedType,
-  FieldsFor,
-} from "@shared/schemas/classified.js";
+import type { ClassifiedType, FieldsFor } from "@shared/schemas/classified.js";
 import { ClassifiedTypeSchema, FieldSchemaByType } from "@shared/schemas/classified.js";
 import { makeError, type StructuredError } from "@shared/errors/structured.js";
 import type { Language } from "@shared/schemas/language.js";
@@ -106,14 +103,13 @@ export function parseClassifiedsCsv<T extends ClassifiedType>(
   const seenKeys = new Set<string>();
   const dupKey = (row: Record<string, unknown>): string => {
     const phone = extractPhone(row);
-    const billing = (row["billing_reference"] ?? row["billing"]) ?? "";
+    const billing = row["billing_reference"] ?? row["billing"] ?? "";
     return `${phone}|${String(billing).trim()}`;
   };
 
   const rows: CsvRow<T>[] = rawRows.map((raw, idx) => {
     const rowNumber = idx + 1;
-    const { language, weeks_to_run, billing_reference, fields } =
-      splitUniversalFields(raw);
+    const { language, weeks_to_run, billing_reference, fields } = splitUniversalFields(raw);
 
     const validation = schema.safeParse(fields);
     const issues: CsvIssue[] = [];

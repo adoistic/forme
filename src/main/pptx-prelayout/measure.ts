@@ -49,7 +49,8 @@ function registerBundledFontsSync(): void {
 export async function installCanvasShim(): Promise<void> {
   registerBundledFontsSync();
   // Also verify at least one font loaded by stat-ing the file
-  await fs.access(path.resolve(process.cwd(), "src/assets/fonts/Fraunces-Regular.ttf"))
+  await fs
+    .access(path.resolve(process.cwd(), "src/assets/fonts/Fraunces-Regular.ttf"))
     .catch(() => undefined);
 
   if (typeof (globalThis as { OffscreenCanvas?: unknown }).OffscreenCanvas !== "undefined") {
@@ -72,6 +73,5 @@ export async function installCanvasShim(): Promise<void> {
       return this.canvas.getContext("2d") as unknown as CanvasRenderingContext2D;
     }
   }
-  (globalThis as unknown as { OffscreenCanvas: unknown }).OffscreenCanvas =
-    OffscreenCanvasShim;
+  (globalThis as unknown as { OffscreenCanvas: unknown }).OffscreenCanvas = OffscreenCanvasShim;
 }

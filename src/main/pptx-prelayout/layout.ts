@@ -83,9 +83,7 @@ interface MeasuredParagraph {
  * don't fit in the remaining column are sentence-split; the spillover
  * becomes the first paragraph of the next column.
  */
-export async function preLayoutArticleBody(
-  input: PrelayoutInput
-): Promise<PrelayoutOutput> {
+export async function preLayoutArticleBody(input: PrelayoutInput): Promise<PrelayoutOutput> {
   // Use pretext for body line measurement. Pretext is browser-canvas-
   // accurate against the registered Fraunces/Mukta TTFs in @napi-rs/canvas
   // (Skia). Trust its count — no artificial safety-factor narrowing,
@@ -110,10 +108,7 @@ export async function preLayoutArticleBody(
       // Latin: pretext + Skia + Fraunces matches PowerPoint render.
       // Fall back to char-width only on a 0-line result.
       if (lines > 0) return lines;
-      const charsPerLine = Math.max(
-        14,
-        Math.floor(colWidthPx / (fontSizePx * 0.45))
-      );
+      const charsPerLine = Math.max(14, Math.floor(colWidthPx / (fontSizePx * 0.45)));
       return Math.ceil(text.length / charsPerLine);
     }
     // Devanagari: Skia's Mukta shaper systematically under-counts by
@@ -121,10 +116,7 @@ export async function preLayoutArticleBody(
     // and conjuncts the way LibreOffice's HarfBuzz does. Take the max
     // of pretext + a 0.50em char-width estimate so we plan for the
     // larger value and don't overflow the body bottom.
-    const charsPerLine = Math.max(
-      14,
-      Math.floor(colWidthPx / (fontSizePx * 0.50))
-    );
+    const charsPerLine = Math.max(14, Math.floor(colWidthPx / (fontSizePx * 0.5)));
     const fallback = Math.ceil(text.length / charsPerLine);
     return Math.max(lines, fallback);
   };
@@ -196,8 +188,7 @@ export async function preLayoutArticleBody(
   const remainingLines = (): number => {
     const pendingLn = pendingParagraph?.lines ?? 0;
     const measuredLn = measured.reduce((acc, m) => acc + m.lines, 0);
-    const paraCount =
-      (pendingParagraph ? 1 : 0) + measured.length;
+    const paraCount = (pendingParagraph ? 1 : 0) + measured.length;
     const gapOverhead = Math.max(0, paraCount - 1) * PARAGRAPH_GAP_LINES;
     return pendingLn + measuredLn + gapOverhead;
   };
@@ -216,8 +207,7 @@ export async function preLayoutArticleBody(
     // so the bottom of the textbox stays inside the trim margin.
     const trailingGapIn = PARAGRAPH_GAP_PT / PT_PER_INCH;
     const usableHeightIn = Math.max(0, heightIn - trailingGapIn);
-    const fullLinesPerCol =
-      (usableHeightIn * PT_PER_INCH) / input.bodyLeadingPt;
+    const fullLinesPerCol = (usableHeightIn * PT_PER_INCH) / input.bodyLeadingPt;
     if (DEBUG) {
       // eslint-disable-next-line no-console
       console.error(
@@ -242,9 +232,7 @@ export async function preLayoutArticleBody(
     // Without this, cols 2 underfills any time the next paragraph won't
     // fit exactly — col 3 then ends up TALLER than col 2. Allowing
     // overshoot trades a tiny imbalance for a much more even visual.
-    const overshoot = onLastPage
-      ? Math.max(4, linesPerCol * 0.35)
-      : 0;
+    const overshoot = onLastPage ? Math.max(4, linesPerCol * 0.35) : 0;
     // Cap overshoot at the page's actual line capacity. The balancer
     // intentionally lets cols 1+2 grow past balancedTarget so col 3
     // doesn't end up taller, but the previous "+overshoot" arm could
@@ -280,8 +268,7 @@ export async function preLayoutArticleBody(
         //      we let cols overflow with no cap)
         //   2) Otherwise: fits inside cap (target + overshoot)
         //   3) Otherwise: split at sentence boundary
-        const acceptWhole =
-          (isLastCol && onLastPage) || projected <= colCap;
+        const acceptWhole = (isLastCol && onLastPage) || projected <= colCap;
         if (acceptWhole) {
           measured.shift();
           col.push(next.text);
@@ -419,21 +406,17 @@ export async function preLayoutForTemplate(args: {
 }): Promise<string[][][]> {
   const t = args.template;
   const trimHeightIn = mmToIn(t.trim_mm[1]);
-  const pageContentHeightIn =
-    trimHeightIn - mmToIn(t.margins_mm.top + t.margins_mm.bottom);
-  const pageContentWidthIn =
-    mmToIn(t.trim_mm[0]) - mmToIn(t.margins_mm.left + t.margins_mm.right);
+  const pageContentHeightIn = trimHeightIn - mmToIn(t.margins_mm.top + t.margins_mm.bottom);
+  const pageContentWidthIn = mmToIn(t.trim_mm[0]) - mmToIn(t.margins_mm.left + t.margins_mm.right);
   const gutterIn = mmToIn(t.gutter_mm);
-  const columnWidthIn =
-    (pageContentWidthIn - gutterIn * (t.columns - 1)) / t.columns;
+  const columnWidthIn = (pageContentWidthIn - gutterIn * (t.columns - 1)) / t.columns;
 
   // First-page body height — uses the SAME formulas the PPTX builder
   // uses to position the body container. Single source of truth in
   // first-page-geometry.ts. Without this, a 1-line headline like "कबीर"
   // got reserved 3 lines worth of height, leaving the body container
   // ~2 inches (~11 lines) under-filled per column.
-  const firstPageDeck =
-    args.deck && args.deck.trim().length > 0 ? args.deck : null;
+  const firstPageDeck = args.deck && args.deck.trim().length > 0 ? args.deck : null;
   const { bodyHeightIn: firstPageBodyIn } = computeFirstPageGeometry({
     headline: args.headline,
     deck: firstPageDeck,
@@ -444,9 +427,7 @@ export async function preLayoutForTemplate(args: {
     margins_mm: t.margins_mm,
     typography: {
       headline_pt: t.typography.headline_pt,
-      ...(t.typography.deck_pt !== undefined
-        ? { deck_pt: t.typography.deck_pt }
-        : {}),
+      ...(t.typography.deck_pt !== undefined ? { deck_pt: t.typography.deck_pt } : {}),
     },
   });
 

@@ -74,7 +74,7 @@ export function imageCountFitScore(
   const midpoint = (optMin + optMax) / 2;
   const range = (optMax - optMin) / 2;
   const distance = Math.abs(beyond - midpoint);
-  const score = 1 - distance / Math.max(range, 1) * 0.4;
+  const score = 1 - (distance / Math.max(range, 1)) * 0.4;
   return clamp(score, 0, 1);
 }
 
@@ -90,9 +90,7 @@ export function imageAspectBonus(
     return 0;
   }
   if (prefs.includes("any")) return 0.1;
-  const matches = article.image_aspects.filter((a) =>
-    prefs.includes(a as (typeof prefs)[number])
-  );
+  const matches = article.image_aspects.filter((a) => prefs.includes(a as (typeof prefs)[number]));
   const ratio = matches.length / article.image_aspects.length;
   return ratio * 0.2;
 }

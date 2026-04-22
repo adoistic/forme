@@ -11,11 +11,7 @@ import type {
   UpdateArticleInput,
 } from "@shared/ipc-contracts/channels.js";
 import { countWords } from "@shared/schemas/article.js";
-import type {
-  ContentType,
-  BylinePosition,
-  HeroPlacement,
-} from "@shared/schemas/article.js";
+import type { ContentType, BylinePosition, HeroPlacement } from "@shared/schemas/article.js";
 
 function nowISO(): string {
   return new Date().toISOString();
@@ -246,10 +242,8 @@ export function registerArticleHandlers(): void {
     if (payload.headline !== undefined) patch["headline"] = payload.headline;
     if (payload.deck !== undefined) patch["deck"] = payload.deck;
     if (payload.byline !== undefined) patch["byline"] = payload.byline;
-    if (payload.bylinePosition !== undefined)
-      patch["byline_position"] = payload.bylinePosition;
-    if (payload.heroPlacement !== undefined)
-      patch["hero_placement"] = payload.heroPlacement;
+    if (payload.bylinePosition !== undefined) patch["byline_position"] = payload.bylinePosition;
+    if (payload.heroPlacement !== undefined) patch["hero_placement"] = payload.heroPlacement;
     if (payload.heroCaption !== undefined) patch["hero_caption"] = payload.heroCaption;
     if (payload.heroCredit !== undefined) patch["hero_credit"] = payload.heroCredit;
     if (payload.section !== undefined) patch["section"] = payload.section;

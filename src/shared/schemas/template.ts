@@ -9,12 +9,7 @@ import { ContentTypeSchema } from "./article.js";
 export const PageSizeSchema = z.enum(["A4", "A5"]);
 export type PageSize = z.infer<typeof PageSizeSchema>;
 
-export const ImageAspectPreferenceSchema = z.enum([
-  "portrait",
-  "landscape",
-  "square",
-  "any",
-]);
+export const ImageAspectPreferenceSchema = z.enum(["portrait", "landscape", "square", "any"]);
 export type ImageAspectPreference = z.infer<typeof ImageAspectPreferenceSchema>;
 
 /** Word count range per language. */
@@ -37,16 +32,10 @@ export const TemplateSchema = z
       "service",
     ]),
     page_size: PageSizeSchema,
-    page_count_range: z.tuple([
-      z.number().int().positive(),
-      z.number().int().positive(),
-    ]),
+    page_count_range: z.tuple([z.number().int().positive(), z.number().int().positive()]),
     word_count_range: WordCountRangeSchema,
     required_images: z.number().int().nonnegative(),
-    optional_images: z.tuple([
-      z.number().int().nonnegative(),
-      z.number().int().nonnegative(),
-    ]),
+    optional_images: z.tuple([z.number().int().nonnegative(), z.number().int().nonnegative()]),
     image_aspect_preferences: z.array(ImageAspectPreferenceSchema),
     supports_pull_quote: z.boolean(),
     supports_sidebar: z.boolean(),

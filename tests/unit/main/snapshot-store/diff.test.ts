@@ -55,7 +55,13 @@ describe("describeDiff", () => {
     const prev = base();
     const next = base({
       articles: [
-        { id: "a1", headline: "Modi visits Delhi", language: "en", word_count: 1200, content_type: "Article" },
+        {
+          id: "a1",
+          headline: "Modi visits Delhi",
+          language: "en",
+          word_count: 1200,
+          content_type: "Article",
+        },
       ],
     });
     expect(describeDiff(prev, next)).toBe("Added article: Modi visits Delhi");
@@ -74,7 +80,13 @@ describe("describeDiff", () => {
   });
 
   test("removing a single article", () => {
-    const article = { id: "a1", headline: "Going away", language: "en" as const, word_count: 100, content_type: "Article" };
+    const article = {
+      id: "a1",
+      headline: "Going away",
+      language: "en" as const,
+      word_count: 100,
+      content_type: "Article",
+    };
     const prev = base({ articles: [article] });
     const next = base();
     expect(describeDiff(prev, next)).toBe("Removed article: Going away");
@@ -82,10 +94,26 @@ describe("describeDiff", () => {
 
   test("editing an article headline → 'Edited article'", () => {
     const prev = base({
-      articles: [{ id: "a1", headline: "Old headline", language: "en", word_count: 100, content_type: "Article" }],
+      articles: [
+        {
+          id: "a1",
+          headline: "Old headline",
+          language: "en",
+          word_count: 100,
+          content_type: "Article",
+        },
+      ],
     });
     const next = base({
-      articles: [{ id: "a1", headline: "New better headline", language: "en", word_count: 100, content_type: "Article" }],
+      articles: [
+        {
+          id: "a1",
+          headline: "New better headline",
+          language: "en",
+          word_count: 100,
+          content_type: "Article",
+        },
+      ],
     });
     expect(describeDiff(prev, next)).toBe("Edited article: New better headline");
   });
@@ -170,10 +198,11 @@ describe("describeDiff", () => {
 
   test("headline > 40 chars is truncated with ellipsis", () => {
     const prev = base();
-    const long =
-      "A very long headline that definitely exceeds forty characters in total length";
+    const long = "A very long headline that definitely exceeds forty characters in total length";
     const next = base({
-      articles: [{ id: "a1", headline: long, language: "en", word_count: 100, content_type: "Article" }],
+      articles: [
+        { id: "a1", headline: long, language: "en", word_count: 100, content_type: "Article" },
+      ],
     });
     const msg = describeDiff(prev, next);
     expect(msg).toMatch(/^Added article: /);

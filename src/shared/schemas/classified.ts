@@ -121,13 +121,7 @@ const ObituaryFields = z.object({
 });
 
 const PublicNoticeFields = z.object({
-  notice_type: z.enum([
-    "name_change",
-    "lost_document",
-    "missing_person",
-    "legal_notice",
-    "other",
-  ]),
+  notice_type: z.enum(["name_change", "lost_document", "missing_person", "legal_notice", "other"]),
   notice_text: z.string().min(1).max(4000),
   published_by: z.string().min(1).max(200),
   date: z.string(),

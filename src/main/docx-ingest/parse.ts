@@ -56,27 +56,18 @@ export async function parseDocx(buffer: Buffer): Promise<ParsedDocx> {
   const html = htmlResult.value;
 
   // 3. Extract headline: prefer first h1, then first h2, then first line
-  const {
-    headline,
-    bodyText: rawBody,
-    bodyHtml: afterHeadlineHtml,
-  } = splitHeadline(rawText, html);
+  const { headline, bodyText: rawBody, bodyHtml: afterHeadlineHtml } = splitHeadline(rawText, html);
 
   // 4. Extract deck from the first italic paragraph, if any. Magazines
   // conventionally put a one-line or two-line italic subtitle right below
   // the headline, and pandoc's HTML preserves the <em> wrapper — so we
   // parse BEFORE stripping tags. Strip the matched paragraph out of both
   // HTML and the plain-text body.
-  const { deck, bodyText: afterDeckText, bodyHtml } = extractDeck(
-    rawBody,
-    afterHeadlineHtml
-  );
+  const { deck, bodyText: afterDeckText, bodyHtml } = extractDeck(rawBody, afterHeadlineHtml);
 
   // 5. Extract byline + position from the deck-stripped body. Handles both
   // print conventions: "By X" near the top, or em-dash credit at the end.
-  const { byline, bylinePosition, bodyText: afterBylineText } = extractByline(
-    afterDeckText
-  );
+  const { byline, bylinePosition, bodyText: afterBylineText } = extractByline(afterDeckText);
 
   // 6. Drop any leading body paragraph that exactly matches the headline —
   // some sources (Wikipedia plaintext, pandoc Title→Heading1 conversion)
@@ -124,9 +115,7 @@ function extractDeck(
   // pandoc emits <p lang="hi" dir="ltr"><em>...</em></p> for Hindi italics
   // — without the [^>]* the regex would miss them and the deck would
   // leak into the body.
-  const m = bodyHtml.match(
-    /^\s*<p[^>]*>\s*<(em|i)[^>]*>([\s\S]*?)<\/\1>\s*<\/p>\s*/i
-  );
+  const m = bodyHtml.match(/^\s*<p[^>]*>\s*<(em|i)[^>]*>([\s\S]*?)<\/\1>\s*<\/p>\s*/i);
   if (!m || !m[2]) {
     return { deck: null, bodyText, bodyHtml };
   }
@@ -150,7 +139,10 @@ function extractDeck(
 }
 
 function stripAllTags(s: string): string {
-  return s.replace(/<[^>]+>/g, "").replace(/&nbsp;/g, " ").replace(/\s+/g, " ");
+  return s
+    .replace(/<[^>]+>/g, "")
+    .replace(/&nbsp;/g, " ")
+    .replace(/\s+/g, " ");
 }
 
 /**
@@ -312,8 +304,7 @@ function extractByline(body: string): {
   // Look for end byline in last paragraph
   const last = paragraphs[paragraphs.length - 1] ?? "";
   const endMatch =
-    last.match(/^\s*[—–-]{1,2}\s*(.+?)\s*$/) ??
-    last.match(/^\s*(?:By|Signed)\s+(.+?)\s*$/i);
+    last.match(/^\s*[—–-]{1,2}\s*(.+?)\s*$/) ?? last.match(/^\s*(?:By|Signed)\s+(.+?)\s*$/i);
   if (endMatch && endMatch[1] && endMatch[1].length < 140 && last.length < 160) {
     paragraphs.pop();
     return {

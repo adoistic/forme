@@ -4,14 +4,8 @@ import path from "node:path";
 import os from "node:os";
 import { buildPptx } from "../../../src/shared/pptx-builder/build.js";
 import { loadTemplateFile } from "../../../src/main/templates/loader.js";
-import {
-  validatePptx,
-  findSoffice,
-} from "../../../src/main/ooxml-validator/libreoffice.js";
-import type {
-  PptxBuildInput,
-  PptxPlacement,
-} from "../../../src/shared/pptx-builder/types.js";
+import { validatePptx, findSoffice } from "../../../src/main/ooxml-validator/libreoffice.js";
+import type { PptxBuildInput, PptxPlacement } from "../../../src/shared/pptx-builder/types.js";
 
 const repoRoot = process.cwd();
 const standardFeatureA4 = path.join(repoRoot, "templates/standard-feature-a4.json");
@@ -108,9 +102,9 @@ describe("buildPptx — Standard Feature A4", () => {
       publicationName: "Nobody",
       placements: [],
     };
-    await expect(
-      buildPptx(input, path.join(workDir, "empty.pptx"))
-    ).rejects.toThrow(/zero placements/);
+    await expect(buildPptx(input, path.join(workDir, "empty.pptx"))).rejects.toThrow(
+      /zero placements/
+    );
   });
 
   test("short body emits only the pages it fills (no blank trailers)", async () => {
@@ -167,34 +161,27 @@ describe("buildPptx — Standard Feature A4", () => {
 });
 
 describe.runIf(sofficeAvailable)("buildPptx × LibreOffice round-trip — Phase 2 gate", () => {
-  test(
-    "generated PPTX parses cleanly in LibreOffice",
-    async () => {
-      const template = await loadTemplateFile(standardFeatureA4);
-      const input: PptxBuildInput = {
-        issueTitle: "Phase 2 Gate",
-        issueNumber: 1,
-        issueDate: "2026-04-22",
-        publicationName: "Forme",
-        placements: [
-          {
-            articleId: "gate",
-            template,
-            startingPageNumber: 1,
-            article: fakeArticle(
-              "The Phase 2 Gate Smoke Test",
-              longBody(1100)
-            ),
-          },
-        ],
-      };
-      const outPath = path.join(workDir, "gate.pptx");
-      await buildPptx(input, outPath);
+  test("generated PPTX parses cleanly in LibreOffice", async () => {
+    const template = await loadTemplateFile(standardFeatureA4);
+    const input: PptxBuildInput = {
+      issueTitle: "Phase 2 Gate",
+      issueNumber: 1,
+      issueDate: "2026-04-22",
+      publicationName: "Forme",
+      placements: [
+        {
+          articleId: "gate",
+          template,
+          startingPageNumber: 1,
+          article: fakeArticle("The Phase 2 Gate Smoke Test", longBody(1100)),
+        },
+      ],
+    };
+    const outPath = path.join(workDir, "gate.pptx");
+    await buildPptx(input, outPath);
 
-      const validation = await validatePptx({ pptxPath: outPath });
-      expect(validation.valid).toBe(true);
-      expect(validation.pdfPath).toBeTruthy();
-    },
-    180_000
-  );
+    const validation = await validatePptx({ pptxPath: outPath });
+    expect(validation.valid).toBe(true);
+    expect(validation.pdfPath).toBeTruthy();
+  }, 180_000);
 });

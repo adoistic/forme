@@ -25,9 +25,18 @@
       "!**/*.ts"
     ],
     "extraResources": [
-      { "from": "templates", "to": "templates" },
-      { "from": "src/assets/fonts", "to": "fonts" },
-      { "from": "vendor/pretext/dist", "to": "pretext" }
+      {
+        "from": "templates",
+        "to": "templates"
+      },
+      {
+        "from": "src/assets/fonts",
+        "to": "fonts"
+      },
+      {
+        "from": "vendor/pretext/dist",
+        "to": "pretext"
+      }
     ],
     "asar": true,
     "asarUnpack": [
@@ -41,7 +50,12 @@
     "mac": {
       "category": "public.app-category.productivity",
       "target": [
-        { "target": "dmg", "arch": ["arm64"] }
+        {
+          "target": "dmg",
+          "arch": [
+            "arm64"
+          ]
+        }
       ],
       "artifactName": "Forme-${version}-${arch}.${ext}",
       "darkModeSupport": false,

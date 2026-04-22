@@ -2,16 +2,9 @@ import { randomUUID } from "node:crypto";
 import { addHandler } from "../register.js";
 import { getState } from "../../app-state.js";
 import { ingestImage } from "../../image-ingest/ingest.js";
-import {
-  validateAdAspect,
-  validateResolution,
-  AD_SLOT_TRIM_WIDTH_MM,
-} from "@shared/schemas/ad.js";
+import { validateAdAspect, validateResolution, AD_SLOT_TRIM_WIDTH_MM } from "@shared/schemas/ad.js";
 import { makeError } from "@shared/errors/structured.js";
-import type {
-  AdSummary,
-  UploadAdInput,
-} from "@shared/ipc-contracts/channels.js";
+import type { AdSummary, UploadAdInput } from "@shared/ipc-contracts/channels.js";
 import type { AdSlotType } from "@shared/schemas/ad.js";
 
 function nowISO(): string {

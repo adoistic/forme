@@ -47,9 +47,7 @@ export interface FirstPageGeometry {
  * reservation. The numbers below mirror the builder's per-element
  * layout in build.ts; keep them in lockstep.
  */
-export function computeFirstPageGeometry(
-  args: FirstPageGeometryInput
-): FirstPageGeometry {
+export function computeFirstPageGeometry(args: FirstPageGeometryInput): FirstPageGeometry {
   const trimWidthIn = mm2in(args.trim_mm[0]);
   const trimHeightIn = mm2in(args.trim_mm[1]);
   const marginTop = mm2in(args.margins_mm.top);
@@ -93,10 +91,7 @@ export function computeFirstPageGeometry(
       16,
       Math.floor((pageContentWidth * PT_PER_INCH) / (deckPt * 0.5))
     );
-    const deckLines = Math.min(
-      4,
-      Math.max(1, Math.ceil(args.deck.length / deckCharsPerLine))
-    );
+    const deckLines = Math.min(4, Math.max(1, Math.ceil(args.deck.length / deckCharsPerLine)));
     const deckHeight = pt2in(deckPt * 1.3 * deckLines + 4);
     cursorY += deckHeight + pt2in(2);
   }

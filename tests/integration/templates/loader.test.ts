@@ -2,10 +2,7 @@ import { describe, expect, test, beforeEach, afterEach } from "vitest";
 import fs from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
-import {
-  loadTemplateFile,
-  loadTemplatesFromDir,
-} from "../../../src/main/templates/loader.js";
+import { loadTemplateFile, loadTemplatesFromDir } from "../../../src/main/templates/loader.js";
 
 const repoRoot = process.cwd();
 const templatesDir = path.join(repoRoot, "templates");

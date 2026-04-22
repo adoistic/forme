@@ -2,10 +2,7 @@ import { describe, expect, test } from "vitest";
 import fs from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import {
-  validatePptx,
-  findSoffice,
-} from "../../../src/main/ooxml-validator/libreoffice.js";
+import { validatePptx, findSoffice } from "../../../src/main/ooxml-validator/libreoffice.js";
 
 const fixtureDir = path.dirname(fileURLToPath(import.meta.url));
 const smokePptx = path.join(fixtureDir, "smoke.pptx");
@@ -26,28 +23,20 @@ describe("findSoffice", () => {
 });
 
 describe.runIf(sofficeAvailable)("validatePptx — integration", () => {
-  test(
-    "valid pptx round-trips to PDF",
-    async () => {
-      const result = await validatePptx({ pptxPath: smokePptx });
-      expect(result.valid).toBe(true);
-      expect(result.pdfPath).toBeTruthy();
-      expect(result.durationMs).toBeGreaterThan(0);
-      const stat = await fs.stat(result.pdfPath!);
-      expect(stat.size).toBeGreaterThan(0);
-    },
-    120_000
-  );
+  test("valid pptx round-trips to PDF", async () => {
+    const result = await validatePptx({ pptxPath: smokePptx });
+    expect(result.valid).toBe(true);
+    expect(result.pdfPath).toBeTruthy();
+    expect(result.durationMs).toBeGreaterThan(0);
+    const stat = await fs.stat(result.pdfPath!);
+    expect(stat.size).toBeGreaterThan(0);
+  }, 120_000);
 
-  test(
-    "nonexistent file throws ooxml_validation_error",
-    async () => {
-      await expect(
-        validatePptx({ pptxPath: path.join(fixtureDir, "does-not-exist.pptx") })
-      ).rejects.toMatchObject({ code: "ooxml_validation_error" });
-    },
-    30_000
-  );
+  test("nonexistent file throws ooxml_validation_error", async () => {
+    await expect(
+      validatePptx({ pptxPath: path.join(fixtureDir, "does-not-exist.pptx") })
+    ).rejects.toMatchObject({ code: "ooxml_validation_error" });
+  }, 30_000);
 });
 
 describe("validatePptx — without LibreOffice", () => {

@@ -5,6 +5,7 @@
 ## How to read this folder
 
 Each screen folder contains:
+
 - `approved.png` — the approved variant (the other generated variants are not in the repo).
 - `approved.json` — the implementer's contract:
   - `direction`: the layout/composition intent.

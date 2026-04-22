@@ -53,7 +53,10 @@ export function registerIpcHandlers(ipcMain: IpcMain): void {
       return ok(result);
     } catch (thrown: unknown) {
       const structured = fromUnknown(thrown, "ipc_handler_threw");
-      logger.error({ channel, code: structured.code, context: structured.context }, "IPC handler threw");
+      logger.error(
+        { channel, code: structured.code, context: structured.context },
+        "IPC handler threw"
+      );
       return err(structured);
     }
   });

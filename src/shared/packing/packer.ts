@@ -159,8 +159,7 @@ export function packClassifieds(
           (col.columnIndex === 0 ? headerUsed : 0);
 
         if (used <= geometry.columnHeightMM) {
-          const topMM =
-            col.heightMM + (col.entries.length > 0 ? geometry.entryGapMM : 0);
+          const topMM = col.heightMM + (col.entries.length > 0 ? geometry.entryGapMM : 0);
           col.entries.push({ entryId: entry.id, topMM, heightMM: entry.heightMM });
           col.heightMM = topMM + entry.heightMM;
           break;

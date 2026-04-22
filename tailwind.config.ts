@@ -4,11 +4,7 @@ import type { Config } from "tailwindcss";
 // Source of truth: DESIGN.md.
 // If you change a token here, update DESIGN.md in the same commit.
 export default {
-  content: [
-    "./index.html",
-    "./src/renderer/**/*.{ts,tsx,html}",
-    "./src/shared/**/*.{ts,tsx}",
-  ],
+  content: ["./index.html", "./src/renderer/**/*.{ts,tsx,html}", "./src/shared/**/*.{ts,tsx}"],
   theme: {
     extend: {
       colors: {
@@ -55,13 +51,7 @@ export default {
         },
       },
       fontFamily: {
-        display: [
-          "Fraunces",
-          "Playfair Display",
-          "ui-serif",
-          "Georgia",
-          "serif",
-        ],
+        display: ["Fraunces", "Playfair Display", "ui-serif", "Georgia", "serif"],
         sans: ["Inter", "-apple-system", "system-ui", "sans-serif"],
         devanagari: ["Mukta", "Tiro Devanagari Hindi", "sans-serif"],
         mono: ["SF Mono", "Menlo", "Consolas", "monospace"],

@@ -30,16 +30,16 @@ Forme is a desktop app (macOS, Electron) that produces print-ready magazine issu
 
 These are real, the operator will hit them; they're listed honestly so v0.5 isn't oversold:
 
-| # | Gap | What's missing |
-|---|-----|---|
-| 1 | **Hero image upload from the app** | No file picker / URL paste / drag-drop in `NewArticleModal` or `EditArticleModal`. Hero images today only enter the system through `.docx` import. The hero-placement / caption / credit editor in `EditArticleModal` is wired but has no source-image control. |
-| 2 | **CSV format documentation for non-technical operators** | Sample CSV exists at `tests/fixtures/classifieds/sample.csv` and the column list lives in `src/main/ipc/handlers/classified.ts`, but neither is accessible from the import UI. Need an in-UI "download sample CSV" + per-type column reference. |
-| 3 | **Reorder articles / classifieds / ads** | Read-only lists. Ordering today is implicit (created-at ASC for articles, type-then-created-at for classifieds). `dnd-kit` is in the locked stack but not wired. The operator can't say "ad X goes between article 5 and 6". |
-| 4 | **Manual ad placement** | Ad position is a free-text label (`positionLabel`) that `derivePosition` substring-matches. No UI for "between article 3 and 4" or "bottom of article 5 page 2". |
-| 5 | **"Save as…" dialog on export** | Export writes to a fixed `~/Documents/Forme/{slug}-{date}.pptx` with no `dialog.showSaveDialog` call. Operator can't choose location or filename at export time. |
-| 6 | **Side-image article layouts** | Only three image placements exist (`below-headline`, `above-headline`, `full-bleed`). No inline figure with text wrapping around it. Pretext's `layoutNextLineRange(width)` supports the variable-width line stepping needed; not yet wired. |
-| 7 | **Poetry templates** | `Poem` is a valid `contentType` and `poetry` is in the template-family enum, but no `poetry.json` template exists yet. Poems route to the default feature template today. Quatrain / short / long / multi-poem-per-page packing is the v0.6 brainstorm. |
-| 8 | **Code-signed + notarized DMG** | v0.5 DMG ships unsigned. Apple Developer ID + notarization is v0.6. |
+| #   | Gap                                                      | What's missing                                                                                                                                                                                                                                                  |
+| --- | -------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 1   | **Hero image upload from the app**                       | No file picker / URL paste / drag-drop in `NewArticleModal` or `EditArticleModal`. Hero images today only enter the system through `.docx` import. The hero-placement / caption / credit editor in `EditArticleModal` is wired but has no source-image control. |
+| 2   | **CSV format documentation for non-technical operators** | Sample CSV exists at `tests/fixtures/classifieds/sample.csv` and the column list lives in `src/main/ipc/handlers/classified.ts`, but neither is accessible from the import UI. Need an in-UI "download sample CSV" + per-type column reference.                 |
+| 3   | **Reorder articles / classifieds / ads**                 | Read-only lists. Ordering today is implicit (created-at ASC for articles, type-then-created-at for classifieds). `dnd-kit` is in the locked stack but not wired. The operator can't say "ad X goes between article 5 and 6".                                    |
+| 4   | **Manual ad placement**                                  | Ad position is a free-text label (`positionLabel`) that `derivePosition` substring-matches. No UI for "between article 3 and 4" or "bottom of article 5 page 2".                                                                                                |
+| 5   | **"Save as…" dialog on export**                          | Export writes to a fixed `~/Documents/Forme/{slug}-{date}.pptx` with no `dialog.showSaveDialog` call. Operator can't choose location or filename at export time.                                                                                                |
+| 6   | **Side-image article layouts**                           | Only three image placements exist (`below-headline`, `above-headline`, `full-bleed`). No inline figure with text wrapping around it. Pretext's `layoutNextLineRange(width)` supports the variable-width line stepping needed; not yet wired.                    |
+| 7   | **Poetry templates**                                     | `Poem` is a valid `contentType` and `poetry` is in the template-family enum, but no `poetry.json` template exists yet. Poems route to the default feature template today. Quatrain / short / long / multi-poem-per-page packing is the v0.6 brainstorm.         |
+| 8   | **Code-signed + notarized DMG**                          | v0.5 DMG ships unsigned. Apple Developer ID + notarization is v0.6.                                                                                                                                                                                             |
 
 ### 🗺️ What's next
 
@@ -87,6 +87,7 @@ This repository begins with the planning artifacts (CEO plan, engineering plan, 
 ```
 
 Each design folder contains:
+
 - `approved.png` — the approved mockup
 - `approved.json` — direction, implementation notes, **and a list of AI drift to ignore**
 
@@ -108,30 +109,30 @@ Each design folder contains:
 
 Locked via `/plan-eng-review`. All Layer 1 (battle-tested) except [Pretext](https://github.com/chenglou/pretext) (Layer 2, vendored into repo as insurance).
 
-| Layer | Choice |
-|-------|--------|
-| Shell | Electron |
-| UI framework | React + TypeScript (strict) |
-| Build | Vite |
-| Styling | Tailwind CSS (tokens from `DESIGN.md`) |
-| Components | Radix UI Primitives (unstyled, headless) |
-| State | Zustand (with `useShallow` + Immer discipline) |
-| Drag-and-drop | dnd-kit |
-| Validation | Zod |
-| Database | SQLite via better-sqlite3 |
-| Query builder | Kysely + kysely-ctl (migrations) |
-| Images | sharp (libvips) |
-| Docx parsing | mammoth.js |
-| CSV parsing | papaparse |
-| PPTX writing | pptxgenjs (in Electron utility process, not renderer) |
-| Text measurement | @chenglou/pretext (vendored into `vendor/pretext/`) |
-| Fonts | Fraunces (display serif) + Inter (UI) + Mukta (Devanagari), bundled |
-| Logging | pino (structured JSON, 7-day local rotation) |
-| OOXML validation | LibreOffice headless (on pre-export check + Phase 1 harness) |
-| Testing (unit) | Vitest |
-| Testing (E2E) | Playwright (Electron API) |
-| Linting | ESLint + Prettier + Husky + lint-staged |
-| Packager | electron-builder (macOS DMG, signed + notarized) |
+| Layer            | Choice                                                              |
+| ---------------- | ------------------------------------------------------------------- |
+| Shell            | Electron                                                            |
+| UI framework     | React + TypeScript (strict)                                         |
+| Build            | Vite                                                                |
+| Styling          | Tailwind CSS (tokens from `DESIGN.md`)                              |
+| Components       | Radix UI Primitives (unstyled, headless)                            |
+| State            | Zustand (with `useShallow` + Immer discipline)                      |
+| Drag-and-drop    | dnd-kit                                                             |
+| Validation       | Zod                                                                 |
+| Database         | SQLite via better-sqlite3                                           |
+| Query builder    | Kysely + kysely-ctl (migrations)                                    |
+| Images           | sharp (libvips)                                                     |
+| Docx parsing     | mammoth.js                                                          |
+| CSV parsing      | papaparse                                                           |
+| PPTX writing     | pptxgenjs (in Electron utility process, not renderer)               |
+| Text measurement | @chenglou/pretext (vendored into `vendor/pretext/`)                 |
+| Fonts            | Fraunces (display serif) + Inter (UI) + Mukta (Devanagari), bundled |
+| Logging          | pino (structured JSON, 7-day local rotation)                        |
+| OOXML validation | LibreOffice headless (on pre-export check + Phase 1 harness)        |
+| Testing (unit)   | Vitest                                                              |
+| Testing (E2E)    | Playwright (Electron API)                                           |
+| Linting          | ESLint + Prettier + Husky + lint-staged                             |
+| Packager         | electron-builder (macOS DMG, signed + notarized)                    |
 
 See [docs/eng-plan.md](docs/eng-plan.md) for the full rationale.
 
@@ -165,6 +166,7 @@ The 13 approved mockups in `designs/` are **directional** references for composi
 **v0.8 — distribution:** code-signed + notarized macOS DMG (Apple Developer ID), auto-update channel.
 
 **v1.x (in [TODOS.md](TODOS.md)):**
+
 - Windows support
 - Voice-to-text classifieds intake (Whisper + local LLM)
 - Dark theme

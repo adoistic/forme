@@ -8,14 +8,14 @@ describe("detectLanguage", () => {
   });
 
   test("pure Devanagari body → hi", () => {
-    const text = "यह पूरी तरह से देवनागरी में लिखा गया एक पाठ है जिसमें कोई भी अंग्रेज़ी अक्षर नहीं है";
+    const text =
+      "यह पूरी तरह से देवनागरी में लिखा गया एक पाठ है जिसमें कोई भी अंग्रेज़ी अक्षर नहीं है";
     expect(detectLanguage(text)).toBe("hi");
   });
 
   test("mixed-script with Devanagari-majority → hi", () => {
     // ~48% Devanagari — dominant
-    const text =
-      "मोदी ने दिल्ली का दौरा किया और प्रेस से बात की then spoke briefly";
+    const text = "मोदी ने दिल्ली का दौरा किया और प्रेस से बात की then spoke briefly";
     expect(detectLanguage(text)).toBe("hi");
   });
 

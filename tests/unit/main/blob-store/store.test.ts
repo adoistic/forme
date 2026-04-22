@@ -93,9 +93,7 @@ describe("BlobStore", () => {
 
   test("verify returns false for missing hash", async () => {
     expect(
-      await store.verify(
-        "2222222222222222222222222222222222222222222222222222222222222222"
-      )
+      await store.verify("2222222222222222222222222222222222222222222222222222222222222222")
     ).toBe(false);
   });
 
@@ -108,9 +106,7 @@ describe("BlobStore", () => {
 
   test("size returns null for missing blob", async () => {
     expect(
-      await store.size(
-        "3333333333333333333333333333333333333333333333333333333333333333"
-      )
+      await store.size("3333333333333333333333333333333333333333333333333333333333333333")
     ).toBeNull();
   });
 
@@ -136,6 +132,8 @@ describe("BlobStore", () => {
     const resolved = await store.resolve(hash);
     expect(resolved).toBeTruthy();
     // assets / publisher_default / aa / rest-of-hash
-    expect(resolved).toMatch(new RegExp(`assets/publisher_default/${hash.slice(0, 2)}/${hash.slice(2)}$`));
+    expect(resolved).toMatch(
+      new RegExp(`assets/publisher_default/${hash.slice(0, 2)}/${hash.slice(2)}$`)
+    );
   });
 });

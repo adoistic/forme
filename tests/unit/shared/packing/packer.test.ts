@@ -14,7 +14,13 @@ const tinyGeometry: PackerGeometry = {
   entryGapMM: 2,
 };
 
-function entry(id: string, type: ClassifiedEntry["type"], lang: ClassifiedEntry["language"], height: number, sortKey = 0): ClassifiedEntry {
+function entry(
+  id: string,
+  type: ClassifiedEntry["type"],
+  lang: ClassifiedEntry["language"],
+  height: number,
+  sortKey = 0
+): ClassifiedEntry {
   return { id, type, language: lang, heightMM: height, sortKey };
 }
 
@@ -24,10 +30,7 @@ describe("packClassifieds — empty + trivial", () => {
   });
 
   test("single small entry fits on one page, one column", () => {
-    const layout = packClassifieds(
-      [entry("a", "matrimonial_with_photo", "en", 20)],
-      tinyGeometry
-    );
+    const layout = packClassifieds([entry("a", "matrimonial_with_photo", "en", 20)], tinyGeometry);
     expect(layout.pages).toHaveLength(1);
     const p = layout.pages[0]!;
     expect(p.topHeaders).toHaveLength(1);
@@ -51,10 +54,7 @@ describe("packClassifieds — grouping + headers", () => {
 
   test("different types get separate headers", () => {
     const layout = packClassifieds(
-      [
-        entry("a", "matrimonial_with_photo", "en", 20),
-        entry("b", "obituary", "en", 20),
-      ],
+      [entry("a", "matrimonial_with_photo", "en", 20), entry("b", "obituary", "en", 20)],
       tinyGeometry
     );
     const headers = layout.pages[0]!.topHeaders;
@@ -123,10 +123,7 @@ describe("packClassifieds — extended notice", () => {
 
   test("extended notice doesn't eat content that came before", () => {
     const layout = packClassifieds(
-      [
-        entry("a", "matrimonial_with_photo", "en", 20),
-        entry("big", "public_notice", "en", 400),
-      ],
+      [entry("a", "matrimonial_with_photo", "en", 20), entry("big", "public_notice", "en", 400)],
       tinyGeometry
     );
     expect(layout.pages).toHaveLength(2);
@@ -145,18 +142,14 @@ describe("packClassifieds — sort key", () => {
       entry("b", "matrimonial_with_photo", "en", 20, 1),
     ];
     const layout = packClassifieds(entries, tinyGeometry);
-    const ids = layout.pages[0]!.columns.flatMap((c) =>
-      c.entries.map((e) => e.entryId)
-    );
+    const ids = layout.pages[0]!.columns.flatMap((c) => c.entries.map((e) => e.entryId));
     expect(ids).toEqual(["a", "b", "c"]);
   });
 });
 
 describe("humanGroupLabel", () => {
   test("formats type + language", () => {
-    expect(humanGroupLabel("matrimonial_with_photo", "hi")).toBe(
-      "MATRIMONIAL WITH PHOTO (HINDI)"
-    );
+    expect(humanGroupLabel("matrimonial_with_photo", "hi")).toBe("MATRIMONIAL WITH PHOTO (HINDI)");
     expect(humanGroupLabel("public_notice", "en")).toBe("PUBLIC NOTICE (ENGLISH)");
   });
 });

@@ -12,8 +12,8 @@ export function EmptyScreen({ label, headline, subline }: EmptyScreenProps): Rea
   return (
     <div className="flex h-full w-full items-center justify-center p-12">
       <div className="max-w-[480px] text-center">
-        <div className="mb-4 text-label-caps text-accent">{label}</div>
-        <h2 className="mb-3 text-display-md font-display text-text-primary">{headline}</h2>
+        <div className="text-label-caps text-accent mb-4">{label}</div>
+        <h2 className="text-display-md font-display text-text-primary mb-3">{headline}</h2>
         <p className="text-body text-text-secondary">{subline}</p>
       </div>
     </div>

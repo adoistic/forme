@@ -4,15 +4,8 @@ import { getState } from "../../app-state.js";
 import { buildPptx } from "@shared/pptx-builder/build.js";
 import { preLayoutForTemplate } from "../../pptx-prelayout/layout.js";
 import { makeError } from "@shared/errors/structured.js";
-import type {
-  ExportIssueInput,
-  ExportIssueResult,
-} from "@shared/ipc-contracts/channels.js";
-import type {
-  PptxAd,
-  PptxClassified,
-  PptxPlacement,
-} from "@shared/pptx-builder/types.js";
+import type { ExportIssueInput, ExportIssueResult } from "@shared/ipc-contracts/channels.js";
+import type { PptxAd, PptxClassified, PptxPlacement } from "@shared/pptx-builder/types.js";
 import { createLogger } from "../../logger.js";
 
 const logger = createLogger("export");
@@ -98,12 +91,10 @@ function renderClassified(
         (typeof f["title"] === "string" && f["title"]) ||
         (typeof f["headline"] === "string" && f["headline"]) ||
         type.replace(/_/g, " ");
-      const lines = entries
-        .slice(0, 6)
-        .map(([k, v]) => {
-          if (Array.isArray(v)) return `${labelize(k)}: ${v.join(", ")}`;
-          return `${labelize(k)}: ${String(v)}`;
-        });
+      const lines = entries.slice(0, 6).map(([k, v]) => {
+        if (Array.isArray(v)) return `${labelize(k)}: ${v.join(", ")}`;
+        return `${labelize(k)}: ${String(v)}`;
+      });
       return { displayName: String(displayName), bodyLines: lines };
     }
   }
@@ -124,10 +115,7 @@ function labelize(key: string): string {
  *   "Bottom Strip" / "Strip"         → bottom_strip
  *   anything else with a full-page slot → between
  */
-function derivePosition(
-  positionLabel: string,
-  slotType: string
-): NonNullable<PptxAd["position"]> {
+function derivePosition(positionLabel: string, slotType: string): NonNullable<PptxAd["position"]> {
   const p = (positionLabel ?? "").toLowerCase();
   if (/inside\s*front|^ifc\b|inner\s*front/.test(p)) return "inside_front";
   if (/inside\s*back|^ibc\b|inner\s*back/.test(p)) return "inside_back";
@@ -213,8 +201,7 @@ export function registerExportHandlers(): void {
       });
     }
     const featureTemplate =
-      matchingTemplates.find((t) => t.id === "standard_feature_a4") ??
-      matchingTemplates[0]!;
+      matchingTemplates.find((t) => t.id === "standard_feature_a4") ?? matchingTemplates[0]!;
     const photoEssayTemplate = matchingTemplates.find((t) => t.id === "photo_essay_a4");
     const longFormTemplate = matchingTemplates.find((t) => t.id === "long_form_essay_a4");
 
@@ -246,7 +233,8 @@ export function registerExportHandlers(): void {
     // starting pages are sequential. Phase 11+ will add auto-fit scoring + real
     // multi-template composition.
     let nextPageNumber = 1;
-    const placements: PptxPlacement[] = [];    for (const article of articleRows) {
+    const placements: PptxPlacement[] = [];
+    for (const article of articleRows) {
       // Load hero image (if any) — first article_images row with role=hero
       let heroImage:
         | { mimeType: string; base64: string; widthPx: number; heightPx: number }
@@ -254,12 +242,7 @@ export function registerExportHandlers(): void {
       const heroRow = await db
         .selectFrom("article_images")
         .innerJoin("images", "images.blob_hash", "article_images.blob_hash")
-        .select([
-          "article_images.blob_hash",
-          "images.mime_type",
-          "images.width",
-          "images.height",
-        ])
+        .select(["article_images.blob_hash", "images.mime_type", "images.width", "images.height"])
         .where("article_images.article_id", "=", article.id)
         .where("article_images.role", "=", "hero")
         .orderBy("article_images.position", "asc")
@@ -281,8 +264,7 @@ export function registerExportHandlers(): void {
         }
       }
 
-      const bylinePosition: "top" | "end" =
-        article.byline_position === "end" ? "end" : "top";
+      const bylinePosition: "top" | "end" = article.byline_position === "end" ? "end" : "top";
       const language = article.language as "en" | "hi" | "bilingual";
       const chosenTemplate = pickTemplate(article, !!heroImage);
 
@@ -362,10 +344,10 @@ export function registerExportHandlers(): void {
         (chosenTemplate.family === "photo_essay"
           ? "Photo Essay"
           : article.content_type === "Opinion"
-          ? "Opinion"
-          : article.content_type === "Interview"
-          ? "Interview"
-          : "Features");
+            ? "Opinion"
+            : article.content_type === "Interview"
+              ? "Interview"
+              : "Features");
 
       placements.push({
         articleId: article.id,

@@ -31,9 +31,7 @@ export function ArticlesScreen(): React.ReactElement {
     if (!currentIssue) return;
     // Accept .docx (mammoth pipeline), .md and .markdown (parsed via
     // marked → HTML → plain text), and .txt (paragraph-split as-is).
-    const list = Array.from(files).filter((f) =>
-      /\.(docx|md|markdown|txt)$/i.test(f.name)
-    );
+    const list = Array.from(files).filter((f) => /\.(docx|md|markdown|txt)$/i.test(f.name));
     if (list.length === 0) {
       toast.push("error", "Supported formats: .docx, .md, .txt.");
       return;
@@ -124,7 +122,7 @@ export function ArticlesScreen(): React.ReactElement {
       onDragLeave={onDragLeave}
       onDrop={onDrop}
     >
-      <header className="flex h-16 shrink-0 items-center justify-between border-b border-border-default px-8">
+      <header className="border-border-default flex h-16 shrink-0 items-center justify-between border-b px-8">
         <div>
           <h1 className="font-display text-display-md text-text-primary">Articles</h1>
           <div className="text-caption text-text-tertiary">
@@ -133,7 +131,7 @@ export function ArticlesScreen(): React.ReactElement {
         </div>
         <div className="flex items-center gap-3">
           <label
-            className="cursor-pointer rounded-md border-[1.5px] border-accent px-4 py-2 text-title-sm text-accent hover:bg-accent-bg"
+            className="border-accent text-title-sm text-accent hover:bg-accent-bg cursor-pointer rounded-md border-[1.5px] px-4 py-2"
             data-testid="import-docx-button"
           >
             Import file
@@ -149,7 +147,7 @@ export function ArticlesScreen(): React.ReactElement {
           <button
             type="button"
             onClick={() => setComposing(true)}
-            className="rounded-md bg-accent px-4 py-2 text-title-sm font-semibold text-text-inverse hover:bg-accent-hover"
+            className="bg-accent text-title-sm text-text-inverse hover:bg-accent-hover rounded-md px-4 py-2 font-semibold"
             data-testid="new-article-button"
           >
             + New article
@@ -158,19 +156,18 @@ export function ArticlesScreen(): React.ReactElement {
       </header>
 
       <div
-        className={[
-          "relative flex-1 overflow-auto p-8",
-          isDragging ? "bg-accent-bg" : "",
-        ].join(" ")}
+        className={["relative flex-1 overflow-auto p-8", isDragging ? "bg-accent-bg" : ""].join(
+          " "
+        )}
       >
         {articles.length === 0 ? (
           <div className="flex h-full items-center justify-center">
-            <div className="max-w-[520px] rounded-lg border-2 border-dashed border-accent p-12 text-center">
-              <div className="mb-2 text-label-caps text-accent">DROP ZONE</div>
-              <h2 className="mb-2 font-display text-display-md text-text-primary">
+            <div className="border-accent max-w-[520px] rounded-lg border-2 border-dashed p-12 text-center">
+              <div className="text-label-caps text-accent mb-2">DROP ZONE</div>
+              <h2 className="font-display text-display-md text-text-primary mb-2">
                 Drop your first article.
               </h2>
-              <p className="mb-6 text-body text-text-secondary">
+              <p className="text-body text-text-secondary mb-6">
                 Drag a .docx file here, or click <strong>Import .docx</strong> above. Forme parses
                 the headline, body, language, and any embedded images automatically.
               </p>
@@ -185,14 +182,14 @@ export function ArticlesScreen(): React.ReactElement {
 
         {isDragging ? (
           <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
-            <div className="rounded-lg border-2 border-dashed border-accent bg-bg-surface px-8 py-6 text-title-lg text-accent shadow-lg">
+            <div className="border-accent bg-bg-surface text-title-lg text-accent rounded-lg border-2 border-dashed px-8 py-6 shadow-lg">
               Release to import
             </div>
           </div>
         ) : null}
 
         {importing > 0 ? (
-          <div className="absolute bottom-6 left-1/2 -translate-x-1/2 rounded-md bg-bg-surface px-4 py-2 text-caption text-text-secondary shadow-md">
+          <div className="bg-bg-surface text-caption text-text-secondary absolute bottom-6 left-1/2 -translate-x-1/2 rounded-md px-4 py-2 shadow-md">
             Importing {importing} file{importing === 1 ? "" : "s"}...
           </div>
         ) : null}
@@ -234,7 +231,7 @@ function ArticleList({
 }): React.ReactElement {
   return (
     <div className="mx-auto max-w-[920px]">
-      <ul className="divide-y divide-border-default">
+      <ul className="divide-border-default divide-y">
         {articles.map((a) => (
           <li
             key={a.id}
@@ -244,34 +241,34 @@ function ArticleList({
             <button
               type="button"
               onClick={() => onEdit(a)}
-              className="flex-1 min-w-0 text-left"
+              className="min-w-0 flex-1 text-left"
               data-testid={`article-edit-${a.id}`}
             >
-              <div className="font-display text-title-lg text-text-primary truncate group-hover:text-accent">
+              <div className="font-display text-title-lg text-text-primary group-hover:text-accent truncate">
                 {a.headline}
               </div>
               {a.byline ? (
                 <div className="text-caption text-text-tertiary">
                   {a.byline}
                   {a.bylinePosition === "end" ? (
-                    <span className="ml-2 rounded-full border border-border-default px-2 text-label-caps text-text-tertiary">
+                    <span className="border-border-default text-label-caps text-text-tertiary ml-2 rounded-full border px-2">
                       END
                     </span>
                   ) : null}
                 </div>
               ) : (
-                <div className="text-caption italic text-text-tertiary">
+                <div className="text-caption text-text-tertiary italic">
                   No byline — click to add
                 </div>
               )}
-              <div className="mt-1 text-caption text-text-tertiary">
+              <div className="text-caption text-text-tertiary mt-1">
                 {a.wordCount.toLocaleString()} words · {a.contentType}
               </div>
             </button>
             <div className="flex shrink-0 items-center gap-3">
               <span
                 className={[
-                  "rounded-full px-2 py-0.5 text-label-caps",
+                  "text-label-caps rounded-full px-2 py-0.5",
                   a.language === "hi"
                     ? "bg-accent-muted text-text-primary"
                     : a.language === "bilingual"
@@ -296,12 +293,13 @@ function NoIssue(): React.ReactElement {
   return (
     <div className="flex h-full items-center justify-center p-8">
       <div className="max-w-[480px] text-center">
-        <div className="mb-4 text-label-caps text-accent">NO ISSUE</div>
-        <h2 className="mb-3 font-display text-display-md text-text-primary">
+        <div className="text-label-caps text-accent mb-4">NO ISSUE</div>
+        <h2 className="font-display text-display-md text-text-primary mb-3">
           Create an issue first.
         </h2>
         <p className="text-body text-text-secondary">
-          Jump to the Issue Board tab and click <strong>Create new issue</strong>, then come back here to drop articles.
+          Jump to the Issue Board tab and click <strong>Create new issue</strong>, then come back
+          here to drop articles.
         </p>
       </div>
     </div>

@@ -24,9 +24,7 @@ export default defineConfig({
         statements: 80,
       },
     },
-    environmentMatchGlobs: [
-      ["tests/integration/renderer/**", "jsdom"],
-    ],
+    environmentMatchGlobs: [["tests/integration/renderer/**", "jsdom"]],
   },
   resolve: {
     alias: {

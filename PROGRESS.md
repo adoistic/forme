@@ -27,7 +27,7 @@ and you'll get a working Electron `.app` (unsigned — see blocker below).
 - ✅ Electron + Vite + React + TypeScript (strict + noUncheckedIndexedAccess +
   exactOptionalPropertyTypes) + Tailwind CSS with every DESIGN.md token
 - ✅ Radix UI primitives + Phosphor icons + Zustand with useShallow + dnd-kit
-  + Zod installed and available
+  - Zod installed and available
 - ✅ SQLite via better-sqlite3 + Kysely query builder + hand-rolled numbered
   migrations (9 tables, 5 indexes)
 - ✅ Typed IPC wrapper with `Result<T> = Ok<T> | Err` contract; raw throws
@@ -131,13 +131,13 @@ and you'll get a working Electron `.app` (unsigned — see blocker below).
 
 ## What's still blocked (cannot complete autonomously)
 
-| Blocker | Why |
-|---------|-----|
-| **No Microsoft PowerPoint installed** | Phase 1 Pretext → PPTX rendering fidelity probe gate requires opening generated .pptx in Office 365 macOS and visually confirming the render matches Pretext's preview. Not possible without PowerPoint. `bun run test` already proves OOXML is valid via LibreOffice, but the fidelity gate is still open. |
-| **No Apple Developer certificate** (`0 valid identities found`) | Signed + notarized `.dmg`. The unsigned dev build works locally; distribution requires your cert + `@electron/notarize` env vars. |
-| **Phase 3 Hindi gate is human-review by design** | CEO Accepted Scope #2 mandates manual visual verification of Hindi rendering in Office 365 macOS. Not autonomous. |
-| **52 templates × 2 page sizes, 12 classified render templates, 11 ad slot layouts** | Weeks of design work. The engine is ready; 1 reference template (Standard Feature A4) is shipped. The rest is template-authoring work with Pretext probe results informing geometry. |
-| **GitHub Actions CI push** | OAuth token used in this session lacked `workflow` scope. CI yaml is at `docs/ci/github-actions-ci.yml` — move to `.github/workflows/ci.yml` after `gh auth refresh -s workflow`. |
+| Blocker                                                                             | Why                                                                                                                                                                                                                                                                                                         |
+| ----------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **No Microsoft PowerPoint installed**                                               | Phase 1 Pretext → PPTX rendering fidelity probe gate requires opening generated .pptx in Office 365 macOS and visually confirming the render matches Pretext's preview. Not possible without PowerPoint. `bun run test` already proves OOXML is valid via LibreOffice, but the fidelity gate is still open. |
+| **No Apple Developer certificate** (`0 valid identities found`)                     | Signed + notarized `.dmg`. The unsigned dev build works locally; distribution requires your cert + `@electron/notarize` env vars.                                                                                                                                                                           |
+| **Phase 3 Hindi gate is human-review by design**                                    | CEO Accepted Scope #2 mandates manual visual verification of Hindi rendering in Office 365 macOS. Not autonomous.                                                                                                                                                                                           |
+| **52 templates × 2 page sizes, 12 classified render templates, 11 ad slot layouts** | Weeks of design work. The engine is ready; 1 reference template (Standard Feature A4) is shipped. The rest is template-authoring work with Pretext probe results informing geometry.                                                                                                                        |
+| **GitHub Actions CI push**                                                          | OAuth token used in this session lacked `workflow` scope. CI yaml is at `docs/ci/github-actions-ci.yml` — move to `.github/workflows/ci.yml` after `gh auth refresh -s workflow`.                                                                                                                           |
 
 ---
 

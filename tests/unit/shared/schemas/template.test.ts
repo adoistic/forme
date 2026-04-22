@@ -69,9 +69,7 @@ describe("TemplateSchema", () => {
   });
 
   test("rejects unknown family", () => {
-    expect(() =>
-      TemplateSchema.parse({ ...baseTemplate, family: "not_a_family" })
-    ).toThrow();
+    expect(() => TemplateSchema.parse({ ...baseTemplate, family: "not_a_family" })).toThrow();
   });
 
   test("allows zero required_images", () => {

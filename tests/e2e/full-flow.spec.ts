@@ -99,12 +99,8 @@ test("full flow: create issue → import docs → add classified → upload ad �
   await ladakhRow.click();
   await window.getByTestId("edit-article-modal").waitFor({ state: "visible" });
   await window.getByTestId("edit-article-hero-placement-full-bleed").click();
-  await window.getByTestId("edit-article-hero-caption").fill(
-    "High-altitude desert at dusk."
-  );
-  await window.getByTestId("edit-article-hero-credit").fill(
-    "Tenzin Namgyal / Magnum"
-  );
+  await window.getByTestId("edit-article-hero-caption").fill("High-altitude desert at dusk.");
+  await window.getByTestId("edit-article-hero-credit").fill("Tenzin Namgyal / Magnum");
   await window.getByTestId("edit-article-section").fill("Travel");
   await window.getByTestId("edit-article-submit").click();
   await expect(window.getByTestId("edit-article-modal")).toBeHidden({
@@ -180,11 +176,7 @@ async function sofficeToPdf(pptxPath: string, outDir: string): Promise<string> {
   return pdfPath;
 }
 
-async function rasterizePdf(
-  pdfPath: string,
-  outDir: string,
-  prefix: string
-): Promise<void> {
+async function rasterizePdf(pdfPath: string, outDir: string, prefix: string): Promise<void> {
   await runCmd("pdftoppm", ["-png", "-r", "110", pdfPath, path.join(outDir, prefix)]);
 }
 

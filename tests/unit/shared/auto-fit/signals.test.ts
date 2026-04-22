@@ -44,15 +44,11 @@ const standardFeatureA4: Template = {
 
 describe("wordCountFitScore", () => {
   test("below min returns null (filtered)", () => {
-    expect(
-      wordCountFitScore({ word_count: 500, language: "en" }, standardFeatureA4)
-    ).toBeNull();
+    expect(wordCountFitScore({ word_count: 500, language: "en" }, standardFeatureA4)).toBeNull();
   });
 
   test("above max returns null (filtered)", () => {
-    expect(
-      wordCountFitScore({ word_count: 3000, language: "en" }, standardFeatureA4)
-    ).toBeNull();
+    expect(wordCountFitScore({ word_count: 3000, language: "en" }, standardFeatureA4)).toBeNull();
   });
 
   test("at exact min returns a score < 1 (edge of range)", () => {
@@ -79,31 +75,21 @@ describe("wordCountFitScore", () => {
 
   test("bilingual uses widest envelope", () => {
     // Widest envelope: min of mins (700) → max of maxes (1800)
-    const s1 = wordCountFitScore(
-      { word_count: 800, language: "bilingual" },
-      standardFeatureA4
-    );
+    const s1 = wordCountFitScore({ word_count: 800, language: "bilingual" }, standardFeatureA4);
     expect(s1).not.toBeNull();
-    const s2 = wordCountFitScore(
-      { word_count: 1900, language: "bilingual" },
-      standardFeatureA4
-    );
+    const s2 = wordCountFitScore({ word_count: 1900, language: "bilingual" }, standardFeatureA4);
     expect(s2).toBeNull();
   });
 });
 
 describe("imageCountFitScore", () => {
   test("below required returns null", () => {
-    expect(
-      imageCountFitScore({ image_count: 0 }, standardFeatureA4)
-    ).toBeNull();
+    expect(imageCountFitScore({ image_count: 0 }, standardFeatureA4)).toBeNull();
   });
 
   test("above optional_max returns null", () => {
     // required=1, optional=[0,2] → total max is 1+2=3; 4 images → null
-    expect(
-      imageCountFitScore({ image_count: 4 }, standardFeatureA4)
-    ).toBeNull();
+    expect(imageCountFitScore({ image_count: 4 }, standardFeatureA4)).toBeNull();
   });
 
   test("exactly required returns a score", () => {
@@ -123,10 +109,7 @@ describe("imageCountFitScore", () => {
 
 describe("imageAspectBonus", () => {
   test("matching aspect returns small positive lift", () => {
-    const s = imageAspectBonus(
-      { image_aspects: ["landscape"] },
-      standardFeatureA4
-    );
+    const s = imageAspectBonus({ image_aspects: ["landscape"] }, standardFeatureA4);
     expect(s).toBeGreaterThan(0);
     expect(s).toBeLessThanOrEqual(0.2);
   });
@@ -138,19 +121,14 @@ describe("imageAspectBonus", () => {
 
   test("any preference gives 0.1 baseline", () => {
     // Template prefers ["landscape", "any"] — article with "portrait" still scores via "any"
-    const s = imageAspectBonus(
-      { image_aspects: ["portrait"] },
-      standardFeatureA4
-    );
+    const s = imageAspectBonus({ image_aspects: ["portrait"] }, standardFeatureA4);
     expect(s).toBe(0.1);
   });
 });
 
 describe("pullQuoteBonus", () => {
   test("article has, template supports → +0.15", () => {
-    expect(
-      pullQuoteBonus({ has_pull_quote: true }, standardFeatureA4)
-    ).toBe(0.15);
+    expect(pullQuoteBonus({ has_pull_quote: true }, standardFeatureA4)).toBe(0.15);
   });
 
   test("article has, template doesn't support → 0 (no penalty)", () => {
@@ -159,24 +137,18 @@ describe("pullQuoteBonus", () => {
   });
 
   test("article doesn't have → 0", () => {
-    expect(
-      pullQuoteBonus({ has_pull_quote: false }, standardFeatureA4)
-    ).toBe(0);
+    expect(pullQuoteBonus({ has_pull_quote: false }, standardFeatureA4)).toBe(0);
   });
 });
 
 describe("sidebarBonus", () => {
   test("template doesn't support sidebar → 0", () => {
     // standardFeatureA4.supports_sidebar = false
-    expect(
-      sidebarBonus({ has_sidebar: true }, standardFeatureA4)
-    ).toBe(0);
+    expect(sidebarBonus({ has_sidebar: true }, standardFeatureA4)).toBe(0);
   });
 
   test("template supports + article has → +0.15", () => {
     const withSidebar: Template = { ...standardFeatureA4, supports_sidebar: true };
-    expect(
-      sidebarBonus({ has_sidebar: true }, withSidebar)
-    ).toBe(0.15);
+    expect(sidebarBonus({ has_sidebar: true }, withSidebar)).toBe(0.15);
   });
 });

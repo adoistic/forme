@@ -66,7 +66,16 @@ export interface PlacementsTable {
   page_number: number; // starting page for this placement
   slot_index: number; // ordering on that page
   template_id: string; // reference to a JSON template file
-  content_kind: "article" | "classifieds" | "ad" | "cover" | "section-opener" | "toc" | "masthead" | "back-matter" | "ad-page";
+  content_kind:
+    | "article"
+    | "classifieds"
+    | "ad"
+    | "cover"
+    | "section-opener"
+    | "toc"
+    | "masthead"
+    | "back-matter"
+    | "ad-page";
   article_id: string | null;
   ad_id: string | null;
   exposed_settings_json: string; // JSON per template's exposed_settings contract

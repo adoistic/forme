@@ -153,10 +153,5 @@ async function fileExists(p: string): Promise<boolean> {
 }
 
 function isStructuredError(value: unknown): value is StructuredError {
-  return (
-    typeof value === "object" &&
-    value !== null &&
-    "code" in value &&
-    "severity" in value
-  );
+  return typeof value === "object" && value !== null && "code" in value && "severity" in value;
 }

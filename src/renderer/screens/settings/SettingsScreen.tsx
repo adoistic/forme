@@ -56,15 +56,17 @@ export function SettingsScreen(): React.ReactElement {
 
   return (
     <form onSubmit={handleSave} className="flex h-full flex-col overflow-hidden">
-      <header className="flex h-16 shrink-0 items-center justify-between border-b border-border-default px-8">
+      <header className="border-border-default flex h-16 shrink-0 items-center justify-between border-b px-8">
         <div>
           <h1 className="font-display text-display-md text-text-primary">Settings</h1>
-          <div className="text-caption text-text-tertiary">Publisher Profile — defaults applied to new issues.</div>
+          <div className="text-caption text-text-tertiary">
+            Publisher Profile — defaults applied to new issues.
+          </div>
         </div>
         <button
           type="submit"
           disabled={busy || !dirty}
-          className="rounded-md bg-accent px-4 py-2 text-title-sm font-semibold text-text-inverse hover:bg-accent-hover disabled:opacity-40"
+          className="bg-accent text-title-sm text-text-inverse hover:bg-accent-hover rounded-md px-4 py-2 font-semibold disabled:opacity-40"
           data-testid="save-profile-button"
         >
           {busy ? "Saving..." : "Save changes"}
@@ -117,13 +119,18 @@ export function SettingsScreen(): React.ReactElement {
             <LabeledSelect
               label="Issue cadence"
               value={draft.issueCadence ?? ""}
-              onChange={(v) => update("issueCadence", v ? (v as PublisherProfile["issueCadence"]) : null)}
+              onChange={(v) =>
+                update("issueCadence", v ? (v as PublisherProfile["issueCadence"]) : null)
+              }
               options={["weekly", "fortnightly", "monthly"]}
               allowEmpty
             />
           </Section>
 
-          <Section title="Printer + billing" subline="Shown at export time; billing label is for your own bookkeeping">
+          <Section
+            title="Printer + billing"
+            subline="Shown at export time; billing label is for your own bookkeeping"
+          >
             <LabeledInput
               label="Printer contact"
               value={draft.printerContact ?? ""}
@@ -153,9 +160,9 @@ function Section({
   children: React.ReactNode;
 }): React.ReactElement {
   return (
-    <div className="rounded-lg border border-border-default bg-bg-surface p-6">
-      <h2 className="mb-1 font-display text-display-md text-text-primary">{title}</h2>
-      {subline ? <p className="mb-4 text-caption text-text-secondary">{subline}</p> : null}
+    <div className="border-border-default bg-bg-surface rounded-lg border p-6">
+      <h2 className="font-display text-display-md text-text-primary mb-1">{title}</h2>
+      {subline ? <p className="text-caption text-text-secondary mb-4">{subline}</p> : null}
       <div className="space-y-4">{children}</div>
     </div>
   );
@@ -173,7 +180,7 @@ interface LabeledInputProps {
 function LabeledInput(props: LabeledInputProps): React.ReactElement {
   return (
     <label className="block">
-      <span className="mb-1 block text-label-caps text-text-secondary">
+      <span className="text-label-caps text-text-secondary mb-1 block">
         {props.label} {props.required ? <span className="text-accent">*</span> : null}
       </span>
       <input
@@ -183,7 +190,7 @@ function LabeledInput(props: LabeledInputProps): React.ReactElement {
         placeholder={props.placeholder}
         required={props.required}
         data-testid={props["data-testid"]}
-        className="w-full rounded-md border-[1.5px] border-border-default bg-bg-surface px-3 py-2.5 text-body focus:border-accent focus:outline-none"
+        className="border-border-default bg-bg-surface text-body focus:border-accent w-full rounded-md border-[1.5px] px-3 py-2.5 focus:outline-none"
       />
     </label>
   );
@@ -200,11 +207,11 @@ interface LabeledSelectProps {
 function LabeledSelect(props: LabeledSelectProps): React.ReactElement {
   return (
     <label className="block">
-      <span className="mb-1 block text-label-caps text-text-secondary">{props.label}</span>
+      <span className="text-label-caps text-text-secondary mb-1 block">{props.label}</span>
       <select
         value={props.value}
         onChange={(e) => props.onChange(e.target.value)}
-        className="w-full rounded-md border-[1.5px] border-border-default bg-bg-surface px-3 py-2.5 text-body focus:border-accent focus:outline-none"
+        className="border-border-default bg-bg-surface text-body focus:border-accent w-full rounded-md border-[1.5px] px-3 py-2.5 focus:outline-none"
       >
         {props.allowEmpty ? <option value="">(none)</option> : null}
         {props.options.map((o) => (
@@ -228,7 +235,7 @@ interface LabeledPillsProps<T extends string> {
 function LabeledPills<T extends string>(props: LabeledPillsProps<T>): React.ReactElement {
   return (
     <div>
-      <span className="mb-1 block text-label-caps text-text-secondary">{props.label}</span>
+      <span className="text-label-caps text-text-secondary mb-1 block">{props.label}</span>
       <div className="flex gap-1">
         {props.options.map((opt) => (
           <button
@@ -236,7 +243,7 @@ function LabeledPills<T extends string>(props: LabeledPillsProps<T>): React.Reac
             type="button"
             onClick={() => props.onChange(opt)}
             className={[
-              "flex-1 rounded-full px-3 py-1.5 text-title-sm transition-colors",
+              "text-title-sm flex-1 rounded-full px-3 py-1.5 transition-colors",
               props.value === opt
                 ? "bg-accent text-text-inverse"
                 : "text-text-secondary hover:bg-black/[0.04]",

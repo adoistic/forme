@@ -47,8 +47,7 @@ const WIKI_ARTICLES: WikiArticleSpec[] = [
     contentType: "Photo Essay",
     heroSeed: "forme-moon",
     credit: "NASA / Public Domain",
-    caption:
-      "The lunar south pole — terrain that defied every previous landing attempt.",
+    caption: "The lunar south pole — terrain that defied every previous landing attempt.",
   },
   {
     slug: "typography",
@@ -117,8 +116,7 @@ const WIKI_ARTICLES: WikiArticleSpec[] = [
     bilingualPair: { wiki: "hi", title: "दिल्ली", paragraphs: 4 },
     language: "bilingual",
     byline: "By QA Harness · क्यूए परीक्षक",
-    deck:
-      "A bilingual feature: English Wikipedia introduction followed by a Hindi Wikipedia passage on the same subject.",
+    deck: "A bilingual feature: English Wikipedia introduction followed by a Hindi Wikipedia passage on the same subject.",
   },
 ];
 
@@ -166,8 +164,7 @@ async function plainTextToDocx(
   // the first body paragraph after extraction.
   while (
     paragraphs.length > 0 &&
-    paragraphs[0]!.replace(/\s+/g, " ").trim() ===
-      headline.replace(/\s+/g, " ").trim()
+    paragraphs[0]!.replace(/\s+/g, " ").trim() === headline.replace(/\s+/g, " ").trim()
   ) {
     paragraphs.shift();
   }
@@ -292,9 +289,7 @@ async function main() {
           .join("\n\n");
         text = `${text}\n\n${otherParas}`;
       }
-      const heroPath = a.heroSeed
-        ? path.join(ARTICLES_DIR, `_hero-${a.slug}.jpg`)
-        : undefined;
+      const heroPath = a.heroSeed ? path.join(ARTICLES_DIR, `_hero-${a.slug}.jpg`) : undefined;
       const deck =
         a.deck ??
         (a.caption ||
@@ -307,7 +302,9 @@ async function main() {
         contentType: a.contentType,
       });
       const stat = await fs.stat(outPath);
-      console.log(`  → ${outPath} (${stat.size} bytes${heroPath ? " — w/ hero" : ""}${a.wiki === "hi" ? " — hi" : ""}${a.bilingualPair ? " — bilingual" : ""})`);
+      console.log(
+        `  → ${outPath} (${stat.size} bytes${heroPath ? " — w/ hero" : ""}${a.wiki === "hi" ? " — hi" : ""}${a.bilingualPair ? " — bilingual" : ""})`
+      );
     } catch (e) {
       console.error(`  FAIL ${a.title}:`, e);
     }
@@ -318,20 +315,36 @@ async function main() {
   // entry frames the photo in a circle).
   const PORTRAITS_DIR = path.join(FIXTURES, "portraits");
   await fs.mkdir(PORTRAITS_DIR, { recursive: true });
-  for (const seed of [
-    "matri-aanya",
-    "matri-rohan",
-    "matri-sara",
-    "matri-daniel",
-  ]) {
+  for (const seed of ["matri-aanya", "matri-rohan", "matri-sara", "matri-daniel"]) {
     await fetchPicsumPhoto(seed, 600, 600, path.join(PORTRAITS_DIR, `${seed}.jpg`));
   }
 
   // Ads — three realistic magazine ad slot sizes
   const adSpecs = [
-    { file: "full-page-rust.png", w: 2480, h: 3508, bg: "#C96E4E", label: "Aurora", sub: "Jewellery you actually want to wear." },
-    { file: "half-page-teal.png", w: 2480, h: 1754, bg: "#3F6F6E", label: "Fieldnotes", sub: "A weekly for people who take the long way home." },
-    { file: "quarter-page-gold.png", w: 1240, h: 1754, bg: "#8A6A2A", label: "Saptahik Press", sub: "Print matters. Still. Always." },
+    {
+      file: "full-page-rust.png",
+      w: 2480,
+      h: 3508,
+      bg: "#C96E4E",
+      label: "Aurora",
+      sub: "Jewellery you actually want to wear.",
+    },
+    {
+      file: "half-page-teal.png",
+      w: 2480,
+      h: 1754,
+      bg: "#3F6F6E",
+      label: "Fieldnotes",
+      sub: "A weekly for people who take the long way home.",
+    },
+    {
+      file: "quarter-page-gold.png",
+      w: 1240,
+      h: 1754,
+      bg: "#8A6A2A",
+      label: "Saptahik Press",
+      sub: "Print matters. Still. Always.",
+    },
   ];
   for (const s of adSpecs) {
     const p = path.join(ADS_DIR, s.file);
@@ -473,8 +486,7 @@ async function main() {
         weeks_to_run: "1",
         name_of_deceased: "Geeta Devi (1939–2026)",
         date_of_death: "2026-04-15",
-        life_summary:
-          "Schoolteacher, gardener, and grandmother to half the neighbourhood.",
+        life_summary: "Schoolteacher, gardener, and grandmother to half the neighbourhood.",
         surviving_family: "Husband Lakshman, three sons, eight grandchildren.",
         prayer_meeting: "Bharat Sevashram Sangha, 22 April, 10 AM.",
       }),
@@ -553,11 +565,7 @@ async function main() {
       "\n" +
       rows
         .map((r) =>
-          r
-            .map((cell) =>
-              /[",\n]/.test(cell) ? `"${cell.replace(/"/g, '""')}"` : cell
-            )
-            .join(",")
+          r.map((cell) => (/[",\n]/.test(cell) ? `"${cell.replace(/"/g, '""')}"` : cell)).join(",")
         )
         .join("\n");
     await fs.writeFile(csvPath, csv);

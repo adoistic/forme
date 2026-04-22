@@ -9,11 +9,7 @@
     output: "release/${version}",
     buildResources: "build",
   },
-  files: [
-    "dist/**/*",
-    "package.json",
-    "!node_modules/**/*",
-  ],
+  files: ["dist/**/*", "package.json", "!node_modules/**/*"],
   extraResources: [
     { from: "templates/", to: "templates/" },
     { from: "vendor/pretext/", to: "vendor/pretext/" },

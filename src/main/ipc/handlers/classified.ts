@@ -5,10 +5,7 @@ import Papa from "papaparse";
 import { addHandler } from "../register.js";
 import { getState } from "../../app-state.js";
 import { ingestImage } from "../../image-ingest/ingest.js";
-import {
-  validateClassified,
-  type ClassifiedType,
-} from "@shared/schemas/classified.js";
+import { validateClassified, type ClassifiedType } from "@shared/schemas/classified.js";
 import { makeError } from "@shared/errors/structured.js";
 import type {
   AddClassifiedInput,
@@ -55,15 +52,7 @@ export function registerClassifiedHandlers(): void {
     const { db } = getState();
     let query = db
       .selectFrom("classifieds")
-      .select([
-        "id",
-        "issue_id",
-        "type",
-        "language",
-        "weeks_to_run",
-        "fields_json",
-        "created_at",
-      ])
+      .select(["id", "issue_id", "type", "language", "weeks_to_run", "fields_json", "created_at"])
       .orderBy("created_at", "desc");
     if (payload.issueId === null) {
       query = query.where("issue_id", "is", null);
@@ -126,10 +115,7 @@ export function registerClassifiedHandlers(): void {
       type: payload.type,
       language: payload.language,
       weeksToRun: payload.weeksToRun,
-      displayName: deriveDisplayName(
-        payload.type,
-        payload.fields as Record<string, unknown>
-      ),
+      displayName: deriveDisplayName(payload.type, payload.fields as Record<string, unknown>),
       createdAt: now,
     };
   });

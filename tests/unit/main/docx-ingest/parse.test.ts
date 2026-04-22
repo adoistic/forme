@@ -90,9 +90,7 @@ describe("parseDocx", () => {
       path.dirname(fileURLToPath(import.meta.url)),
       "../../../fixtures/articles"
     );
-    const buf = await fs
-      .readFile(path.join(fixtureDir, "chandrayaan-3.docx"))
-      .catch(() => null);
+    const buf = await fs.readFile(path.join(fixtureDir, "chandrayaan-3.docx")).catch(() => null);
     if (!buf) {
       // Fixture not built yet — skip rather than fail. Run
       // `bun scripts/build-fixtures.ts` to generate.

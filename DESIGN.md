@@ -3,6 +3,7 @@
 Single source of truth for visual language. Locked by `/plan-design-review` on 2026-04-21 using three approved mockups as the reference.
 
 **Approved mockups** (visual ground truth):
+
 - `~/.gstack/projects/PrintCMS/designs/issue-board-20260421/variant-B.png` — Issue Board (THE signature screen).
 - `~/.gstack/projects/PrintCMS/designs/first-run-wizard-20260421/variant-C.png` — First-run wizard, Publisher Profile step.
 - `~/.gstack/projects/PrintCMS/designs/classified-form-20260421/variant-C.png` — Classified form (Matrimonial with Photo, representative modal).
@@ -127,6 +128,7 @@ All display sizes use **Fraunces**. All sans sizes use **Inter**.
 ```
 
 Conventions:
+
 - Form field vertical rhythm: `space-6` (24px) between field groups.
 - Card interior padding: `space-5` (20px).
 - Modal interior padding: `space-8` (32px).
@@ -169,6 +171,7 @@ Editorial restraint: shadows exist but are subtle.
 **Phosphor Icons (regular weight, 1.5px stroke) via `@phosphor-icons/react`.** Consistent with editorial typography's stroke contrast; not as geometric as Lucide but still clean. Free + SIL OFL.
 
 Sizes:
+
 - 16px for inline with body text.
 - 18px for sidebar nav.
 - 20px for form field icons.
@@ -332,6 +335,7 @@ contents: leading icon + text block (title + subline) + inline action buttons (r
 ```
 
 **Severity variants:**
+
 - Default (informational / warm): cream-tinted bg + rust left-border.
 - Warning: `--color-warning-bg` + `--color-warning` left-border.
 - Error: `--color-error-bg` + `--color-error` left-border.

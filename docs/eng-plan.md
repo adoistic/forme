@@ -9,6 +9,7 @@ This document is authoritative for engineering choices. The [CEO plan](ceo-plan.
 ## 1. Stack summary
 
 ### Runtime
+
 - **Shell:** Electron (latest stable)
 - **UI framework:** React + TypeScript (strict mode: `strict: true`, `noUncheckedIndexedAccess: true`, `exactOptionalPropertyTypes: true`)
 - **Build:** Vite
@@ -18,6 +19,7 @@ This document is authoritative for engineering choices. The [CEO plan](ceo-plan.
   - **Utility process:** pptxgenjs (generates PPTX ArrayBuffer, sends via IPC to main for atomic disk write — keeps the UI thread unblocked during export).
 
 ### UI
+
 - **Styling:** Tailwind CSS 3+ with `theme.extend` mapping every DESIGN.md token.
 - **Components:** Radix UI Primitives (unstyled, headless; we style via Tailwind). Accessibility and keyboard nav come free.
 - **State:** Zustand with two disciplines:
@@ -29,46 +31,56 @@ This document is authoritative for engineering choices. The [CEO plan](ceo-plan.
 - **Routing:** none. Single-window app; view state handled by Zustand.
 
 ### Data
+
 - **Database:** SQLite via `better-sqlite3` (synchronous API; fits Electron main).
 - **Query builder:** Kysely (typed, no-runtime-ORM). Migrations via `kysely-ctl`.
 - **Blob storage:** content-addressable (SHA-256 via Node's `crypto`), stored at `assets/{tenant-id}/{first-2-hash}/{rest-of-hash}` on disk. Tenant-id is `publisher_default` in MVP.
 
 ### File I/O
+
 - **Images:** sharp (libvips). Main process only (native lib not renderer-compatible). Handles ingest, format normalization, DPI validation, sRGB conversion.
 - **Docx parsing:** mammoth.js (renderer process; converts docx → HTML → our Article schema).
 - **CSV parsing:** papaparse (renderer process; handles BOM, streams large files).
 - **PPTX writing:** pptxgenjs (utility process). Output ArrayBuffer sent to main via IPC for atomic disk write (temp → rename).
 
 ### Text measurement
+
 - **Pretext** (`@chenglou/pretext`, **vendored into `vendor/pretext/`** for bus-factor protection). Runs in renderer, uses Canvas 2D `measureText()` as ground truth. See the critical caveat in §4 below.
 
 ### Fonts
+
 - **Bundled in the installer:** Fraunces (display), Inter (UI), Mukta (Devanagari), plus the 4 print-side typography pairings' font sets. First-run copies missing fonts to `~/Library/Fonts` (user-writable on macOS).
 - **Detection:** `document.fonts.ready` before any Pretext call. Missing font blocks the editor (per CEO 1I decision).
 
 ### Observability
+
 - **Logging:** pino with structured JSON. Local rotation keeps 7 days at `~/Library/Logs/Forme/`. No remote telemetry auto-sent (per brief and CEO 3C).
 - **Diagnostics export:** menu item `Help → Export diagnostics` zips logs + recent snapshots + version info for operator to email when things break.
 
 ### IPC
+
 - **Central typed wrapper** with `{ok, error}` result shape. Every handler wrapped in error-catching middleware that logs context (handler name, args summary, stack) and returns structured errors to the renderer. No raw throws crossing the IPC boundary.
 
 ### Testing
+
 - **Unit:** Vitest.
 - **E2E:** Playwright with `_electron.launch()`. Note: Playwright's Electron API is second-class — pin E2E to a local runner, not CI, for the Pretext pixel-diff harness (font antialiasing differs across machines).
 - **Test infra scaffolding:** Phase 0 deliverable alongside the foundation. Includes Vitest config, Playwright config, fixtures directory, golden-export scaffolding, Pretext harness bones, LibreOffice test invocation.
 - **Coverage:** ≥ 90% unit coverage for new pure functions + at least 1 integration test per new module. Gated per PR.
 
 ### Packaging + distribution
+
 - **Packager:** electron-builder. Target: macOS `.dmg`, signed (Developer ID Application) + notarized via `@electron/notarize`.
 - **CI:** none in MVP (solo dev, local `bun run dist` is enough). GitHub Actions workflow is tracked in TODOS.md for when team or Windows port lands.
 - **Update mechanism:** none in MVP. Operator reinstalls manually from new `.dmg`. Tracked in TODOS.md as a security TODO.
 
 ### Linting + formatting
+
 - **ESLint + Prettier** (not Biome; ESLint has better TS-specific rules in 2026).
 - **Husky + lint-staged** pre-commit hooks.
 
 ### OOXML validation (per CEO decision 2A)
+
 - **LibreOffice headless** subprocess (`soffice --headless --convert-to pdf`). Runs on:
   1. "Check my issue" screen (before export, for operator-initiated validation).
   2. Phase 2 Pretext-harness (automated template-fidelity gate).

@@ -60,8 +60,7 @@ async function analyzePage(pngPath: string, page: number): Promise<PageStats> {
     colRowCounts[i] = inkRows / colTotal;
   }
 
-  const fillRatio =
-    (colRowCounts[0]! + colRowCounts[1]! + colRowCounts[2]!) / 3;
+  const fillRatio = (colRowCounts[0]! + colRowCounts[1]! + colRowCounts[2]!) / 3;
 
   // Flags: column imbalance, severe under-fill.
   const flags: string[] = [];
@@ -83,16 +82,10 @@ async function analyzePage(pngPath: string, page: number): Promise<PageStats> {
 
 async function main() {
   const dir = process.argv[2] ?? "test-results/big-issue";
-  const files = (await fs.readdir(dir))
-    .filter((f) => /^page-\d+\.png$/.test(f))
-    .sort();
+  const files = (await fs.readdir(dir)).filter((f) => /^page-\d+\.png$/.test(f)).sort();
 
-  console.log(
-    "page    fill   col1   col2   col3   flags"
-  );
-  console.log(
-    "----   -----  -----  -----  -----  -----"
-  );
+  console.log("page    fill   col1   col2   col3   flags");
+  console.log("----   -----  -----  -----  -----  -----");
 
   let totalUnder = 0;
   let totalUneven = 0;

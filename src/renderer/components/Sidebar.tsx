@@ -48,10 +48,7 @@ export function Sidebar(): React.ReactElement {
     setExporting(true);
     try {
       const result = await invoke("export:pptx", { issueId: currentIssue.id });
-      toast.push(
-        "success",
-        `Exported ${result.pageCount} pages → ${result.outputPath}`
-      );
+      toast.push("success", `Exported ${result.pageCount} pages → ${result.outputPath}`);
     } catch (err) {
       toast.push("error", describeError(err));
     } finally {
@@ -64,10 +61,10 @@ export function Sidebar(): React.ReactElement {
   return (
     <aside
       aria-label="Primary"
-      className="flex h-full w-[260px] shrink-0 flex-col border-r border-border-default bg-bg-canvas"
+      className="border-border-default bg-bg-canvas flex h-full w-[260px] shrink-0 flex-col border-r"
     >
       {/* Masthead-free sidebar per Pass 1 IA fix — masthead moves to canvas header */}
-      <div className="h-16 app-region-drag" />
+      <div className="app-region-drag h-16" />
 
       <nav className="flex-1 px-3 py-2">
         <ul className="space-y-0.5">
@@ -80,24 +77,26 @@ export function Sidebar(): React.ReactElement {
                   data-testid={`nav-${id}`}
                   onClick={() => setActiveTab(id)}
                   className={[
-                    "group relative flex w-full items-center gap-3 rounded-md px-4 py-2.5 text-title-sm",
-                    "transition-colors duration-fast ease-standard",
+                    "group text-title-sm relative flex w-full items-center gap-3 rounded-md px-4 py-2.5",
+                    "duration-fast ease-standard transition-colors",
                     isActive
                       ? "text-text-primary"
-                      : "text-text-secondary hover:bg-black/[0.04] hover:text-text-primary",
+                      : "text-text-secondary hover:text-text-primary hover:bg-black/[0.04]",
                   ].join(" ")}
                 >
                   {/* Active-state left-accent bar per DESIGN.md §9 sidebar spec */}
                   {isActive && (
                     <span
                       aria-hidden="true"
-                      className="absolute left-0 top-1/2 h-5 w-[3px] -translate-y-1/2 rounded-r-sm bg-accent"
+                      className="bg-accent absolute top-1/2 left-0 h-5 w-[3px] -translate-y-1/2 rounded-r-sm"
                     />
                   )}
                   <Icon
                     size={18}
                     weight="regular"
-                    className={isActive ? "text-accent" : "text-text-secondary group-hover:text-text-primary"}
+                    className={
+                      isActive ? "text-accent" : "text-text-secondary group-hover:text-text-primary"
+                    }
                   />
                   <span>{label}</span>
                 </button>
@@ -108,8 +107,8 @@ export function Sidebar(): React.ReactElement {
       </nav>
 
       {/* Bottom: stats + Export (filled rust per Pass 1 decision) */}
-      <div className="border-t border-border-default px-6 py-4">
-        <div className="mb-2 text-caption text-text-tertiary">
+      <div className="border-border-default border-t px-6 py-4">
+        <div className="text-caption text-text-tertiary mb-2">
           {currentIssue
             ? `${currentIssue.articleCount} articles · ${currentIssue.classifiedCount} classifieds`
             : "No issue yet"}
@@ -120,7 +119,7 @@ export function Sidebar(): React.ReactElement {
           onClick={handleExport}
           disabled={!canExport}
           className={[
-            "flex w-full items-center justify-center gap-2 rounded-md bg-accent px-4 py-2.5 text-title-sm font-semibold text-text-inverse transition-colors hover:bg-accent-hover",
+            "bg-accent text-title-sm text-text-inverse hover:bg-accent-hover flex w-full items-center justify-center gap-2 rounded-md px-4 py-2.5 font-semibold transition-colors",
             !canExport ? "opacity-40" : "",
           ].join(" ")}
         >

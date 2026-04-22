@@ -60,47 +60,57 @@ describe("schema: issues + articles", () => {
       updated_at: nowISO(),
     };
     await db.insertInto("issues").values(issue).execute();
-    const got = await db.selectFrom("issues").selectAll().where("id", "=", issue.id).executeTakeFirst();
+    const got = await db
+      .selectFrom("issues")
+      .selectAll()
+      .where("id", "=", issue.id)
+      .executeTakeFirst();
     expect(got?.title).toBe("Test Issue 1");
   });
 
   test("cascading delete: removing an issue removes its articles", async () => {
     const issueId = randomUUID();
-    await db.insertInto("issues").values({
-      id: issueId,
-      tenant_id: "publisher_default",
-      title: "X",
-      issue_number: 1,
-      issue_date: "2026-04-21",
-      page_size: "A4",
-      typography_pairing: "Editorial Serif",
-      primary_language: "en",
-      bw_mode: 0,
-      created_at: nowISO(),
-      updated_at: nowISO(),
-    }).execute();
+    await db
+      .insertInto("issues")
+      .values({
+        id: issueId,
+        tenant_id: "publisher_default",
+        title: "X",
+        issue_number: 1,
+        issue_date: "2026-04-21",
+        page_size: "A4",
+        typography_pairing: "Editorial Serif",
+        primary_language: "en",
+        bw_mode: 0,
+        created_at: nowISO(),
+        updated_at: nowISO(),
+      })
+      .execute();
 
     const articleId = randomUUID();
-    await db.insertInto("articles").values({
-      id: articleId,
-      issue_id: issueId,
-      headline: "The article",
-      deck: null,
-      byline: null,
-      byline_position: "top",
-      hero_placement: "below-headline",
-      hero_caption: null,
-      hero_credit: null,
-      section: null,
-      body: "Body text.",
-      language: "en",
-      word_count: 2,
-      content_type: "Article",
-      pull_quote: null,
-      sidebar: null,
-      created_at: nowISO(),
-      updated_at: nowISO(),
-    }).execute();
+    await db
+      .insertInto("articles")
+      .values({
+        id: articleId,
+        issue_id: issueId,
+        headline: "The article",
+        deck: null,
+        byline: null,
+        byline_position: "top",
+        hero_placement: "below-headline",
+        hero_caption: null,
+        hero_credit: null,
+        section: null,
+        body: "Body text.",
+        language: "en",
+        word_count: 2,
+        content_type: "Article",
+        pull_quote: null,
+        sidebar: null,
+        created_at: nowISO(),
+        updated_at: nowISO(),
+      })
+      .execute();
 
     await db.deleteFrom("issues").where("id", "=", issueId).execute();
 
@@ -114,20 +124,23 @@ describe("schema: issues + articles", () => {
 
   test("required column constraints fire", async () => {
     await expect(
-      db.insertInto("issues").values({
-        // missing title + page_size
-        id: "x",
-        tenant_id: "publisher_default",
-        title: null as unknown as string,
-        issue_number: 1,
-        issue_date: "2026-04-21",
-        page_size: null as unknown as "A4",
-        typography_pairing: "Editorial Serif",
-        primary_language: "en",
-        bw_mode: 0,
-        created_at: nowISO(),
-        updated_at: nowISO(),
-      }).execute()
+      db
+        .insertInto("issues")
+        .values({
+          // missing title + page_size
+          id: "x",
+          tenant_id: "publisher_default",
+          title: null as unknown as string,
+          issue_number: 1,
+          issue_date: "2026-04-21",
+          page_size: null as unknown as "A4",
+          typography_pairing: "Editorial Serif",
+          primary_language: "en",
+          bw_mode: 0,
+          created_at: nowISO(),
+          updated_at: nowISO(),
+        })
+        .execute()
     ).rejects.toThrow();
   });
 });
@@ -135,18 +148,21 @@ describe("schema: issues + articles", () => {
 describe("schema: classifieds + ads queues", () => {
   test("classifieds index enables (type, weeks_to_run) queries", async () => {
     // Just verify insert + select works with the typical queue query shape
-    await db.insertInto("classifieds").values({
-      id: randomUUID(),
-      issue_id: null,
-      type: "matrimonial_with_photo",
-      language: "en",
-      weeks_to_run: 3,
-      photo_blob_hash: null,
-      fields_json: JSON.stringify({ name: "Jane Doe" }),
-      billing_reference: "INV-001",
-      created_at: nowISO(),
-      updated_at: nowISO(),
-    }).execute();
+    await db
+      .insertInto("classifieds")
+      .values({
+        id: randomUUID(),
+        issue_id: null,
+        type: "matrimonial_with_photo",
+        language: "en",
+        weeks_to_run: 3,
+        photo_blob_hash: null,
+        fields_json: JSON.stringify({ name: "Jane Doe" }),
+        billing_reference: "INV-001",
+        created_at: nowISO(),
+        updated_at: nowISO(),
+      })
+      .execute();
 
     const active = await db
       .selectFrom("classifieds")
@@ -162,30 +178,36 @@ describe("schema: classifieds + ads queues", () => {
 describe("schema: snapshots", () => {
   test("can store and retrieve a snapshot", async () => {
     const issueId = randomUUID();
-    await db.insertInto("issues").values({
-      id: issueId,
-      tenant_id: "publisher_default",
-      title: "Snapshot Test",
-      issue_number: 1,
-      issue_date: "2026-04-21",
-      page_size: "A4",
-      typography_pairing: "Editorial Serif",
-      primary_language: "en",
-      bw_mode: 0,
-      created_at: nowISO(),
-      updated_at: nowISO(),
-    }).execute();
+    await db
+      .insertInto("issues")
+      .values({
+        id: issueId,
+        tenant_id: "publisher_default",
+        title: "Snapshot Test",
+        issue_number: 1,
+        issue_date: "2026-04-21",
+        page_size: "A4",
+        typography_pairing: "Editorial Serif",
+        primary_language: "en",
+        bw_mode: 0,
+        created_at: nowISO(),
+        updated_at: nowISO(),
+      })
+      .execute();
 
     const stateJson = JSON.stringify({ pages: [], articles: [] });
-    await db.insertInto("snapshots").values({
-      id: randomUUID(),
-      issue_id: issueId,
-      created_at: nowISO(),
-      description: "Auto-save",
-      state_json: stateJson,
-      size_bytes: stateJson.length,
-      is_full: 1,
-    }).execute();
+    await db
+      .insertInto("snapshots")
+      .values({
+        id: randomUUID(),
+        issue_id: issueId,
+        created_at: nowISO(),
+        description: "Auto-save",
+        state_json: stateJson,
+        size_bytes: stateJson.length,
+        is_full: 1,
+      })
+      .execute();
 
     const rows = await db.selectFrom("snapshots").selectAll().execute();
     expect(rows.length).toBe(1);

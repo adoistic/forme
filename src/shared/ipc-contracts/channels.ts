@@ -3,15 +3,8 @@
 // which routes to the registered handler on the main side.
 
 import type { Language } from "@shared/schemas/language.js";
-import type {
-  ContentType,
-  BylinePosition,
-  HeroPlacement,
-} from "@shared/schemas/article.js";
-import type {
-  ClassifiedType,
-  FieldsFor,
-} from "@shared/schemas/classified.js";
+import type { ContentType, BylinePosition, HeroPlacement } from "@shared/schemas/article.js";
+import type { ClassifiedType, FieldsFor } from "@shared/schemas/classified.js";
 import type { AdSlotType } from "@shared/schemas/ad.js";
 
 // ---- Issue ----
