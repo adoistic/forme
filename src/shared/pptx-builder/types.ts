@@ -39,9 +39,30 @@ export interface PptxBuildInput {
 }
 
 export interface PptxAd {
-  /** Slot type string — drives aspect-ratio + placement strategy. */
+  /** Slot type — drives the rendering size + page-region. */
   slotType: string;
   positionLabel: string;
+  /**
+   * Where the ad sits in the page sequence. Inferred from positionLabel
+   * upstream so the export handler can hand the builder a clean enum.
+   *
+   *   inside_front — full-bleed page right after the cover
+   *   inside_back  — full-bleed page right before the back cover
+   *   back_cover   — final page, full-bleed
+   *   between      — own page between articles (rotation through full
+   *                  page, double_page_spread, etc.)
+   *   bottom_strip — sits at the bottom of an article's last page,
+   *                  spanning all columns above the folio
+   *   half_page_bottom — bottom half of a standalone page (article
+   *                      content fills the top half)
+   */
+  position?:
+    | "inside_front"
+    | "inside_back"
+    | "back_cover"
+    | "between"
+    | "bottom_strip"
+    | "half_page_bottom";
   kind: "commercial" | "house" | "sponsor_strip";
   bwFlag: boolean;
   mimeType: string;

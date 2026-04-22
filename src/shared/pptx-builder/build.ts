@@ -68,9 +68,29 @@ export async function buildPptx(
 
   const emitFrontMatter = input.emitFrontMatter !== false;
 
+  // Group ads by position so each routes to the right page-region.
+  // Ads without an explicit position default to "between".
+  const allAds = input.ads ?? [];
+  const adsByPosition = {
+    inside_front: allAds.filter((a) => a.position === "inside_front"),
+    inside_back: allAds.filter((a) => a.position === "inside_back"),
+    back_cover: allAds.filter((a) => a.position === "back_cover"),
+    between: allAds.filter(
+      (a) => a.position === "between" || (!a.position && a.slotType === "full_page")
+    ),
+    bottom_strip: allAds.filter((a) => a.position === "bottom_strip"),
+    half_page_bottom: allAds.filter((a) => a.position === "half_page_bottom"),
+  };
+
   // 1. Cover page
   if (emitFrontMatter) {
     addCoverSlide(ctx, input);
+    ctx.pageNumber += 1;
+  }
+
+  // 1b. Inside-front-cover ad (full-bleed, after cover, before TOC).
+  for (const ad of adsByPosition.inside_front) {
+    addAdSlide(pres, ad, template.geometry, ctx);
     ctx.pageNumber += 1;
   }
 
@@ -81,25 +101,48 @@ export async function buildPptx(
     ctx.pageNumber += 1;
   }
 
-  // 3. Article placements — each may emit multiple pages.
-  for (const placement of input.placements) {
+  // 3. Article placements — interleave "between" ads after every ~3
+  // articles so the ads break up the editorial run instead of all
+  // landing at the back of the book.
+  const between = [...adsByPosition.between];
+  for (let i = 0; i < input.placements.length; i += 1) {
+    const placement = input.placements[i]!;
     const added = addPlacementSlides(pres, placement, warnings, ctx);
     ctx.pageNumber += added;
+    // Every 3 articles, drop in a between-ad if any remain
+    if ((i + 1) % 3 === 0 && between.length > 0) {
+      const ad = between.shift()!;
+      addAdSlide(pres, ad, template.geometry, ctx);
+      ctx.pageNumber += 1;
+    }
   }
-
-  // 4. Full-page ads (placed before classifieds for MVP).
-  const geometry = template.geometry;
-  const fullPageAds = (input.ads ?? []).filter((a) => a.slotType === "full_page");
-  for (const ad of fullPageAds) {
-    addAdSlide(pres, ad, geometry, ctx);
+  // Any remaining between-ads land before classifieds
+  for (const ad of between) {
+    addAdSlide(pres, ad, template.geometry, ctx);
     ctx.pageNumber += 1;
   }
 
-  // 5. Classifieds — trailing pages grouped by type with full furniture.
+  // 4. Classifieds.
+  const geometry = template.geometry;
   const classifieds = input.classifieds ?? [];
   if (classifieds.length > 0) {
     const added = addClassifiedsSection(pres, classifieds, geometry, ctx.pageNumber, ctx);
     ctx.pageNumber += added;
+  }
+
+  // 5. Inside-back-cover ad
+  for (const ad of adsByPosition.inside_back) {
+    addAdSlide(pres, ad, template.geometry, ctx);
+    ctx.pageNumber += 1;
+  }
+
+  // 6. Back-cover ad — should be the very last page. If none, emit a
+  // simple colophon page so the issue ends gracefully.
+  if (adsByPosition.back_cover.length > 0) {
+    for (const ad of adsByPosition.back_cover) {
+      addAdSlide(pres, ad, template.geometry, ctx);
+      ctx.pageNumber += 1;
+    }
   }
 
   const pageCount = ctx.pageNumber - 1;
@@ -1107,34 +1150,81 @@ function addAdSlide(
   geo: Geometry,
   ctx?: BuildContext
 ): void {
-  void ctx; // ads intentionally have no folio + no header (full-bleed creative)
   const slide = pres.addSlide();
   const mm2in = (mm: number): number => mm / MM_PER_INCH;
+  const pt2in = (pt: number): number => pt / PT_PER_INCH;
   const bleedIn = mm2in(geo.bleed_mm);
   const trimWidthIn = mm2in(geo.trim_mm[0]);
   const trimHeightIn = mm2in(geo.trim_mm[1]);
 
+  // Cover-position ads (inside_front, inside_back, back_cover) are
+  // full-bleed image-only — no folio, no header, no ADVERTISEMENT label.
+  // Between-the-book ads get the ADVERTISEMENT label + folio so readers
+  // know they're not editorial content.
+  const isCoverPosition =
+    ad.position === "inside_front" ||
+    ad.position === "inside_back" ||
+    ad.position === "back_cover";
+
+  // Aspect-respecting cover for full-page slots: scale to fit the trim
+  // box, center any overflow as a crop. (Stretching always looked off.)
+  const aspect =
+    ad.heightPx > 0 ? ad.widthPx / ad.heightPx : trimWidthIn / trimHeightIn;
+  const slotW = trimWidthIn + bleedIn * 2;
+  const slotH = trimHeightIn + bleedIn * 2;
+  const slotAspect = slotW / slotH;
+  let imgW: number;
+  let imgH: number;
+  if (aspect > slotAspect) {
+    // Source is wider — fill height, crop sides
+    imgH = slotH;
+    imgW = slotH * aspect;
+  } else {
+    imgW = slotW;
+    imgH = slotW / aspect;
+  }
+  const imgX = (slotW - imgW) / 2;
+  const imgY = (slotH - imgH) / 2;
   slide.addImage({
     data: `data:${ad.mimeType};base64,${ad.base64}`,
-    x: bleedIn,
-    y: bleedIn,
-    w: trimWidthIn,
-    h: trimHeightIn,
+    x: imgX,
+    y: imgY,
+    w: imgW,
+    h: imgH,
   });
 
-  // Small "ADVERTISEMENT" caption tucked in the bleed margin for clarity —
-  // many jurisdictions require this identification above the fold.
-  slide.addText("ADVERTISEMENT", {
-    x: bleedIn,
-    y: bleedIn - mm2in(3),
-    w: trimWidthIn,
-    h: mm2in(3),
-    fontSize: 6,
-    fontFace: "Inter",
-    color: "9B958E",
-    charSpacing: 3,
-    align: "left",
-  });
+  if (!isCoverPosition) {
+    // ADVERTISEMENT label tucked in the bleed margin
+    slide.addText("ADVERTISEMENT", {
+      x: bleedIn,
+      y: bleedIn - mm2in(3),
+      w: trimWidthIn,
+      h: mm2in(3),
+      fontSize: 6,
+      fontFace: "Inter",
+      color: "9B958E",
+      charSpacing: 3,
+      align: "left",
+    });
+    // Folio for between-ads so the page sequence stays continuous
+    if (ctx) {
+      const marginRight = mm2in(geo.margins_mm.right) + bleedIn;
+      const marginLeft = mm2in(geo.margins_mm.left) + bleedIn;
+      const isRecto = ctx.pageNumber % 2 === 1;
+      const folioY = bleedIn + trimHeightIn - mm2in(10);
+      slide.addText(`${ctx.pageNumber}`, {
+        x: isRecto ? trimWidthIn + bleedIn - marginRight - pt2in(60) : marginLeft,
+        y: folioY,
+        w: pt2in(60),
+        h: pt2in(12),
+        fontSize: 9,
+        fontFace: "Inter",
+        bold: true,
+        color: "FEFCF8",
+        align: isRecto ? "right" : "left",
+      });
+    }
+  }
 }
 
 const CLASSIFIED_TYPE_LABELS: Record<string, string> = {

@@ -114,6 +114,30 @@ function labelize(key: string): string {
 }
 
 /**
+ * Map an operator-typed position label + slot type to one of the named
+ * positions the builder understands. Case-insensitive substring matching
+ * against the most common print conventions:
+ *
+ *   "Inside Front Cover" / "IFC"     → inside_front
+ *   "Inside Back Cover" / "IBC"      → inside_back
+ *   "Back Cover" / "BC"              → back_cover
+ *   "Bottom Strip" / "Strip"         → bottom_strip
+ *   anything else with a full-page slot → between
+ */
+function derivePosition(
+  positionLabel: string,
+  slotType: string
+): NonNullable<PptxAd["position"]> {
+  const p = (positionLabel ?? "").toLowerCase();
+  if (/inside\s*front|^ifc\b|inner\s*front/.test(p)) return "inside_front";
+  if (/inside\s*back|^ibc\b|inner\s*back/.test(p)) return "inside_back";
+  if (/back\s*cover|^bc\b/.test(p)) return "back_cover";
+  if (/bottom\s*strip|bottom\s*panel/.test(p) || slotType === "strip") return "bottom_strip";
+  if (slotType === "half_page_horizontal") return "half_page_bottom";
+  return "between";
+}
+
+/**
  * Pull initials from a display name, e.g. "Aanya Sharma, 29" → "AS".
  * Falls back to the first two letters when only one word is available.
  */
@@ -390,6 +414,7 @@ export function registerExportHandlers(): void {
         ads.push({
           slotType: ad.slot_type,
           positionLabel: ad.position_label,
+          position: derivePosition(ad.position_label, ad.slot_type),
           kind: ad.kind as PptxAd["kind"],
           bwFlag: ad.bw_flag === 1,
           mimeType: imgMeta.mime_type,

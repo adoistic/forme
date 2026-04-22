@@ -24,6 +24,16 @@ export default defineConfig({
                 "better-sqlite3",
                 "sharp",
                 "@napi-rs/canvas",
+                // pino spawns worker threads for transports (pino-pretty,
+                // pino-worker etc.) and resolves the worker path
+                // relative to its own dist. When bundled, the path
+                // collapses into dist/main/lib/worker.js which doesn't
+                // exist — Electron crashes on first log call. Keep pino
+                // (and pino-pretty) external so they load from
+                // node_modules with their full file structure intact.
+                "pino",
+                "pino-pretty",
+                "@chenglou/pretext",
                 "electron",
                 /^node:/,
               ],
