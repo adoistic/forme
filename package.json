@@ -1,6 +1,6 @@
 {
   "name": "forme",
-  "version": "0.0.1",
+  "version": "0.5.0",
   "private": true,
   "description": "An editorial magazine CMS for print. Single operator. Offline. Open source.",
   "author": "Adnan Abbasi",
@@ -10,6 +10,50 @@
     "url": "https://github.com/adoistic/forme.git"
   },
   "main": "dist/main/index.js",
+  "build": {
+    "appId": "com.adoistic.forme",
+    "productName": "Forme",
+    "copyright": "Copyright © 2026 Adnan Abbasi",
+    "directories": {
+      "output": "release-builds",
+      "buildResources": "build-resources"
+    },
+    "files": [
+      "dist/**/*",
+      "package.json",
+      "!**/*.map",
+      "!**/*.ts"
+    ],
+    "extraResources": [
+      { "from": "templates", "to": "templates" },
+      { "from": "src/assets/fonts", "to": "fonts" },
+      { "from": "vendor/pretext/dist", "to": "pretext" }
+    ],
+    "asar": true,
+    "asarUnpack": [
+      "**/node_modules/better-sqlite3/**",
+      "**/node_modules/sharp/**",
+      "**/node_modules/@napi-rs/canvas/**",
+      "**/node_modules/pino/**",
+      "**/node_modules/pino-pretty/**",
+      "**/node_modules/@chenglou/pretext/**"
+    ],
+    "mac": {
+      "category": "public.app-category.productivity",
+      "target": [
+        { "target": "dmg", "arch": ["arm64"] }
+      ],
+      "artifactName": "Forme-${version}-${arch}.${ext}",
+      "darkModeSupport": false,
+      "hardenedRuntime": false,
+      "gatekeeperAssess": false,
+      "identity": null
+    },
+    "dmg": {
+      "title": "Forme ${version}",
+      "writeUpdateInfo": false
+    }
+  },
   "scripts": {
     "dev": "vite",
     "build": "vite build && bun scripts/post-build.ts",
@@ -23,8 +67,9 @@
     "test:e2e": "playwright test",
     "posttest:e2e": "bun run rebuild:node",
     "predev": "bun run rebuild:electron",
-    "predist": "bun run rebuild:electron",
-    "dist": "electron-builder",
+    "predist": "bun run rebuild:electron && bun run build",
+    "dist": "electron-builder --mac",
+    "dist:notarized": "electron-builder --mac --publish never -c.mac.identity=\"Developer ID Application\" -c.mac.notarize=true",
     "db:migrate": "kysely-ctl migrate latest",
     "db:migrate:down": "kysely-ctl migrate down",
     "db:status": "kysely-ctl migrate list",
