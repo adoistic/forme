@@ -4,6 +4,8 @@
 // issues need the column for now, but adding `tenant_id` to nested tables later
 // is just a migration.
 
+import type { Generated } from "kysely";
+
 export interface IssuesTable {
   id: string; // UUID
   tenant_id: string;
@@ -29,7 +31,12 @@ export interface ArticlesTable {
   hero_caption: string | null;
   hero_credit: string | null;
   section: string | null; // section override for the running header
-  body: string; // full body text (plain or markdown)
+  body: string; // full body text (plain, markdown, or serialized blocks)
+  // v0.6 ER2: tracks body encoding. SQL default is 'plain' so existing v0.5
+  // inserts compile unchanged; v0.6 code that creates new block-format
+  // articles passes the value explicitly. Lazy migration to 'blocks' happens
+  // on first open per ER2 task T5.
+  body_format: Generated<"plain" | "markdown" | "blocks">;
   language: "en" | "hi" | "bilingual";
   word_count: number;
   content_type: string; // Article, Poem, Interview, Photo Essay, Opinion, Brief, Letter
@@ -113,9 +120,26 @@ export interface SnapshotsTable {
   issue_id: string;
   created_at: string;
   description: string; // auto-generated per CEO plan §17.2
-  state_json: string; // serialized issue state
+  state_json: string; // serialized issue or article state
   size_bytes: number;
   is_full: 0 | 1; // 1 = full snapshot; 0 = delta (v1.1+)
+  // v0.6 article-level snapshot fields (CEO plan decision 1A) — additive on the
+  // existing issue-level snapshots table. Existing rows take entity_kind='issue'
+  // via the column default; article_id is NULL for issue-level rows. Defaulted
+  // columns use Generated<> so the existing issue-level inserts in
+  // snapshot-store/store.ts compile unchanged.
+  article_id: string | null; // FK -> articles(id) ON DELETE CASCADE; NULL for issue-level snapshots
+  entity_kind: Generated<"issue" | "article">;
+  label: string | null; // operator-named version, e.g. "first draft"
+  starred: Generated<0 | 1>; // 1 = pinned by operator (excluded from auto-prune)
+  diff_status: "fallback_full" | "delta_jsonpatch" | null; // future delta tracking; NULL until populated
+  block_schema_version: Generated<number>; // ER2-9: bump when block JSON shape changes
+}
+
+export interface AppSettingsTable {
+  key: string; // PRIMARY KEY; e.g. "banner.dismissed.v0_6_intro"
+  value: string | null;
+  updated_at: string;
 }
 
 export interface PublisherProfileTable {
@@ -145,4 +169,5 @@ export interface Database {
   ads: AdsTable;
   snapshots: SnapshotsTable;
   publisher_profile: PublisherProfileTable;
+  app_settings: AppSettingsTable;
 }

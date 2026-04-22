@@ -246,6 +246,57 @@ const MIGRATIONS: Migration[] = [
       await sql`ALTER TABLE articles ADD COLUMN section TEXT`.execute(db);
     },
   },
+  {
+    version: 4,
+    name: "article_snapshots_and_body_format",
+    async up(db) {
+      // v0.6 Article Edit History (CEO plan decision 1A): the existing
+      // snapshots table holds issue-level snapshots only. Extend it
+      // additively so it can also hold per-article snapshots without
+      // touching existing rows. Existing rows take entity_kind='issue'
+      // via the column default; article_id stays NULL for them.
+      await sql`ALTER TABLE snapshots ADD COLUMN article_id TEXT REFERENCES articles(id) ON DELETE CASCADE`.execute(
+        db
+      );
+      await sql`ALTER TABLE snapshots ADD COLUMN entity_kind TEXT NOT NULL DEFAULT 'issue'`.execute(
+        db
+      );
+      await sql`ALTER TABLE snapshots ADD COLUMN label TEXT`.execute(db);
+      await sql`ALTER TABLE snapshots ADD COLUMN starred INTEGER NOT NULL DEFAULT 0`.execute(db);
+      await sql`ALTER TABLE snapshots ADD COLUMN diff_status TEXT`.execute(db);
+      await sql`ALTER TABLE snapshots ADD COLUMN block_schema_version INTEGER NOT NULL DEFAULT 1`.execute(
+        db
+      );
+
+      // Per-article timeline queries: list snapshots for an article in
+      // reverse chronological order. Index supports both filter + sort.
+      await db.schema
+        .createIndex("idx_snapshots_article_time")
+        .ifNotExists()
+        .on("snapshots")
+        .columns(["article_id", "created_at desc"])
+        .execute();
+
+      // body_format tracks the on-disk format of articles.body so v0.6
+      // can lazy-migrate v0.5 plain-text articles to block format on
+      // first open (per ER2 task T5). Existing rows stay 'plain'.
+      await sql`ALTER TABLE articles ADD COLUMN body_format TEXT NOT NULL DEFAULT 'plain'`.execute(
+        db
+      );
+
+      // app_settings is a generic key/value store for operator-level
+      // preferences (e.g. dismissed banners, persisted UI flags). It may
+      // already exist if a prior dev branch created it; create-if-not-
+      // exists keeps this idempotent.
+      await db.schema
+        .createTable("app_settings")
+        .ifNotExists()
+        .addColumn("key", "text", (col) => col.primaryKey())
+        .addColumn("value", "text")
+        .addColumn("updated_at", "text", (col) => col.notNull())
+        .execute();
+    },
+  },
 ];
 
 export async function runMigrations(db: Kysely<Database>): Promise<{ applied: number[] }> {
