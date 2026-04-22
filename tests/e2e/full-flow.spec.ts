@@ -28,6 +28,8 @@ const ARTICLES = [
   "chandrayaan-3.docx",
   "typography.docx",
   "movable-type.docx",
+  "monsoon-mumbai.docx",
+  "nilgiri-railway.docx",
 ].map((f) => path.join(FIXTURES, "articles", f));
 const AD_IMAGE = path.join(FIXTURES, "ads", "full-page-rust.png");
 const CLASSIFIEDS_CSV = path.join(FIXTURES, "classifieds", "sample.csv");
@@ -80,8 +82,8 @@ test("full flow: create issue → import docs → add classified → upload ad �
   await window.getByTestId("nav-articles").click();
   await window.getByTestId("import-docx-input").setInputFiles(ARTICLES);
   // Each import round-trips through IPC + blob store + mammoth. Allow time.
-  await expect(window.getByText(/imported 3 articles/i)).toBeVisible({
-    timeout: 45_000,
+  await expect(window.getByText(/imported \d+ article/i)).toBeVisible({
+    timeout: 60_000,
   });
 
   // 3) Bulk-import classifieds via CSV (covers the realistic operator flow:

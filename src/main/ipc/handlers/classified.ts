@@ -1,7 +1,10 @@
 import { randomUUID } from "node:crypto";
+import fs from "node:fs/promises";
+import path from "node:path";
 import Papa from "papaparse";
 import { addHandler } from "../register.js";
 import { getState } from "../../app-state.js";
+import { ingestImage } from "../../image-ingest/ingest.js";
 import {
   validateClassified,
   type ClassifiedType,
@@ -153,6 +156,7 @@ export function registerClassifiedHandlers(): void {
         "language",
         "weeks_to_run",
         "billing_reference",
+        "photo_path", // resolved separately into photo_blob_hash
       ]);
       const numericKeys = new Set([
         "age",
@@ -205,6 +209,50 @@ export function registerClassifiedHandlers(): void {
             continue;
           }
 
+          // Optional photo: resolve absolute path → ingest into blob store.
+          // Only honored for matrimonial_with_photo today; other types
+          // ignore the column.
+          let photoBlobHash: string | null = null;
+          const photoPath = row["photo_path"]?.trim();
+          if (photoPath && type === "matrimonial_with_photo") {
+            try {
+              const absPath = path.isAbsolute(photoPath)
+                ? photoPath
+                : path.resolve(process.cwd(), photoPath);
+              const buf = await fs.readFile(absPath);
+              const ingested = await ingestImage({
+                filename: path.basename(absPath),
+                buffer: buf,
+              });
+              const { blobs } = getState();
+              photoBlobHash = await blobs.writeBuffer(ingested.bytes);
+              await db
+                .insertInto("images")
+                .values({
+                  blob_hash: photoBlobHash,
+                  filename: path.basename(absPath),
+                  mime_type: ingested.mimeType,
+                  width: ingested.width,
+                  height: ingested.height,
+                  dpi: ingested.dpi,
+                  color_mode: ingested.color_mode,
+                  size_bytes: ingested.size_bytes,
+                  imported_at: nowISO(),
+                  tags_json: null,
+                })
+                .onConflict((oc) => oc.column("blob_hash").doNothing())
+                .execute();
+            } catch (err) {
+              // Non-fatal — photo just won't be attached.
+              errors.push({
+                row: rowNum,
+                reason: `photo_path "${photoPath}" failed: ${
+                  err instanceof Error ? err.message : String(err)
+                }`,
+              });
+            }
+          }
+
           const id = randomUUID();
           const now = nowISO();
           await db
@@ -215,7 +263,7 @@ export function registerClassifiedHandlers(): void {
               type,
               language,
               weeks_to_run: weeksToRun,
-              photo_blob_hash: null,
+              photo_blob_hash: photoBlobHash,
               fields_json: JSON.stringify(fields),
               billing_reference: billingReference,
               created_at: now,

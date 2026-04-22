@@ -27,6 +27,15 @@ export interface PptxBuildInput {
     bleed_mm: number;
     margins_mm: { top: number; right: number; bottom: number; left: number };
   };
+  /** Optional cover image used on the cover page. */
+  coverImage?: PptxImage;
+  /** Cover-line teasers — usually article headlines, shown on the cover. */
+  coverLines?: string[];
+  /**
+   * Whether to emit a cover page + table of contents at the front. Default
+   * true. Set false for previews or when the host wants raw article pages.
+   */
+  emitFrontMatter?: boolean;
 }
 
 export interface PptxAd {
@@ -68,10 +77,23 @@ export interface PptxArticle {
   byline: string | null;
   /** Where the byline prints: under the deck ("top") or after the body ("end"). */
   bylinePosition?: "top" | "end";
+  /** Section label shown in the running header ("FEATURES", "ESSAY"…). */
+  section?: string;
   body: string;
   language: "en" | "hi" | "bilingual";
   /** Optional hero image bytes + mime type. */
   heroImage?: PptxImage;
+  /** Caption shown under the hero image — usually a one-line description. */
+  heroCaption?: string;
+  /** Photographer credit shown in small italic next to the caption. */
+  heroCredit?: string;
+  /**
+   * Hero placement: "below-headline" (default — hero sits between byline
+   * and body) or "above-headline" (hero is the page-1 dominant element,
+   * full-width across all columns, headline + deck + byline come BELOW
+   * the image). Image-led photo essays use "above-headline".
+   */
+  heroPlacement?: "below-headline" | "above-headline";
   pullQuote?: string;
   /**
    * Pre-broken body lines per page per column, usually produced upstream

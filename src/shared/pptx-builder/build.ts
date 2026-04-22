@@ -56,28 +56,53 @@ export async function buildPptx(
     );
   }
 
-  let pageCount = 0;
-  for (const placement of input.placements) {
-    const added = addPlacementSlides(pres, placement, warnings);
-    pageCount += added;
+  // Page-context: every add* function uses this to know its page number,
+  // emit recto/verso folios + running headers, and track issue-wide state.
+  const ctx: BuildContext = {
+    pres,
+    pageNumber: 1,
+    publicationName: input.publicationName,
+    issueLabel: formatIssueLabel(input),
+    geometry: template.geometry,
+  };
+
+  const emitFrontMatter = input.emitFrontMatter !== false;
+
+  // 1. Cover page
+  if (emitFrontMatter) {
+    addCoverSlide(ctx, input);
+    ctx.pageNumber += 1;
   }
 
-  // Ad pages (full-page ads only in MVP — half/quarter page goes inline in v1.1).
-  // Placed after all articles, before classifieds.
+  // 2. Table of contents
+  if (emitFrontMatter && input.placements.length > 0) {
+    const firstArticlePage = ctx.pageNumber + 1;
+    addTocSlide(ctx, input.placements, firstArticlePage);
+    ctx.pageNumber += 1;
+  }
+
+  // 3. Article placements — each may emit multiple pages.
+  for (const placement of input.placements) {
+    const added = addPlacementSlides(pres, placement, warnings, ctx);
+    ctx.pageNumber += added;
+  }
+
+  // 4. Full-page ads (placed before classifieds for MVP).
   const geometry = template.geometry;
   const fullPageAds = (input.ads ?? []).filter((a) => a.slotType === "full_page");
   for (const ad of fullPageAds) {
-    addAdSlide(pres, ad, geometry);
-    pageCount += 1;
+    addAdSlide(pres, ad, geometry, ctx);
+    ctx.pageNumber += 1;
   }
 
-  // Classifieds section — trailing pages grouped by type. Only emitted when
-  // classifieds are present. Skipped otherwise (no empty opener page).
+  // 5. Classifieds — trailing pages grouped by type with full furniture.
   const classifieds = input.classifieds ?? [];
   if (classifieds.length > 0) {
-    const added = addClassifiedsSection(pres, classifieds, geometry, pageCount + 1);
-    pageCount += added;
+    const added = addClassifiedsSection(pres, classifieds, geometry, ctx.pageNumber, ctx);
+    ctx.pageNumber += added;
   }
+
+  const pageCount = ctx.pageNumber - 1;
 
   const writtenPath = await pres.writeFile({ fileName: outputPath });
 
@@ -105,10 +130,350 @@ export async function buildPptx(
   };
 }
 
+// ── Magazine furniture: cover, TOC, page furniture (header + folio) ──
+
+interface BuildContext {
+  pres: pptxgen;
+  pageNumber: number;
+  publicationName: string;
+  issueLabel: string;
+  geometry: {
+    trim_mm: [number, number];
+    bleed_mm: number;
+    margins_mm: { top: number; right: number; bottom: number; left: number };
+  };
+}
+
+function formatIssueLabel(input: PptxBuildInput): string {
+  const date = new Date(input.issueDate);
+  const dateStr = isNaN(date.getTime())
+    ? input.issueDate
+    : date.toLocaleDateString("en-GB", {
+        day: "numeric",
+        month: "long",
+        year: "numeric",
+      });
+  const num = input.issueNumber !== null ? `Issue ${input.issueNumber} · ` : "";
+  return `${num}${dateStr}`;
+}
+
+/**
+ * Page furniture — running header (publication | section | issue label)
+ * across the top + folio at bottom. Recto pages (odd) get folio at bottom-
+ * right, verso pages (even) at bottom-left. The header is omitted on cover
+ * + section openers; pass section: null to skip it.
+ */
+function addPageFurniture(
+  slide: pptxgen.Slide,
+  ctx: BuildContext,
+  section: string | null
+): void {
+  const mm2in = (mm: number): number => mm / MM_PER_INCH;
+  const pt2in = (pt: number): number => pt / PT_PER_INCH;
+  const bleedIn = mm2in(ctx.geometry.bleed_mm);
+  const trimWidthIn = mm2in(ctx.geometry.trim_mm[0]);
+  const trimHeightIn = mm2in(ctx.geometry.trim_mm[1]);
+  const marginLeft = mm2in(ctx.geometry.margins_mm.left) + bleedIn;
+  const marginRight = mm2in(ctx.geometry.margins_mm.right) + bleedIn;
+  const pageContentWidth = trimWidthIn - mm2in(ctx.geometry.margins_mm.left + ctx.geometry.margins_mm.right);
+
+  const isRecto = ctx.pageNumber % 2 === 1;
+
+  // Running header — small Inter caps, only when a section is set.
+  if (section) {
+    const headerY = bleedIn + mm2in(8);
+    // Left segment: publication name on verso, section on recto
+    // (matches the convention of magazines like The New Yorker).
+    const leftText = isRecto ? section : ctx.publicationName;
+    const rightText = isRecto ? ctx.publicationName : section;
+    slide.addText(leftText.toUpperCase(), {
+      x: marginLeft,
+      y: headerY,
+      w: pageContentWidth / 2,
+      h: pt2in(10),
+      fontSize: 7,
+      fontFace: "Inter",
+      color: "9B958E",
+      charSpacing: 4,
+      bold: true,
+      align: "left",
+    });
+    slide.addText(rightText.toUpperCase(), {
+      x: marginLeft + pageContentWidth / 2,
+      y: headerY,
+      w: pageContentWidth / 2,
+      h: pt2in(10),
+      fontSize: 7,
+      fontFace: "Inter",
+      color: "9B958E",
+      charSpacing: 4,
+      bold: true,
+      align: "right",
+    });
+    // Thin rule beneath header
+    slide.addShape("line", {
+      x: marginLeft,
+      y: headerY + pt2in(12),
+      w: pageContentWidth,
+      h: 0,
+      line: { color: "E5DFD5", width: 0.5 },
+    });
+  }
+
+  // Folio: page number at outer corner of foot. Box is wide enough for
+  // 4-digit page numbers + a separator so "19" doesn't wrap to "1\n9".
+  const folioY = bleedIn + trimHeightIn - mm2in(10);
+  const folioW = pt2in(60);
+  if (isRecto) {
+    slide.addText(`${ctx.pageNumber}`, {
+      x: trimWidthIn + bleedIn - marginRight - folioW,
+      y: folioY,
+      w: folioW,
+      h: pt2in(12),
+      fontSize: 9,
+      fontFace: "Inter",
+      bold: true,
+      color: "5C5853",
+      align: "right",
+    });
+  } else {
+    slide.addText(`${ctx.pageNumber}`, {
+      x: marginLeft,
+      y: folioY,
+      w: folioW,
+      h: pt2in(12),
+      fontSize: 9,
+      fontFace: "Inter",
+      bold: true,
+      color: "5C5853",
+      align: "left",
+    });
+  }
+}
+
+/**
+ * Cover page. Composition (top → bottom):
+ *
+ *   1. ISSUE LABEL (small rust caps)              ← top, ~20mm down
+ *   2. Wordmark (huge Fraunces display)           ← below the label
+ *   3. Big cover image (full-width, ~55% of page) ← middle
+ *   4. Cover-line teasers (italic, separated by ·)
+ *
+ * Falls back to a simpler text-only composition if no cover image.
+ */
+function addCoverSlide(ctx: BuildContext, input: PptxBuildInput): void {
+  const slide = ctx.pres.addSlide();
+  const mm2in = (mm: number): number => mm / MM_PER_INCH;
+  const pt2in = (pt: number): number => pt / PT_PER_INCH;
+  const bleedIn = mm2in(ctx.geometry.bleed_mm);
+  const trimWidthIn = mm2in(ctx.geometry.trim_mm[0]);
+  const trimHeightIn = mm2in(ctx.geometry.trim_mm[1]);
+  const totalW = trimWidthIn + bleedIn * 2;
+  const sideMargin = mm2in(15);
+
+  slide.background = { color: "F5EFE7" };
+
+  // 1. Issue label (top)
+  slide.addText(ctx.issueLabel.toUpperCase(), {
+    x: sideMargin,
+    y: bleedIn + mm2in(15),
+    w: totalW - sideMargin * 2,
+    h: pt2in(14),
+    fontSize: 9,
+    fontFace: "Inter",
+    color: "C96E4E",
+    charSpacing: 8,
+    bold: true,
+    align: "center",
+  });
+
+  // 2. Wordmark — auto-shrink the font for long publication names so it
+  // never wraps to two visual lines.
+  const wordmark = input.publicationName;
+  const wordmarkFontPt =
+    wordmark.length > 24 ? 36 : wordmark.length > 16 ? 48 : 64;
+  slide.addText(wordmark, {
+    x: sideMargin,
+    y: bleedIn + mm2in(22),
+    w: totalW - sideMargin * 2,
+    h: pt2in(wordmarkFontPt * 1.2),
+    fontSize: wordmarkFontPt,
+    fontFace: "Fraunces",
+    bold: true,
+    color: "1A1A1A",
+    align: "center",
+    valign: "top",
+  });
+
+  // 3. Cover image — dominant, full-width.
+  if (input.coverImage) {
+    const aspect =
+      input.coverImage.heightPx > 0
+        ? input.coverImage.widthPx / input.coverImage.heightPx
+        : 1.5;
+    const imgW = totalW - bleedIn * 2; // full bleed left/right
+    let imgH = imgW / aspect;
+    const maxH = trimHeightIn * 0.55;
+    if (imgH > maxH) {
+      imgH = maxH;
+      // Don't change width — let it crop visually if portrait.
+    }
+    const imgX = (totalW - imgW) / 2;
+    const imgY = bleedIn + mm2in(60);
+    slide.addImage({
+      data: `data:${input.coverImage.mimeType};base64,${input.coverImage.base64}`,
+      x: imgX,
+      y: imgY,
+      w: imgW,
+      h: imgH,
+    });
+  }
+
+  // 4. Cover-line teasers — bottom strip.
+  const lines = input.coverLines ?? [];
+  if (lines.length > 0) {
+    const teaserText = lines.slice(0, 4).join("   ·   ");
+    slide.addText(teaserText, {
+      x: sideMargin,
+      y: bleedIn + trimHeightIn - mm2in(25),
+      w: totalW - sideMargin * 2,
+      h: pt2in(20),
+      fontSize: 10,
+      fontFace: "Fraunces",
+      italic: true,
+      color: "1A1A1A",
+      align: "center",
+    });
+  }
+  // Cover gets no folio, no running header.
+}
+
+/**
+ * Table of contents page. Lists each article with its starting page
+ * number, separated by thin dotted leaders the way magazines have done
+ * since print began.
+ */
+function addTocSlide(
+  ctx: BuildContext,
+  placements: PptxPlacement[],
+  firstArticlePage: number
+): void {
+  const slide = ctx.pres.addSlide();
+  const mm2in = (mm: number): number => mm / MM_PER_INCH;
+  const pt2in = (pt: number): number => pt / PT_PER_INCH;
+  const bleedIn = mm2in(ctx.geometry.bleed_mm);
+  const trimWidthIn = mm2in(ctx.geometry.trim_mm[0]);
+  const trimHeightIn = mm2in(ctx.geometry.trim_mm[1]);
+  const marginLeft = mm2in(ctx.geometry.margins_mm.left) + bleedIn;
+  const marginRight = mm2in(ctx.geometry.margins_mm.right) + bleedIn;
+  const marginTop = mm2in(ctx.geometry.margins_mm.top) + bleedIn;
+  const pageContentWidth = trimWidthIn - mm2in(ctx.geometry.margins_mm.left + ctx.geometry.margins_mm.right);
+
+  // Section label
+  slide.addText("INSIDE THIS ISSUE", {
+    x: marginLeft,
+    y: marginTop,
+    w: pageContentWidth,
+    h: pt2in(14),
+    fontSize: 10,
+    fontFace: "Inter",
+    bold: true,
+    color: "C96E4E",
+    charSpacing: 6,
+  });
+  slide.addText("Contents", {
+    x: marginLeft,
+    y: marginTop + pt2in(20),
+    w: pageContentWidth,
+    h: pt2in(60),
+    fontSize: 48,
+    fontFace: "Fraunces",
+    bold: true,
+    color: "1A1A1A",
+  });
+  // Heavy rule under the title
+  slide.addShape("line", {
+    x: marginLeft,
+    y: marginTop + pt2in(82),
+    w: pageContentWidth,
+    h: 0,
+    line: { color: "1A1A1A", width: 1 },
+  });
+
+  // Compute starting pages: walk placements, accumulating their estimated
+  // page count (template min for now).
+  let cursor = firstArticlePage;
+  const entries = placements.map((p) => {
+    const startPage = cursor;
+    const pages =
+      p.article.prelaidPages?.length ?? p.template.page_count_range[0];
+    cursor += pages;
+    return { article: p.article, startPage, pages };
+  });
+
+  // Render each entry as: SECTION (rust caps) / Headline (Fraunces 16pt)
+  // / "By Author" italic / .... pp. NN
+  let y = marginTop + pt2in(110);
+  const lineH = pt2in(48);
+  for (const e of entries) {
+    const sectionLabel = (e.article.section ?? "FEATURE").toUpperCase();
+    slide.addText(sectionLabel, {
+      x: marginLeft,
+      y,
+      w: pageContentWidth,
+      h: pt2in(10),
+      fontSize: 7,
+      fontFace: "Inter",
+      bold: true,
+      color: "C96E4E",
+      charSpacing: 4,
+    });
+    // Headline + page number on same row, with a leader line implied by
+    // separate left/right text boxes.
+    slide.addText(e.article.headline, {
+      x: marginLeft,
+      y: y + pt2in(12),
+      w: pageContentWidth - pt2in(60),
+      h: pt2in(22),
+      fontSize: 16,
+      fontFace: "Fraunces",
+      bold: true,
+      color: "1A1A1A",
+    });
+    slide.addText(`p. ${e.startPage}`, {
+      x: trimWidthIn + bleedIn - marginRight - pt2in(60),
+      y: y + pt2in(12),
+      w: pt2in(60),
+      h: pt2in(22),
+      fontSize: 14,
+      fontFace: "Fraunces",
+      color: "1A1A1A",
+      align: "right",
+    });
+    if (e.article.byline) {
+      slide.addText(e.article.byline, {
+        x: marginLeft,
+        y: y + pt2in(34),
+        w: pageContentWidth,
+        h: pt2in(12),
+        fontSize: 10,
+        fontFace: "Inter",
+        italic: true,
+        color: "5C5853",
+      });
+    }
+    y += lineH;
+    if (y > trimHeightIn + bleedIn - mm2in(30)) break;
+  }
+
+  addPageFurniture(slide, ctx, "Contents");
+}
+
 function addPlacementSlides(
   pres: pptxgen,
   placement: PptxPlacement,
-  warnings: string[]
+  warnings: string[],
+  ctx?: BuildContext
 ): number {
   const { template, article } = placement;
   const geo = template.geometry;
@@ -225,15 +590,105 @@ function addPlacementSlides(
     let bodyStartY = marginTop;
 
     if (isFirstPage) {
+      // Decide hero placement. Image-led ("above-headline") puts the hero
+      // first, full-width, with photographer credit + caption beneath, then
+      // headline + deck + byline below. Headline-led (default) shows
+      // headline → deck → byline → hero → body.
+      const heroPlacement = article.heroPlacement ?? "below-headline";
+
+      let cursorY = marginTop;
+
+      const drawHeroBlock = (yStart: number): number => {
+        if (!article.heroImage) return yStart;
+        const aspect =
+          article.heroImage.heightPx > 0
+            ? article.heroImage.widthPx / article.heroImage.heightPx
+            : 1;
+        // Image-led variant uses a more dominant hero (up to 60% of page);
+        // headline-led variant caps at ~280pt to leave body room.
+        const heroMaxH =
+          heroPlacement === "above-headline"
+            ? pageContentHeight * 0.6
+            : Math.min(
+                pt2in(280),
+                pageContentHeight - (yStart - marginTop) - pt2in(typ.body_pt * 18)
+              );
+        let heroW = pageContentWidth;
+        let heroH = heroW / aspect;
+        if (heroH > heroMaxH) {
+          heroH = heroMaxH;
+          heroW = heroH * aspect;
+        }
+        if (heroH < pt2in(60)) return yStart;
+        const heroX = marginLeft + (pageContentWidth - heroW) / 2;
+        slide.addImage({
+          data: `data:${article.heroImage.mimeType};base64,${article.heroImage.base64}`,
+          x: heroX,
+          y: yStart,
+          w: heroW,
+          h: heroH,
+        });
+        let yAfter = yStart + heroH;
+        // Caption + photographer credit (right-aligned italic credit, body
+        // caption left). Both small, immediately under the image.
+        if (article.heroCaption || article.heroCredit) {
+          yAfter += pt2in(4);
+          if (article.heroCaption) {
+            slide.addText(article.heroCaption, {
+              x: marginLeft,
+              y: yAfter,
+              w: pageContentWidth - pt2in(140),
+              h: pt2in(14),
+              fontSize: 8,
+              fontFace: sansFont,
+              color: "5C5853",
+              italic: false,
+              align: "left",
+            });
+          }
+          if (article.heroCredit) {
+            slide.addText(`Photograph: ${article.heroCredit}`, {
+              x: marginLeft + pageContentWidth - pt2in(140),
+              y: yAfter,
+              w: pt2in(140),
+              h: pt2in(14),
+              fontSize: 7,
+              fontFace: sansFont,
+              color: "9B958E",
+              italic: true,
+              charSpacing: 2,
+              align: "right",
+            });
+          }
+          yAfter += pt2in(14);
+          // Thin grey rule under the caption/credit row
+          slide.addShape("line", {
+            x: marginLeft,
+            y: yAfter + pt2in(2),
+            w: pageContentWidth,
+            h: 0,
+            line: { color: "E5DFD5", width: 0.5 },
+          });
+          yAfter += pt2in(6);
+        } else {
+          yAfter += pt2in(8);
+        }
+        return yAfter;
+      };
+
+      // Image-first: hero, then headline beneath
+      if (heroPlacement === "above-headline" && article.heroImage) {
+        cursorY = drawHeroBlock(cursorY);
+      }
+
       // Headline — always reserve space for up to 3 lines, even if the
       // headline is short. Under-reserving (based on a character-width
-      // estimate) caused the deck to overlap the second headline line
-      // because Fraunces Display is wider than the 0.45em heuristic.
+      // estimate) caused the deck to overlap the second headline line.
       const HEADLINE_LINES = 3;
       const headlineHeight = pt2in(typ.headline_pt * 1.15) * HEADLINE_LINES;
       slide.addText(article.headline, {
         x: marginLeft,
-        y: marginTop,
+        y: cursorY,
         w: pageContentWidth,
         h: headlineHeight,
         fontSize: typ.headline_pt,
@@ -242,7 +697,7 @@ function addPlacementSlides(
         color: "1A1A1A",
         valign: "top",
       });
-      let cursorY = marginTop + headlineHeight + pt2in(10);
+      cursorY += headlineHeight + pt2in(8);
 
       // Deck (italic sans). Reserve 3 lines — long decks easily wrap to 3
       // and a 2-line reserve caused the byline to collide with the last
@@ -261,11 +716,10 @@ function addPlacementSlides(
           color: "5C5853",
           valign: "top",
         });
-        cursorY += deckHeight + pt2in(6);
+        cursorY += deckHeight + pt2in(4);
       }
 
       // Byline (small caps sans, rust) — only at top when position is "top".
-      // End-positioned bylines are emitted after the body on the last page.
       const bylinePosition = article.bylinePosition ?? "top";
       if (article.byline && bylinePosition === "top") {
         slide.addText(article.byline.toUpperCase(), {
@@ -280,41 +734,12 @@ function addPlacementSlides(
           charSpacing: 3,
           valign: "top",
         });
-        cursorY += pt2in(14) + pt2in(10);
+        cursorY += pt2in(14) + pt2in(8);
       }
 
-      // Optional hero image — fit to the content width, scale height
-      // proportionally from the source aspect ratio (never stretch),
-      // and cap at a reasonable max so the image doesn't crowd out
-      // the body. If the source is portrait we render at a smaller
-      // visible width, centered.
-      if (article.heroImage) {
-        const aspect =
-          article.heroImage.heightPx > 0
-            ? article.heroImage.widthPx / article.heroImage.heightPx
-            : 1;
-        const maxHeight = Math.min(
-          pt2in(260),
-          pageContentHeight - (cursorY - marginTop) - pt2in(typ.body_pt * 20)
-        );
-        let heroW = pageContentWidth;
-        let heroH = heroW / aspect;
-        if (heroH > maxHeight) {
-          heroH = maxHeight;
-          heroW = heroH * aspect;
-        }
-        if (heroH > pt2in(60)) {
-          // Center horizontally if narrower than the column block
-          const heroX = marginLeft + (pageContentWidth - heroW) / 2;
-          slide.addImage({
-            data: `data:${article.heroImage.mimeType};base64,${article.heroImage.base64}`,
-            x: heroX,
-            y: cursorY,
-            w: heroW,
-            h: heroH,
-          });
-          cursorY += heroH + pt2in(10);
-        }
+      // Headline-led: hero AFTER the byline (default)
+      if (heroPlacement === "below-headline" && article.heroImage) {
+        cursorY = drawHeroBlock(cursorY);
       }
 
       bodyStartY = cursorY;
@@ -431,20 +856,48 @@ function addPlacementSlides(
       });
     }
 
-    // Folio (page number centered at foot)
-    slide.addText(`${placement.startingPageNumber + pageIdx}`, {
-      x: bleedIn,
-      y: bleedIn + trimHeightIn - pt2in(14),
-      w: trimWidthIn,
-      h: pt2in(12),
-      fontSize: 9,
-      fontFace: sansFont,
-      align: "center",
-      color: "9B958E",
-    });
+    // Page furniture: running header (publication | section | issue) +
+    // folio. When ctx is provided we use the magazine-wide page number
+    // and recto/verso pattern; otherwise fall back to centered folio
+    // (legacy back-compat for tests that call buildPptx directly).
+    if (ctx) {
+      const pageCtx = { ...ctx, pageNumber: ctx.pageNumber + pageIdx };
+      const section = (article.section ?? sectionForFamily(template.family)).toUpperCase();
+      addPageFurniture(slide, pageCtx, section);
+    } else {
+      slide.addText(`${placement.startingPageNumber + pageIdx}`, {
+        x: bleedIn,
+        y: bleedIn + trimHeightIn - pt2in(14),
+        w: trimWidthIn,
+        h: pt2in(12),
+        fontSize: 9,
+        fontFace: sansFont,
+        align: "center",
+        color: "9B958E",
+      });
+    }
   }
 
   return pagesNeeded;
+}
+
+function sectionForFamily(family: string): string {
+  switch (family) {
+    case "feature":
+      return "Features";
+    case "photo_essay":
+      return "Photo Essay";
+    case "interview":
+      return "Interview";
+    case "short_editorial":
+      return "Editorial";
+    case "opinion":
+      return "Opinion";
+    case "poetry":
+      return "Poetry";
+    default:
+      return "Features";
+  }
 }
 
 function drawTrimGuides(
@@ -523,7 +976,13 @@ interface Geometry {
  * would crop the operator's creative). Ad aspect is enforced upstream at
  * upload time; here we just place it.
  */
-function addAdSlide(pres: pptxgen, ad: PptxAd, geo: Geometry): void {
+function addAdSlide(
+  pres: pptxgen,
+  ad: PptxAd,
+  geo: Geometry,
+  ctx?: BuildContext
+): void {
+  void ctx; // ads intentionally have no folio + no header (full-bleed creative)
   const slide = pres.addSlide();
   const mm2in = (mm: number): number => mm / MM_PER_INCH;
   const bleedIn = mm2in(geo.bleed_mm);
@@ -581,8 +1040,10 @@ function addClassifiedsSection(
   pres: pptxgen,
   classifieds: PptxClassified[],
   geo: Geometry,
-  startingPageNumber: number
+  startingPageNumber: number,
+  ctx?: BuildContext
 ): number {
+  void startingPageNumber; // page number now comes from ctx
   const mm2in = (mm: number): number => mm / MM_PER_INCH;
   const pt2in = (pt: number): number => pt / PT_PER_INCH;
   const bleedIn = mm2in(geo.bleed_mm);
@@ -645,11 +1106,22 @@ function addClassifiedsSection(
     italic: true,
     align: "center",
   });
-  addFolio(slide, startingPageNumber + pageCount - 1, bleedIn, trimWidthIn, trimHeightIn);
+  // Section opener gets a folio but no header (it IS the section start).
+  if (ctx) {
+    const openerCtx = { ...ctx, pageNumber: ctx.pageNumber };
+    addPageFurniture(slide, openerCtx, null);
+  } else {
+    addFolio(slide, startingPageNumber + pageCount - 1, bleedIn, trimWidthIn, trimHeightIn);
+  }
 
   // Content pages — start with first type. Keep a cursor per page.
   slide = pres.addSlide();
   pageCount += 1;
+  // Furniture for first content page
+  if (ctx) {
+    const pageCtx = { ...ctx, pageNumber: ctx.pageNumber + pageCount - 1 };
+    addPageFurniture(slide, pageCtx, "Classifieds");
+  }
   let col = 0;
   let y = marginTop;
   const typeEntries = Array.from(grouped.entries());
@@ -713,6 +1185,10 @@ function addClassifiedsSection(
           slide = pres.addSlide();
           pageCount += 1;
           col = 0;
+          if (ctx) {
+            const pageCtx = { ...ctx, pageNumber: ctx.pageNumber + pageCount - 1 };
+            addPageFurniture(slide, pageCtx, "Classifieds");
+          }
         }
         // After a forced advance, we always need a heading at the top of
         // the new column — either the original (we never emitted) or a

@@ -16,12 +16,64 @@ const ARTICLES_DIR = path.join(FIXTURES, "articles");
 const ADS_DIR = path.join(FIXTURES, "ads");
 const CLASSIFIEDS_DIR = path.join(FIXTURES, "classifieds");
 
-// 3 varied articles — short, medium-ish, longer — to exercise the builder's
-// page-count range. Slugs double as filenames.
-const WIKI_ARTICLES = [
-  { slug: "chandrayaan-3", title: "Chandrayaan-3" },
-  { slug: "typography", title: "Typography" },
-  { slug: "movable-type", title: "Movable_type" },
+// 6 varied Wikipedia articles to exercise the builder's templates +
+// page-count range. Each gets a different content_type + hero so the
+// export demonstrates the template selection rules.
+//
+// `heroSeed` is the Lorem Picsum seed used to fetch a deterministic
+// landscape photo. Set null to skip a hero (text-only feature).
+// `credit` is the photographer name shown beneath the hero image.
+interface WikiArticleSpec {
+  slug: string;
+  title: string;
+  contentType: "Article" | "Photo Essay" | "Interview" | "Opinion" | "Brief" | "Letter";
+  heroSeed: string | null;
+  credit: string;
+  caption: string;
+}
+
+const WIKI_ARTICLES: WikiArticleSpec[] = [
+  {
+    slug: "chandrayaan-3",
+    title: "Chandrayaan-3",
+    contentType: "Photo Essay",
+    heroSeed: "forme-moon",
+    credit: "NASA / Public Domain",
+    caption:
+      "The lunar south pole — terrain that defied every previous landing attempt.",
+  },
+  {
+    slug: "typography",
+    title: "Typography",
+    contentType: "Article",
+    heroSeed: null,
+    credit: "",
+    caption: "",
+  },
+  {
+    slug: "movable-type",
+    title: "Movable_type",
+    contentType: "Article",
+    heroSeed: "forme-press",
+    credit: "Lorem Picsum",
+    caption: "A working letterpress, still in commercial use in 2024.",
+  },
+  {
+    slug: "monsoon-mumbai",
+    title: "Monsoon_of_South_Asia",
+    contentType: "Photo Essay",
+    heroSeed: "forme-monsoon",
+    credit: "Lorem Picsum",
+    caption: "First rain of the season, Mumbai.",
+  },
+  {
+    slug: "nilgiri-railway",
+    title: "Nilgiri_Mountain_Railway",
+    contentType: "Article",
+    heroSeed: "forme-rails",
+    credit: "Lorem Picsum",
+    caption: "The blue mountains, viewed from the rack-and-pinion line.",
+  },
 ];
 
 async function fetchWikipediaPlainText(title: string): Promise<string> {
@@ -44,7 +96,12 @@ async function plainTextToDocx(
   plain: string,
   headline: string,
   outPath: string,
-  heroImagePath?: string
+  options?: {
+    heroImagePath?: string;
+    deck?: string;
+    byline?: string;
+    contentType?: string;
+  }
 ): Promise<void> {
   // Produce a clean HTML page with a single H1 + paragraphs, then run pandoc
   // to convert it to .docx. Result is a normal Word doc, not a markdown doc.
@@ -52,13 +109,17 @@ async function plainTextToDocx(
     .split(/\n\s*\n/)
     .map((p) => p.trim())
     .filter(Boolean);
-  const heroTag = heroImagePath
-    ? `<p><img src="${heroImagePath}" alt="Hero image"></p>`
+  const heroTag = options?.heroImagePath
+    ? `<p><img src="${options.heroImagePath}" alt="Hero image"></p>`
     : "";
+  const deck =
+    options?.deck ??
+    "A Wikipedia-sourced article converted for end-to-end testing of Forme's PPTX builder.";
+  const byline = options?.byline ?? "By QA Harness";
   const html = `<!DOCTYPE html><html><head><meta charset="utf-8"><title>${escapeHtml(headline)}</title></head><body>
 <h1>${escapeHtml(headline)}</h1>
-<p><em>A Wikipedia-sourced article converted for end-to-end testing of Forme's PPTX builder.</em></p>
-<p><strong>By QA Harness</strong></p>
+<p><em>${escapeHtml(deck)}</em></p>
+<p><strong>${escapeHtml(byline)}</strong></p>
 ${heroTag}
 ${paragraphs.map((p) => `<p>${escapeHtml(p)}</p>`).join("\n")}
 </body></html>`;
@@ -72,6 +133,31 @@ ${paragraphs.map((p) => `<p>${escapeHtml(p)}</p>`).join("\n")}
     p.on("exit", (c) => (c === 0 ? resolve() : reject(new Error(`pandoc ${c}`))));
   });
   await fs.unlink(tmpHtml).catch(() => {});
+}
+
+/**
+ * Fetch a deterministic photo from Lorem Picsum (real Unsplash photos
+ * served via a free, no-auth proxy). Same seed → same photo every time
+ * so test outputs stay reproducible.
+ */
+async function fetchPicsumPhoto(
+  seed: string,
+  width: number,
+  height: number,
+  outPath: string
+): Promise<void> {
+  if (await exists(outPath)) {
+    console.log(`✓ ${outPath} (cached)`);
+    return;
+  }
+  const url = `https://picsum.photos/seed/${encodeURIComponent(seed)}/${width}/${height}`;
+  const res = await fetch(url, { redirect: "follow" });
+  if (!res.ok) {
+    throw new Error(`picsum ${seed} ${width}×${height} → ${res.status}`);
+  }
+  const buf = Buffer.from(await res.arrayBuffer());
+  await fs.writeFile(outPath, buf);
+  console.log(`  picsum → ${outPath} (${buf.length} bytes)`);
 }
 
 function escapeHtml(s: string): string {
@@ -107,38 +193,59 @@ async function main() {
   await fs.mkdir(ADS_DIR, { recursive: true });
   await fs.mkdir(CLASSIFIEDS_DIR, { recursive: true });
 
-  // Generate a sample hero image once — 2000×1200 landscape, the first
-  // article's docx embeds it so we can exercise the hero-image path end-to-end.
-  const heroImagePath = path.join(ARTICLES_DIR, "_hero.png");
-  if (!(await exists(heroImagePath))) {
-    await makeAdImage(
-      "Chandrayaan-3",
-      "On the surface. For the first time.",
-      2000,
-      1200,
-      "#1A3A5C",
-      heroImagePath
-    );
-    console.log(`  hero → ${heroImagePath}`);
+  // Real Unsplash hero photos via Lorem Picsum (deterministic by seed).
+  // These get embedded into the article's docx via plainTextToDocx; the
+  // article-import handler extracts them into the blob store, and the
+  // export handler renders them as the hero on page 1.
+  for (const a of WIKI_ARTICLES) {
+    if (!a.heroSeed) continue;
+    const heroPath = path.join(ARTICLES_DIR, `_hero-${a.slug}.jpg`);
+    await fetchPicsumPhoto(a.heroSeed, 2000, 1200, heroPath);
   }
 
-  // Articles — always rewrite so fixture fields (hero image, byline) stay in
-  // sync with the latest docx layout.
+  // Cover photo for the issue cover page — a wide, evocative shot.
+  const coverPath = path.join(ARTICLES_DIR, "_cover.jpg");
+  await fetchPicsumPhoto("forme-cover", 2400, 1500, coverPath);
+
+  // Articles — always rewrite so fixture fields (hero, byline, contentType)
+  // stay in sync with the latest fixture spec.
   for (let i = 0; i < WIKI_ARTICLES.length; i += 1) {
     const a = WIKI_ARTICLES[i]!;
     const outPath = path.join(ARTICLES_DIR, `${a.slug}.docx`);
     console.log(`Fetching ${a.title}…`);
     try {
       const text = await fetchWikipediaPlainText(a.title);
-      // Only the first article gets a hero image — keeps the test matrix
-      // small while still exercising the path.
-      const hero = i === 0 ? heroImagePath : undefined;
-      await plainTextToDocx(text, a.title.replace(/_/g, " "), outPath, hero);
+      const heroPath = a.heroSeed
+        ? path.join(ARTICLES_DIR, `_hero-${a.slug}.jpg`)
+        : undefined;
+      const deck = a.caption
+        ? a.caption
+        : "A Wikipedia-sourced article converted for end-to-end testing of Forme's PPTX builder.";
+      await plainTextToDocx(text, a.title.replace(/_/g, " "), outPath, {
+        ...(heroPath ? { heroImagePath: heroPath } : {}),
+        deck,
+        byline: "By QA Harness",
+        contentType: a.contentType,
+      });
       const stat = await fs.stat(outPath);
-      console.log(`  → ${outPath} (${stat.size} bytes${hero ? " — includes hero" : ""})`);
+      console.log(`  → ${outPath} (${stat.size} bytes${heroPath ? " — w/ hero" : ""})`);
     } catch (e) {
       console.error(`  FAIL ${a.title}:`, e);
     }
+  }
+
+  // Portrait headshots for the matrimonial classifieds (Lorem Picsum
+  // serves real Unsplash photos; we use square crops since the matrimonial
+  // entry frames the photo in a circle).
+  const PORTRAITS_DIR = path.join(FIXTURES, "portraits");
+  await fs.mkdir(PORTRAITS_DIR, { recursive: true });
+  for (const seed of [
+    "matri-aanya",
+    "matri-rohan",
+    "matri-sara",
+    "matri-daniel",
+  ]) {
+    await fetchPicsumPhoto(seed, 600, 600, path.join(PORTRAITS_DIR, `${seed}.jpg`));
   }
 
   // Ads — three realistic magazine ad slot sizes
@@ -173,6 +280,7 @@ async function main() {
       "type",
       "language",
       "weeks_to_run",
+      "photo_path",
       "name",
       "age",
       "location",
@@ -211,12 +319,14 @@ async function main() {
       }
       return row;
     };
+    const portraitDir = path.join(FIXTURES, "portraits");
     const rows: string[][] = [
-      // Matrimonials with photo (placeholder monogram)
+      // Matrimonials with real Unsplash portraits via photo_path
       make({
         type: "matrimonial_with_photo",
         language: "en",
         weeks_to_run: "2",
+        photo_path: path.join(portraitDir, "matri-aanya.jpg"),
         name: "Aanya Sharma",
         age: "29",
         location: "Delhi",
@@ -230,6 +340,7 @@ async function main() {
         type: "matrimonial_with_photo",
         language: "en",
         weeks_to_run: "2",
+        photo_path: path.join(portraitDir, "matri-rohan.jpg"),
         name: "Rohan Iyer",
         age: "32",
         location: "Bengaluru",

@@ -73,6 +73,9 @@ describe("buildPptx — Standard Feature A4", () => {
       issueNumber: 1,
       issueDate: "2026-04-22",
       publicationName: "Forme Test Publication",
+      // Skip cover + TOC so the page count stays in the article range —
+      // tests that follow exercise the article body specifically.
+      emitFrontMatter: false,
       placements: [
         {
           articleId: "test-1",

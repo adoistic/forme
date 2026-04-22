@@ -289,17 +289,45 @@ export function registerExportHandlers(): void {
         );
       }
 
+      // Photo Essay articles render image-led: hero on top, then caption +
+      // photographer credit, then headline below. We treat any article
+      // routed to the photo_essay template (or explicitly typed
+      // "Photo Essay") as image-led. Headline-led is the default.
+      const isPhotoEssay =
+        chosenTemplate.family === "photo_essay" ||
+        article.content_type === "Photo Essay";
+      const heroPlacement: "above-headline" | "below-headline" =
+        isPhotoEssay && heroImage ? "above-headline" : "below-headline";
+      const heroCaption =
+        heroPlacement === "above-headline" && article.deck ? article.deck : undefined;
+      const heroCredit =
+        heroPlacement === "above-headline" ? "Lorem Picsum / Unsplash" : undefined;
+      const section =
+        chosenTemplate.family === "photo_essay"
+          ? "Photo Essay"
+          : article.content_type === "Opinion"
+          ? "Opinion"
+          : article.content_type === "Interview"
+          ? "Interview"
+          : "Features";
+
       placements.push({
         articleId: article.id,
         template: chosenTemplate,
         startingPageNumber: nextPageNumber,
         article: {
           headline: article.headline,
-          deck: article.deck,
+          // Drop the deck on photo-essay articles when we've already used
+          // it as the image caption — avoids duplicating the same line.
+          deck: heroPlacement === "above-headline" ? null : article.deck,
           byline: article.byline,
           bylinePosition,
+          section,
           body: article.body,
           language,
+          heroPlacement,
+          ...(heroCaption ? { heroCaption } : {}),
+          ...(heroCredit ? { heroCredit } : {}),
           ...(prelaidPages.length > 0 ? { prelaidPages } : {}),
           ...(heroImage ? { heroImage } : {}),
         },
@@ -405,15 +433,34 @@ export function registerExportHandlers(): void {
       "Exporting issue"
     );
 
+    // Cover image: reuse the first article's hero (visually strong + already
+    // loaded). Fall back to none if no article has a hero.
+    const firstHero = placements.find((p) => p.article.heroImage)?.article.heroImage;
+    const profileRow = await db
+      .selectFrom("publisher_profile")
+      .select(["publication_name"])
+      .where("tenant_id", "=", "publisher_default")
+      .executeTakeFirst();
+    const profileName = profileRow?.publication_name?.trim();
+    // If no publisher profile is set, derive a publication name from the
+    // issue title — strip anything after " — " or " - " so the cover
+    // wordmark stays short.
+    const publicationName =
+      profileName && profileName.length > 0
+        ? profileName
+        : issueRow.title.split(/\s+[—-]\s+/)[0]!.trim();
+
     const result = await buildPptx(
       {
         issueTitle: issueRow.title,
         issueNumber: issueRow.issue_number,
         issueDate: issueRow.issue_date,
-        publicationName: "Forme",
+        publicationName,
         placements,
         ads,
         classifieds,
+        ...(firstHero ? { coverImage: firstHero } : {}),
+        coverLines: placements.slice(0, 4).map((p) => p.article.headline),
       },
       outputPath
     );
