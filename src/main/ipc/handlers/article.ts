@@ -6,9 +6,11 @@ import { ingestImage } from "../../image-ingest/ingest.js";
 import { detectLanguage } from "@shared/schemas/language.js";
 import type {
   ArticleSummary,
+  CreateArticleInput,
   ImportDocxInput,
   UpdateArticleInput,
 } from "@shared/ipc-contracts/channels.js";
+import { countWords } from "@shared/schemas/article.js";
 import type {
   ContentType,
   BylinePosition,
@@ -181,6 +183,59 @@ export function registerArticleHandlers(): void {
       language,
       wordCount: parsed.word_count,
       contentType: "Article",
+      createdAt: now,
+    };
+  });
+
+  addHandler("article:create", async (payload: CreateArticleInput): Promise<ArticleSummary> => {
+    const { db } = getState();
+    const id = randomUUID();
+    const now = nowISO();
+    const headline = payload.headline.trim() || "Untitled";
+    const body = payload.body.trim();
+    if (!body) {
+      throw new Error("article:create requires non-empty body");
+    }
+    const language = payload.language ?? detectLanguage(body);
+    const contentType = payload.contentType ?? "Article";
+    const wordCount = countWords(body);
+    await db
+      .insertInto("articles")
+      .values({
+        id,
+        issue_id: payload.issueId,
+        headline,
+        deck: payload.deck ?? null,
+        byline: payload.byline ?? null,
+        byline_position: "top",
+        hero_placement: "below-headline",
+        hero_caption: null,
+        hero_credit: null,
+        section: null,
+        body,
+        language,
+        word_count: wordCount,
+        content_type: contentType,
+        pull_quote: null,
+        sidebar: null,
+        created_at: now,
+        updated_at: now,
+      })
+      .execute();
+    return {
+      id,
+      issueId: payload.issueId,
+      headline,
+      deck: payload.deck ?? null,
+      byline: payload.byline ?? null,
+      bylinePosition: "top",
+      heroPlacement: "below-headline",
+      heroCaption: null,
+      heroCredit: null,
+      section: null,
+      language,
+      wordCount,
+      contentType,
       createdAt: now,
     };
   });

@@ -112,9 +112,12 @@ function extractDeck(
   bodyText: string,
   bodyHtml: string
 ): { deck: string | null; bodyText: string; bodyHtml: string } {
-  // Match an initial fully-italic <p> (allow whitespace around)
+  // Match an initial fully-italic <p> (allow attributes + whitespace).
+  // pandoc emits <p lang="hi" dir="ltr"><em>...</em></p> for Hindi italics
+  // — without the [^>]* the regex would miss them and the deck would
+  // leak into the body.
   const m = bodyHtml.match(
-    /^\s*<p>\s*<(em|i)>([\s\S]*?)<\/\1>\s*<\/p>\s*/i
+    /^\s*<p[^>]*>\s*<(em|i)[^>]*>([\s\S]*?)<\/\1>\s*<\/p>\s*/i
   );
   if (!m || !m[2]) {
     return { deck: null, bodyText, bodyHtml };
@@ -149,10 +152,21 @@ function splitHeadline(
   rawText: string,
   html: string
 ): { headline: string; bodyText: string; bodyHtml: string } {
-  const headingMatch = html.match(/<(h[12])>([\s\S]*?)<\/\1>/);
+  const headingMatch = html.match(/<(h[12])[^>]*>([\s\S]*?)<\/\1>/);
   if (headingMatch?.[2]) {
     const headline = stripTags(headingMatch[2]).trim();
-    const bodyHtml = html.replace(headingMatch[0], "").trim();
+    let bodyHtml = html.replace(headingMatch[0], "").trim();
+    // Strip a duplicate leading h1/h2 with the same text — Wikipedia's
+    // plaintext often starts with the article title repeated, which pandoc
+    // promotes to a Heading1 right after our own H1, leaving the title
+    // visible as a body paragraph after extraction.
+    const dup = bodyHtml.match(/^\s*<(h[12])[^>]*>([\s\S]*?)<\/\1>\s*/i);
+    if (dup?.[2]) {
+      const dupText = stripTags(dup[2]).trim();
+      if (dupText.toLowerCase() === headline.toLowerCase()) {
+        bodyHtml = bodyHtml.slice(dup[0].length).trim();
+      }
+    }
     const bodyText = stripTagsPreservingParagraphs(bodyHtml);
     return { headline: headline || firstLine(rawText), bodyText, bodyHtml };
   }
@@ -258,14 +272,29 @@ function extractByline(body: string): {
     .map((p) => p.trim())
     .filter((p) => p.length > 0);
 
-  // Look for top byline in first 3 paragraphs
+  // Look for top byline in first 3 paragraphs. Recognized prefixes:
+  //   - English: "By" (case-insensitive)
+  //   - Hindi: "लेखक" (writer), "द्वारा" (by)
+  //   - Latin script Hindi: "Lekhak"
+  // The captured name is preserved verbatim — we only re-prefix English
+  // bylines with "By " for typographic consistency.
   for (let i = 0; i < Math.min(3, paragraphs.length); i += 1) {
     const p = paragraphs[i] ?? "";
-    const m = p.match(/^\s*By\s+(.+?)\s*$/i);
-    if (m && m[1] && m[1].length < 140) {
+    const en = p.match(/^\s*By\s+(.+?)\s*$/i);
+    if (en && en[1] && en[1].length < 140) {
       paragraphs.splice(i, 1);
       return {
-        byline: `By ${m[1].trim()}`,
+        byline: `By ${en[1].trim()}`,
+        bylinePosition: "top",
+        bodyText: paragraphs.join("\n\n"),
+      };
+    }
+    // Hindi: "लेखक — Name" / "लेखक: Name" / "द्वारा Name"
+    const hi = p.match(/^\s*(?:लेखक|द्वारा|Lekhak)\s*[—–:\-]?\s*(.+?)\s*$/);
+    if (hi && hi[1] && hi[1].length < 140 && p.length < 160) {
+      paragraphs.splice(i, 1);
+      return {
+        byline: p.trim(),
         bylinePosition: "top",
         bodyText: paragraphs.join("\n\n"),
       };

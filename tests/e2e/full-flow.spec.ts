@@ -31,6 +31,8 @@ const ARTICLES = [
   "movable-type.docx",
   "monsoon-mumbai.docx",
   "nilgiri-railway.docx",
+  "kabir-hindi.docx",
+  "delhi-bilingual.docx",
 ].map((f) => path.join(FIXTURES, "articles", f));
 const AD_IMAGE = path.join(FIXTURES, "ads", "full-page-rust.png");
 const CLASSIFIEDS_CSV = path.join(FIXTURES, "classifieds", "sample.csv");

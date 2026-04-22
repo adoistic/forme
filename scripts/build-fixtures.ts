@@ -30,6 +30,14 @@ interface WikiArticleSpec {
   heroSeed: string | null;
   credit: string;
   caption: string;
+  /** "en" → en.wikipedia.org; "hi" → hi.wikipedia.org. */
+  wiki?: "en" | "hi";
+  /** Optional second-language paragraphs appended to body for bilingual demo. */
+  bilingualPair?: { wiki: "en" | "hi"; title: string; paragraphs: number };
+  /** Force the body's primary language (otherwise auto-detected). */
+  language?: "en" | "hi" | "bilingual";
+  byline?: string;
+  deck?: string;
 }
 
 const WIKI_ARTICLES: WikiArticleSpec[] = [
@@ -82,10 +90,45 @@ const WIKI_ARTICLES: WikiArticleSpec[] = [
     credit: "Lorem Picsum",
     caption: "High-altitude desert. The light at 3,500m never quite finishes settling.",
   },
+  // Hindi-only article from hi.wikipedia.org. Mukta + Devanagari rendering.
+  {
+    slug: "kabir-hindi",
+    title: "कबीर",
+    contentType: "Article",
+    heroSeed: null,
+    credit: "",
+    caption: "",
+    wiki: "hi",
+    language: "hi",
+    byline: "लेखक — क्यूए परीक्षक",
+    deck: "एक संत-कवि का जीवन और काव्य।",
+  },
+  // Bilingual article (English headline + body that mixes English Wikipedia
+  // intro with a Hindi Wikipedia paragraph). Forces the parser's language
+  // detector to "bilingual" and the exporter still uses Fraunces for body
+  // since "bilingual" routes to Latin font.
+  {
+    slug: "delhi-bilingual",
+    title: "Delhi",
+    contentType: "Article",
+    heroSeed: null,
+    credit: "",
+    caption: "",
+    bilingualPair: { wiki: "hi", title: "दिल्ली", paragraphs: 4 },
+    language: "bilingual",
+    byline: "By QA Harness · क्यूए परीक्षक",
+    deck:
+      "A bilingual feature: English Wikipedia introduction followed by a Hindi Wikipedia passage on the same subject.",
+  },
 ];
 
-async function fetchWikipediaPlainText(title: string): Promise<string> {
-  const url = `https://en.wikipedia.org/w/api.php?format=json&action=query&prop=extracts&explaintext=1&exsectionformat=plain&titles=${encodeURIComponent(title)}&redirects=1`;
+async function fetchWikipediaPlainText(
+  title: string,
+  wiki: "en" | "hi" = "en",
+  maxWords = 2500
+): Promise<string> {
+  const host = `${wiki}.wikipedia.org`;
+  const url = `https://${host}/w/api.php?format=json&action=query&prop=extracts&explaintext=1&exsectionformat=plain&titles=${encodeURIComponent(title)}&redirects=1`;
   const res = await fetch(url, {
     headers: { "User-Agent": "Forme QA (https://github.com/adoistic/forme)" },
   });
@@ -94,10 +137,10 @@ async function fetchWikipediaPlainText(title: string): Promise<string> {
   };
   const pages = Object.values(json.query.pages);
   const p = pages[0];
-  if (!p || !p.extract) throw new Error(`no extract for ${title}`);
-  // Trim to first ~2500 words to keep test runs fast
+  if (!p || !p.extract) throw new Error(`no extract for ${wiki}:${title}`);
+  // Trim to keep test runs fast
   const words = p.extract.split(/\s+/);
-  return words.slice(0, 2500).join(" ");
+  return words.slice(0, maxWords).join(" ");
 }
 
 async function plainTextToDocx(
@@ -113,10 +156,21 @@ async function plainTextToDocx(
 ): Promise<void> {
   // Produce a clean HTML page with a single H1 + paragraphs, then run pandoc
   // to convert it to .docx. Result is a normal Word doc, not a markdown doc.
-  const paragraphs = plain
+  let paragraphs = plain
     .split(/\n\s*\n/)
     .map((p) => p.trim())
     .filter(Boolean);
+  // Drop any leading paragraph that exactly matches the headline —
+  // Wikipedia plaintext extracts often start with the article title
+  // repeated. Without this, the title shows up both as the H1 AND as
+  // the first body paragraph after extraction.
+  while (
+    paragraphs.length > 0 &&
+    paragraphs[0]!.replace(/\s+/g, " ").trim() ===
+      headline.replace(/\s+/g, " ").trim()
+  ) {
+    paragraphs.shift();
+  }
   const heroTag = options?.heroImagePath
     ? `<p><img src="${options.heroImagePath}" alt="Hero image"></p>`
     : "";
@@ -222,21 +276,38 @@ async function main() {
     const outPath = path.join(ARTICLES_DIR, `${a.slug}.docx`);
     console.log(`Fetching ${a.title}…`);
     try {
-      const text = await fetchWikipediaPlainText(a.title);
+      const wiki = a.wiki ?? "en";
+      let text = await fetchWikipediaPlainText(a.title, wiki);
+      // Bilingual: append a chunk from the paired language Wikipedia
+      if (a.bilingualPair) {
+        const otherText = await fetchWikipediaPlainText(
+          a.bilingualPair.title,
+          a.bilingualPair.wiki,
+          400
+        );
+        // Take just N paragraphs from the bilingual pair for a clean mix
+        const otherParas = otherText
+          .split(/\n\s*\n/)
+          .slice(0, a.bilingualPair.paragraphs)
+          .join("\n\n");
+        text = `${text}\n\n${otherParas}`;
+      }
       const heroPath = a.heroSeed
         ? path.join(ARTICLES_DIR, `_hero-${a.slug}.jpg`)
         : undefined;
-      const deck = a.caption
-        ? a.caption
-        : "A Wikipedia-sourced article converted for end-to-end testing of Forme's PPTX builder.";
+      const deck =
+        a.deck ??
+        (a.caption ||
+          "A Wikipedia-sourced article converted for end-to-end testing of Forme's PPTX builder.");
+      const byline = a.byline ?? "By QA Harness";
       await plainTextToDocx(text, a.title.replace(/_/g, " "), outPath, {
         ...(heroPath ? { heroImagePath: heroPath } : {}),
         deck,
-        byline: "By QA Harness",
+        byline,
         contentType: a.contentType,
       });
       const stat = await fs.stat(outPath);
-      console.log(`  → ${outPath} (${stat.size} bytes${heroPath ? " — w/ hero" : ""})`);
+      console.log(`  → ${outPath} (${stat.size} bytes${heroPath ? " — w/ hero" : ""}${a.wiki === "hi" ? " — hi" : ""}${a.bilingualPair ? " — bilingual" : ""})`);
     } catch (e) {
       console.error(`  FAIL ${a.title}:`, e);
     }

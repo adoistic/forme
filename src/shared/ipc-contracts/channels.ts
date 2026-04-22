@@ -51,6 +51,22 @@ export interface ImportDocxInput {
   filename: string;
 }
 
+/**
+ * Create an article straight from operator-supplied text — covers both the
+ * "paste markdown / rich text into the in-app editor" flow and the
+ * "import a .md / .txt file" flow. The body is already plain text with
+ * paragraph breaks (\n\n).
+ */
+export interface CreateArticleInput {
+  issueId: string;
+  headline: string;
+  body: string;
+  deck?: string | null;
+  byline?: string | null;
+  contentType?: ContentType;
+  language?: Language;
+}
+
 export interface ArticleSummary {
   id: string;
   issueId: string;
@@ -254,6 +270,7 @@ export interface ChannelMap {
 
   "article:list": { request: { issueId: string }; response: ArticleSummary[] };
   "article:import-docx": { request: ImportDocxInput; response: ArticleSummary };
+  "article:create": { request: CreateArticleInput; response: ArticleSummary };
   "article:update": { request: UpdateArticleInput; response: ArticleSummary };
 
   "classified:list": {

@@ -192,20 +192,26 @@ export function registerExportHandlers(): void {
       matchingTemplates.find((t) => t.id === "standard_feature_a4") ??
       matchingTemplates[0]!;
     const photoEssayTemplate = matchingTemplates.find((t) => t.id === "photo_essay_a4");
+    const longFormTemplate = matchingTemplates.find((t) => t.id === "long_form_essay_a4");
 
     /**
      * Pick the right template per article. Rules (MVP, will become a
      * Phase-11 auto-fit scoring pass):
-     *   - content_type === "Photo Essay" → photo_essay layout
-     *   - hero image present AND body short OR explicitly visual →
+     *   - content_type === "Opinion" / "Letter" / "Brief" → long-form
+     *     single-column essay layout
+     *   - content_type === "Photo Essay" OR has hero image →
      *     photo_essay layout
-     *   - everything else → standard feature
-     *
-     * For now any article with a hero image gets the photo-essay
-     * treatment — image-driven stories deserve the wider, two-column
-     * layout. Pure-text articles stay with the three-column feature.
+     *   - everything else → standard feature (3-column)
      */
     const pickTemplate = (article: { body: string; content_type: string }, hasHero: boolean) => {
+      if (
+        longFormTemplate &&
+        (article.content_type === "Opinion" ||
+          article.content_type === "Letter" ||
+          article.content_type === "Brief")
+      ) {
+        return longFormTemplate;
+      }
       if (photoEssayTemplate && (article.content_type === "Photo Essay" || hasHero)) {
         return photoEssayTemplate;
       }

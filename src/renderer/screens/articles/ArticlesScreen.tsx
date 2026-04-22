@@ -1,9 +1,11 @@
 import React, { useState } from "react";
+import { marked } from "marked";
 import { useIssueStore, useShallow } from "../../stores/issue.js";
 import { useToast } from "../../components/Toast.js";
 import { invoke } from "../../ipc/client.js";
 import { describeError } from "../../lib/error-helpers.js";
 import { EditArticleModal } from "./EditArticleModal.js";
+import { NewArticleModal } from "./NewArticleModal.js";
 import type { ArticleSummary } from "@shared/ipc-contracts/channels.js";
 
 export function ArticlesScreen(): React.ReactElement {
@@ -19,6 +21,7 @@ export function ArticlesScreen(): React.ReactElement {
   const [isDragging, setIsDragging] = useState(false);
   const [importing, setImporting] = useState(0);
   const [editing, setEditing] = useState<ArticleSummary | null>(null);
+  const [composing, setComposing] = useState(false);
 
   if (!currentIssue) {
     return <NoIssue />;
@@ -26,9 +29,13 @@ export function ArticlesScreen(): React.ReactElement {
 
   async function importFiles(files: FileList | File[]): Promise<void> {
     if (!currentIssue) return;
-    const list = Array.from(files).filter((f) => f.name.endsWith(".docx"));
+    // Accept .docx (mammoth pipeline), .md and .markdown (parsed via
+    // marked → HTML → plain text), and .txt (paragraph-split as-is).
+    const list = Array.from(files).filter((f) =>
+      /\.(docx|md|markdown|txt)$/i.test(f.name)
+    );
     if (list.length === 0) {
-      toast.push("error", "Only .docx files are supported.");
+      toast.push("error", "Supported formats: .docx, .md, .txt.");
       return;
     }
     setImporting(list.length);
@@ -36,13 +43,31 @@ export function ArticlesScreen(): React.ReactElement {
     let failed = 0;
     for (const file of list) {
       try {
-        const buf = new Uint8Array(await file.arrayBuffer());
-        const base64 = bytesToBase64(buf);
-        await invoke("article:import-docx", {
-          issueId: currentIssue.id,
-          filename: file.name,
-          base64,
-        });
+        if (file.name.toLowerCase().endsWith(".docx")) {
+          const buf = new Uint8Array(await file.arrayBuffer());
+          const base64 = bytesToBase64(buf);
+          await invoke("article:import-docx", {
+            issueId: currentIssue.id,
+            filename: file.name,
+            base64,
+          });
+        } else {
+          const text = await file.text();
+          const isMd = /\.(md|markdown)$/i.test(file.name);
+          // Convert markdown → HTML → plain paragraphs. For .txt files
+          // skip the marked pass — they're already plain text.
+          const body = isMd
+            ? htmlToParagraphs(marked.parse(text, { async: false }) as string)
+            : text.replace(/\r\n/g, "\n").trim();
+          // Headline = filename without extension; user can rename via
+          // the edit modal afterwards.
+          const headline = file.name.replace(/\.[^.]+$/, "").replace(/[-_]+/g, " ");
+          await invoke("article:create", {
+            issueId: currentIssue.id,
+            headline,
+            body,
+          });
+        }
         succeeded += 1;
       } catch (e) {
         failed += 1;
@@ -57,6 +82,21 @@ export function ArticlesScreen(): React.ReactElement {
         `Imported ${succeeded} article${succeeded === 1 ? "" : "s"}${failed > 0 ? ` (${failed} failed)` : ""}.`
       );
     }
+  }
+
+  function htmlToParagraphs(html: string): string {
+    return html
+      .replace(/<\/(?:p|h[1-6]|li|blockquote)\s*>/gi, "\n\n")
+      .replace(/<br\s*\/?>/gi, "\n")
+      .replace(/<[^>]+>/g, "")
+      .replace(/&nbsp;/g, " ")
+      .replace(/&amp;/g, "&")
+      .replace(/&lt;/g, "<")
+      .replace(/&gt;/g, ">")
+      .replace(/&quot;/g, '"')
+      .replace(/[ \t]+/g, " ")
+      .replace(/\n{3,}/g, "\n\n")
+      .trim();
   }
 
   function onDragOver(e: React.DragEvent): void {
@@ -88,23 +128,33 @@ export function ArticlesScreen(): React.ReactElement {
         <div>
           <h1 className="font-display text-display-md text-text-primary">Articles</h1>
           <div className="text-caption text-text-tertiary">
-            {articles.length} in this issue · drag & drop .docx files anywhere
+            {articles.length} in this issue · drag & drop .docx, .md, or .txt files anywhere
           </div>
         </div>
-        <label
-          className="cursor-pointer rounded-md border-[1.5px] border-accent px-4 py-2 text-title-sm text-accent hover:bg-accent-bg"
-          data-testid="import-docx-button"
-        >
-          Import .docx
-          <input
-            type="file"
-            accept=".docx"
-            multiple
-            className="hidden"
-            onChange={onFilePicker}
-            data-testid="import-docx-input"
-          />
-        </label>
+        <div className="flex items-center gap-3">
+          <label
+            className="cursor-pointer rounded-md border-[1.5px] border-accent px-4 py-2 text-title-sm text-accent hover:bg-accent-bg"
+            data-testid="import-docx-button"
+          >
+            Import file
+            <input
+              type="file"
+              accept=".docx,.md,.markdown,.txt"
+              multiple
+              className="hidden"
+              onChange={onFilePicker}
+              data-testid="import-docx-input"
+            />
+          </label>
+          <button
+            type="button"
+            onClick={() => setComposing(true)}
+            className="rounded-md bg-accent px-4 py-2 text-title-sm font-semibold text-text-inverse hover:bg-accent-hover"
+            data-testid="new-article-button"
+          >
+            + New article
+          </button>
+        </div>
       </header>
 
       <div
@@ -156,6 +206,18 @@ export function ArticlesScreen(): React.ReactElement {
             setEditing(null);
             await refreshArticles();
             toast.push("success", "Article updated.");
+          }}
+        />
+      ) : null}
+
+      {composing && currentIssue ? (
+        <NewArticleModal
+          issueId={currentIssue.id}
+          onClose={() => setComposing(false)}
+          onSaved={async () => {
+            setComposing(false);
+            await Promise.all([refreshArticles(), refreshIssues()]);
+            toast.push("success", "Article saved.");
           }}
         />
       ) : null}

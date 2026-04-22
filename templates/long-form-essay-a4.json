@@ -1,26 +1,26 @@
 {
   "schemaVersion": 1,
-  "id": "standard_feature_a4",
-  "family": "feature",
+  "id": "long_form_essay_a4",
+  "family": "short_editorial",
   "page_size": "A4",
-  "page_count_range": [2, 3],
+  "page_count_range": [2, 5],
   "word_count_range": {
-    "en": [900, 1800],
-    "hi": [700, 1400]
+    "en": [600, 2200],
+    "hi": [500, 1800]
   },
-  "required_images": 1,
+  "required_images": 0,
   "optional_images": [0, 2],
-  "image_aspect_preferences": ["landscape", "any"],
+  "image_aspect_preferences": ["any"],
   "supports_pull_quote": true,
   "supports_sidebar": false,
   "language_modes": ["en", "hi", "bilingual"],
-  "content_type": "Article",
+  "content_type": "Opinion",
   "typography_pairing_default": "Editorial Serif",
-  "exposed_settings": ["include_pull_quote", "ad_slots_on_article"],
+  "exposed_settings": [],
   "typography": {
-    "body_pt": 10,
-    "body_leading_pt": 14,
-    "headline_pt": 36,
+    "body_pt": 12,
+    "body_leading_pt": 18,
+    "headline_pt": 44,
     "deck_pt": 18,
     "caption_pt": 9
   },
@@ -28,13 +28,13 @@
     "trim_mm": [210, 297],
     "bleed_mm": 3,
     "safe_mm": 5,
-    "columns": 3,
-    "gutter_mm": 5,
+    "columns": 1,
+    "gutter_mm": 0,
     "margins_mm": {
       "top": 22,
-      "right": 22,
+      "right": 32,
       "bottom": 25,
-      "left": 22
+      "left": 32
     }
   }
 }

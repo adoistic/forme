@@ -93,10 +93,12 @@ export async function preLayoutArticleBody(
     lines: measure(p),
   }));
 
-  // Pack paragraphs into columns. After-paragraph gap counts as 1 line so
-  // the visual rhythm matches what PowerPoint will render with
-  // paraSpaceAfter ≈ leading.
-  const PARAGRAPH_GAP_LINES = 1;
+  // Pack paragraphs into columns. The visual paragraph gap PowerPoint
+  // renders is paraSpaceAfter (≈ 0.4 × leading), not a full line. Counting
+  // a full line per gap caused col 1 to "fill" after only 3 short
+  // paragraphs while col 2 ran 8 lines longer. Use 0 — the leading itself
+  // gives enough breathing room between paragraphs.
+  const PARAGRAPH_GAP_LINES = 0;
   const pages: string[][][] = [];
   let pageIdx = 0;
   let pendingParagraph: MeasuredParagraph | null = null;
