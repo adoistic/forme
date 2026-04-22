@@ -74,7 +74,15 @@ export async function parseDocx(buffer: Buffer): Promise<ParsedDocx> {
 
   // 5. Extract byline + position from the deck-stripped body. Handles both
   // print conventions: "By X" near the top, or em-dash credit at the end.
-  const { byline, bylinePosition, bodyText } = extractByline(afterDeckText);
+  const { byline, bylinePosition, bodyText: afterBylineText } = extractByline(
+    afterDeckText
+  );
+
+  // 6. Drop any leading body paragraph that exactly matches the headline —
+  // some sources (Wikipedia plaintext, pandoc Title→Heading1 conversion)
+  // leave the article title repeated as the first body paragraph after
+  // every other extraction has run.
+  const bodyText = stripLeadingHeadline(afterBylineText, headline);
 
   // 5. Count words in body + detect language from full text
   const word_count = countWords(bodyText);
@@ -316,6 +324,23 @@ function extractByline(body: string): {
   }
 
   return { byline: null, bylinePosition: "top", bodyText: body };
+}
+
+/**
+ * Drop a leading body paragraph that exactly matches the headline.
+ * pandoc's Title style + Heading1 + Wikipedia's repeated article-title
+ * line all conspire to leave the headline as the first body paragraph
+ * after extraction. This belt-and-braces strip kills it after byline
+ * + deck have already pulled their parts.
+ */
+function stripLeadingHeadline(body: string, headline: string): string {
+  const norm = (s: string): string => s.replace(/\s+/g, " ").trim().toLowerCase();
+  const target = norm(headline);
+  const paras = body.split(/\n{2,}/);
+  while (paras.length > 0 && norm(paras[0]!) === target) {
+    paras.shift();
+  }
+  return paras.join("\n\n").trim();
 }
 
 function firstLine(text: string): string {

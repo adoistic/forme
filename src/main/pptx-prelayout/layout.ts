@@ -182,13 +182,24 @@ function fitParagraph(
     return { fitting: para, rest: null };
   }
 
-  // Sentence-split; walk forward greedily.
-  const sentences = para.text.split(/(?<=[.!?])\s+/);
+  // Sentence-split; walk forward greedily. The split set covers Latin
+  // sentence punctuation (.!?), Devanagari danda (।), Chinese/Japanese
+  // full stops (。), and the Arabic/Urdu full stop (؟ ! .). Without the
+  // Devanagari danda, Hindi paragraphs were one indivisible chunk and
+  // never split, leaving 10K characters of body text untouched.
+  let sentences = para.text.split(/(?<=[.!?।。؟])\s+/);
+  // If still a single chunk (no recognized punctuation), fall back to
+  // splitting on Devanagari danda even without trailing space — Hindi
+  // text is sometimes typeset with no space after the danda.
   if (sentences.length <= 1) {
-    // Can't split further; place whole paragraph + accept the slight
-    // overflow rather than dropping content. PowerPoint will clip the
-    // visual tail; rare in practice for body copy with normal sentence
-    // length.
+    sentences = para.text
+      .split(/(?<=।)/)
+      .map((s) => s.trim())
+      .filter((s) => s.length > 0);
+  }
+  if (sentences.length <= 1) {
+    // Truly indivisible; place whole paragraph + accept the slight
+    // overflow rather than dropping content. Rare in practice.
     return { fitting: para, rest: null };
   }
 
