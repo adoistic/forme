@@ -89,6 +89,7 @@
     "@tiptap/react": "^3.22.4",
     "@tiptap/starter-kit": "^3.22.4",
     "better-sqlite3": "^12.9.0",
+    "hyphen": "^1.14.1",
     "immer": "^11.1.4",
     "kysely": "^0.28.16",
     "mammoth": "^1.12.0",

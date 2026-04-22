@@ -4,7 +4,50 @@
 
 Forme is a desktop app (macOS, Electron) that produces print-ready magazine issues (PowerPoint `.pptx` → PDF) for a single non-technical operator. English, Hindi, and bilingual content are first-class. Ads, classifieds, covers, and auto-versioned history are all built in. No cloud, no accounts, no billing — just typography, layout, and the operator's work.
 
-**Status:** pre-implementation. The planning is done; the code begins with Phase 0.
+**Status:** v0.5 — end-to-end export is working. A 73-page demo magazine ([download PDF](https://github.com/adoistic/forme/releases/tag/v0.5)) is built entirely through the in-app UI: 20 articles, 120 classifieds, 5 ad placements covering every position. Honest list of what's working vs. what isn't is below.
+
+---
+
+## v0.5 — what's working, what isn't
+
+**Run it yourself:** [download the unsigned macOS DMG](https://github.com/adoistic/forme/releases/tag/v0.5) from the v0.5 release. macOS Gatekeeper will block first launch (no Apple Developer ID yet — that's part of v0.6). Right-click → Open → Open. The unsigned warning is intentional for the preview.
+
+### ✅ Working today
+
+- **Issues** — create with title, number, date, A4/A5 page size, English / Hindi / bilingual language, four typography pairings.
+- **Articles via in-app editor** — `NewArticleModal` has a Tiptap rich-text editor and a markdown tab. Paste body text, set headline + deck + byline + content type, save. Auto-detects language from the body (35% Devanagari → Hindi, 5% → bilingual).
+- **Articles via .docx upload** — drag a Word file in. Mammoth parses it; Hindi byline / deck patterns recognised; duplicate-headline rows stripped automatically.
+- **Layout pipeline** — pretext + Skia canvas measurement + per-paragraph hyphenation (English + Hindi Knuth–Liang patterns), per-script line counting, balanced column packer with sentence-boundary splits, first-page geometry shared between layout planner and PPTX renderer (so they can't drift). 78 % average body fill across the demo magazine, no overflow into footers (audited per-page; see `scripts/audit-all-pages.ts`).
+- **Classifieds** — 12 types (matrimonial with/without photo, obituary, public notice, announcement, vehicles, property, jobs, etc.). Two intake paths: (1) bulk CSV import — proven against a 120-row file in the E2E suite, (2) single-classified form (`AddClassifiedModal`) with a type picker and per-type fields (JSON fallback for the rarer types).
+- **Ads** — 11 slot types (`full_page`, `double_page_spread`, `half_page_horizontal/vertical`, `quarter_page`, `strip`, `vertical_strip`, `eighth_page`, `cover_strip`, `corner_bookmark`, `section_sponsor_strip`). Aspect ratio + DPI validated on upload (sub-150 DPI rejected). Position label drives placement: inside-front-cover, inside-back-cover, back-cover, run-of-book (between articles), bottom-strip.
+- **PPTX export** — produces cover → IFC ad → TOC → articles (interleaved with between-ads every 3) → classifieds → IBC → BC. Per-article folios (recto/verso), running headers, body justification + 4 pt paragraph spacing, embedded Fraunces / Inter / Mukta fonts.
+- **PDF rendering** — LibreOffice headless converts the `.pptx` to PDF for the operator's printer. `scripts/audit-all-pages.ts` rasterises every page and reports body fill %, overflow, column unevenness — the v0.5 release PDF was verified through this.
+- **Tests** — Vitest unit + integration suite; Playwright E2E spec (`tests/e2e/big-issue.spec.ts`) drives the actual UI to build a 20-article + 120-classified + 5-ad-position issue and asserts the export. Runs in 2.1 minutes on a Mac.
+- **Crash + diagnostics** — pino structured logging, single-instance lock, snapshot/recovery store.
+- **Window behaves on small screens** — capped to the macOS work area (won't push the bottom of the window behind the Dock).
+
+### 🚧 Known gaps (deferred to v0.6 / v0.7)
+
+These are real, the operator will hit them; they're listed honestly so v0.5 isn't oversold:
+
+| # | Gap | What's missing |
+|---|-----|---|
+| 1 | **Hero image upload from the app** | No file picker / URL paste / drag-drop in `NewArticleModal` or `EditArticleModal`. Hero images today only enter the system through `.docx` import. The hero-placement / caption / credit editor in `EditArticleModal` is wired but has no source-image control. |
+| 2 | **CSV format documentation for non-technical operators** | Sample CSV exists at `tests/fixtures/classifieds/sample.csv` and the column list lives in `src/main/ipc/handlers/classified.ts`, but neither is accessible from the import UI. Need an in-UI "download sample CSV" + per-type column reference. |
+| 3 | **Reorder articles / classifieds / ads** | Read-only lists. Ordering today is implicit (created-at ASC for articles, type-then-created-at for classifieds). `dnd-kit` is in the locked stack but not wired. The operator can't say "ad X goes between article 5 and 6". |
+| 4 | **Manual ad placement** | Ad position is a free-text label (`positionLabel`) that `derivePosition` substring-matches. No UI for "between article 3 and 4" or "bottom of article 5 page 2". |
+| 5 | **"Save as…" dialog on export** | Export writes to a fixed `~/Documents/Forme/{slug}-{date}.pptx` with no `dialog.showSaveDialog` call. Operator can't choose location or filename at export time. |
+| 6 | **Side-image article layouts** | Only three image placements exist (`below-headline`, `above-headline`, `full-bleed`). No inline figure with text wrapping around it. Pretext's `layoutNextLineRange(width)` supports the variable-width line stepping needed; not yet wired. |
+| 7 | **Poetry templates** | `Poem` is a valid `contentType` and `poetry` is in the template-family enum, but no `poetry.json` template exists yet. Poems route to the default feature template today. Quatrain / short / long / multi-poem-per-page packing is the v0.6 brainstorm. |
+| 8 | **Code-signed + notarized DMG** | v0.5 DMG ships unsigned. Apple Developer ID + notarization is v0.6. |
+
+### 🗺️ What's next
+
+- **v0.6** — close gaps 1–5 above (hero upload, CSV docs, drag-reorder, manual ad placement, save-as dialog). These are the operator's daily friction.
+- **v0.7** — poetry layouts (3+ templates) and side-image article layouts. This is the brainstorm in flight.
+- **v0.8** — code-signed + notarized macOS DMG. Windows is in `TODOS.md` for v1.x.
+
+---
 
 ---
 
@@ -20,29 +63,27 @@ This repository begins with the planning artifacts (CEO plan, engineering plan, 
 
 ```
 .
-├── README.md                       ← you are here
-├── LICENSE                         ← MIT
-├── DESIGN.md                       ← locked design system: tokens, components, voice, a11y
-├── TODOS.md                        ← v1.1+ deferrals, each with full context
+├── src/
+│   ├── main/                       ← Electron main process: IPC handlers, DB, layout planner, export
+│   ├── renderer/                   ← React UI: screens, modals, stores, components
+│   ├── shared/                     ← schemas, PPTX builder, types crossing process boundaries
+│   └── utility/                    ← worker process for pptxgenjs (off main thread)
+├── templates/                      ← 3 layout templates (standard-feature-a4, photo-essay-a4, long-form-essay-a4)
+├── tests/
+│   ├── e2e/                        ← Playwright Electron specs (incl. big-issue full-flow)
+│   └── fixtures/                   ← sample articles, classifieds CSV, ad creatives
+├── scripts/
+│   ├── audit-all-pages.ts          ← per-page PDF audit (fill %, overflow, unevenness)
+│   ├── benchmark-pdf-fill.ts       ← summary fill report for any rendered PDF
+│   └── build-big-fixture.ts        ← generates the 20-article + 120-classified test corpus
+├── designs/                        ← 13 approved mockups (directional), each with `approved.json` + AI-drift notes
 ├── docs/
 │   ├── ceo-plan.md                 ← scope, expansions, preconditions, CEO decisions
 │   ├── eng-plan.md                 ← locked stack, architecture, test strategy
 │   └── test-plan.md                ← QA test surfaces, edge cases, critical paths
-└── designs/                        ← 13 approved mockups with AI-drift implementer notes
-    ├── README.md                   ← mockup index
-    ├── issue-board/                ← signature screen
-    ├── first-run-wizard/
-    ├── classified-form/
-    ├── cover-editor/
-    ├── history-panel/
-    ├── settings-profile/
-    ├── pre-export-check/
-    ├── export-progress/
-    ├── crash-recovery/
-    ├── empty-issue-board/
-    ├── articles-tab/
-    ├── classifieds-queue/
-    └── ads-tab/
+├── DESIGN.md                       ← locked design system: tokens, components, voice, a11y
+├── TODOS.md                        ← deferred items, each with full context
+└── CLAUDE.md                       ← coding contract for AI agents working in this repo
 ```
 
 Each design folder contains:
@@ -115,22 +156,22 @@ The 13 approved mockups in `designs/` are **directional** references for composi
 
 ## Roadmap
 
-**MVP** (in this plan):
-- Phase 0: foundation (Electron + Vite + React + TS + Tailwind + Radix + SQLite + test infra + signing)
-- Phase 1: Pretext + PowerPoint scripting + font embedding probes
-- Phase 2: one template end-to-end (Standard Feature A4 English)
-- Phase 3: Hindi support + A5 sibling + history UI
-- Phases 4–13: editorial templates fan-out, poetry, photo essays, service templates, cover, classifieds, ads, bulk import, auto-fit, issue assembly, print-readiness
+**Shipped (v0.5):** Foundation, layout pipeline, PPTX export, PDF render verification, classifieds CSV import, ad upload + position routing, in-app rich-text/markdown article composition, per-paragraph hyphenation, three templates (feature, photo-essay, long-form). See "v0.5 — what's working, what isn't" above.
 
-**v1.1+** (in [TODOS.md](TODOS.md)):
+**v0.6 — operator daily friction:** in-app hero image upload (file/URL/paste), CSV format docs in UI, drag-reorder for articles + classifieds + ads (`dnd-kit`), manual ad placement (between which articles), `dialog.showSaveDialog` on export.
+
+**v0.7 — typography expansion:** poetry templates (quatrain, short, long, multi-poem-per-page), side-image article layouts using pretext's `layoutNextLineRange`.
+
+**v0.8 — distribution:** code-signed + notarized macOS DMG (Apple Developer ID), auto-update channel.
+
+**v1.x (in [TODOS.md](TODOS.md)):**
 - Windows support
 - Voice-to-text classifieds intake (Whisper + local LLM)
 - Dark theme
-- GitHub Actions CI + notarization pipeline
 - Storybook for UI component isolation
 - Devanagari UI QA pass
 - Orphan blob GC
-- …and 10 more delight items each with full context
+- …and 10+ more delight items each with full context
 
 ---
 

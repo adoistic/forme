@@ -1,8 +1,102 @@
 # TODOS — Magazine CMS
 
-Seeded from `/plan-ceo-review` on 2026-04-21. All items below are deferred from MVP.
+Seeded from `/plan-ceo-review` on 2026-04-21. Original entries below are deferred from MVP. The "v0.6 — operator gaps" section was added 2026-04-22 after the v0.5 client preview surfaced friction.
 
 Format: [P1/P2/P3] TODO title — owner/phase — effort (human → CC)
+
+---
+
+## v0.6 — operator gaps surfaced at v0.5 preview
+
+These are the issues the operator hits in normal use of the v0.5 build. Order is roughly the order of pain: hero upload first, then CSV docs, then reorder + ad placement, then save dialog. Each is independently shippable.
+
+### [P1] Hero image upload from inside the app
+
+**What:** Add an image-attach control to `NewArticleModal` and `EditArticleModal`. Three intake paths: (a) local file picker via `<input type="file">`, (b) drag-and-drop onto the modal, (c) paste-URL field that fetches the image server-side via `net.fetch` from the main process. Wire to a new `article:set-hero-image` IPC handler that runs the existing aspect/DPI validation already used for ads, writes to `article_images` with `role="hero"`, and refreshes the store.
+
+**Why:** Today the only way to attach a hero image is to embed it in a Word `.docx` and import the doc. The hero-placement / caption / credit editor in `EditArticleModal` (lines 212–273) is wired but has no source-image control, so it's effectively dead UI. The operator can't compose an article with an image without leaving the app.
+
+**Pros:** Closes the most-requested gap. Reuses existing image-validation pipeline. URL-fetch path means an operator browsing the web can paste a link without a separate download step.
+
+**Cons:** URL fetch needs a CORS-bypass strategy (do it from main, not renderer) and a sensible size cap. Drag-and-drop Electron interop has a couple of platform quirks (need to handle the file:// path). Three intake paths is more surface than one.
+
+**Effort:** S (human ~1d / CC ~4h).
+
+**Priority:** P1.
+
+**Depends on:** Existing `article_images` table + ad upload validator. No new schema needed.
+
+---
+
+### [P1] CSV bulk import format documentation in the UI
+
+**What:** Two pieces. (a) Add a "Download sample CSV" link next to the import button on `ClassifiedsScreen`. (b) Add a per-classified-type column reference panel (collapsible) that lists which CSV columns each type uses. Source of truth lives in `src/main/ipc/handlers/classified.ts` (lines 154–169); generate the doc from there so it can't drift.
+
+**Why:** Operator has no way to know what columns the CSV expects. The fixture sample at `tests/fixtures/classifieds/sample.csv` is in the test directory, not user-facing. Today the only path to learn the format is to read source code or trial-and-error against import errors.
+
+**Pros:** Tiny change. High operator-confidence delta. Keeps the fixture as a single source of truth.
+
+**Cons:** None material.
+
+**Effort:** XS (human ~2h / CC ~1h).
+
+**Priority:** P1.
+
+**Depends on:** Nothing.
+
+---
+
+### [P1] Drag-reorder for articles, classifieds, and ads
+
+**What:** Wire `dnd-kit` (already in the locked stack but not yet used) to `IssueBoardScreen`'s article list and `ClassifiedsScreen`'s entry list. Persist the new order to a `display_order INTEGER NOT NULL DEFAULT 0` column on each table. Update `export.ts` to sort by `display_order ASC` before falling back to `created_at`.
+
+**Why:** Today articles export in `created_at ASC` order — the operator can't influence sequence except by deleting and re-creating. Same for classifieds (sorted by type then created_at). The README has been advertising drag-and-drop since the planning phase; needs to actually exist.
+
+**Pros:** Unblocks "issue assembly" as a real editorial step instead of an export quirk. `dnd-kit` is already in package.json so no new dependency.
+
+**Cons:** Needs a SQLite migration. Reorder operations need to be batched (operator drags 5 items, we don't want 5 IPC roundtrips).
+
+**Effort:** M (human ~2d / CC ~1d).
+
+**Priority:** P1.
+
+**Depends on:** New migration for `display_order` column.
+
+---
+
+### [P1] Manual ad placement (which article an ad sits between/after)
+
+**What:** Replace the free-text `positionLabel` field on `AdsScreen` with a structured placement picker: choose between (a) cover positions (IFC / IBC / BC) — current dropdown is fine, (b) "between articles" with a select for *which* gap (between article N and article N+1), (c) "bottom of article" with a select for which article and which page (last page only for now). Persist as `placement_kind` + `placement_target_article_id` + `placement_position` on the `ads` table. Update `export.ts` to walk the explicit placement list instead of substring-matching the label.
+
+**Why:** Today's placement is whatever `derivePosition` infers from the label string. There's no way to say "this strip ad goes at the bottom of the Kabir feature's last page" — only "it's a strip" and the export decides. Operator wants explicit control.
+
+**Pros:** Removes the substring-matching guesswork. Makes ad placement a first-class operator decision. Supports the bottom-strip-mid-article case the operator asked for.
+
+**Cons:** Schema migration. The placement picker depends on a stable article order — must ship after drag-reorder so the operator has confidence in "which article is N." UI for selecting an article-and-page is more involved than today's text input.
+
+**Effort:** M (human ~3d / CC ~2d).
+
+**Priority:** P1.
+
+**Depends on:** Drag-reorder ships first (so article order is operator-controlled).
+
+---
+
+### [P1] "Save as…" dialog on PPTX export
+
+**What:** Replace the fixed-path `outputPath` in `export.ts` (line 483) with a call to `dialog.showSaveDialog` from the main process. Use the current default (`~/Documents/Forme/{slug}-{date}.pptx`) as the initial path so a quick Enter still works for operators who don't care.
+
+**Why:** Operator can't choose where the export lands. The Documents/Forme/ folder isn't visible from many save-target apps the operator uses (e.g., Dropbox watch folders). Common workflow break.
+
+**Pros:** One IPC call, one option in `addText`-equivalent for the dialog. No schema changes. Default-path retains today's no-thinking flow.
+
+**Cons:** Need to gate the test path differently — E2E test uses `FORME_TEST_DOCUMENTS_DIR` to bypass; that env var keeps working. Still need a flag to suppress the dialog in headless CI runs.
+
+**Effort:** XS (human ~1h / CC ~30min).
+
+**Priority:** P1.
+
+**Depends on:** Nothing.
 
 ---
 

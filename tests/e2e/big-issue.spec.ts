@@ -177,7 +177,11 @@ test(
       const positionInput = window.locator('input[placeholder*="Run of Book" i]').first();
       await positionInput.fill(ad.label);
       await window.getByTestId("ad-upload-input").setInputFiles(ad.file);
-      await expect(window.getByText(/uploaded /i)).toBeVisible({ timeout: 15_000 });
+      // Match the upload toast specifically — the page header also says
+      // "N uploaded · strict aspect-ratio…", so a bare /uploaded /i regex
+      // is ambiguous. The toast format is "Uploaded <filename>.<ext>."
+      const expected = `Uploaded ${path.basename(ad.file)}.`;
+      await expect(window.getByText(expected)).toBeVisible({ timeout: 15_000 });
       // Tiny delay so the toast clears before the next upload
       await window.waitForTimeout(400);
     }

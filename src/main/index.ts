@@ -1,4 +1,4 @@
-import { app, BrowserWindow, ipcMain } from "electron";
+import { app, BrowserWindow, ipcMain, screen } from "electron";
 import path from "node:path";
 import { createLogger } from "./logger.js";
 import { registerIpcHandlers } from "./ipc/register.js";
@@ -31,11 +31,22 @@ if (!gotLock) {
 let mainWindow: BrowserWindow | null = null;
 
 function createMainWindow(): BrowserWindow {
+  // Honor the macOS work area (screen minus menu bar minus Dock). Asking for
+  // 900px on a 13" MacBook (~845px work area) pushes the window behind the
+  // Dock, so its bottom edge — and any controls in it — become unclickable.
+  const { workAreaSize } = screen.getPrimaryDisplay();
+  const margin = 32;
+  const width = Math.min(1440, workAreaSize.width - margin);
+  const height = Math.min(900, workAreaSize.height - margin);
+  const minWidth = Math.min(1280, width);
+  const minHeight = Math.min(800, height);
+
   const win = new BrowserWindow({
-    width: 1440,
-    height: 900,
-    minWidth: 1280,
-    minHeight: 800,
+    width,
+    height,
+    minWidth,
+    minHeight,
+    center: true,
     titleBarStyle: "hiddenInset",
     backgroundColor: "#F5EFE7",
     show: false,

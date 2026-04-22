@@ -318,8 +318,9 @@ export function registerExportHandlers(): void {
       try {
         prelaidPages = await preLayoutForTemplate({
           body: article.body,
+          headline: article.headline,
+          deck: article.deck,
           language,
-          hasDeck: !!article.deck,
           hasTopByline: !!article.byline && bylinePosition === "top",
           hasHero: !!heroImage,
           heroPlacement,

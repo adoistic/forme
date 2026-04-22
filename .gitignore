@@ -51,8 +51,8 @@ test-results/
 /tmp
 *.tmp
 
-# Claude Code local settings (never commit)
-.claude/settings.local.json
+# Claude Code local settings + scheduled-task state (never commit)
+.claude/
 
 # Logs
 logs/

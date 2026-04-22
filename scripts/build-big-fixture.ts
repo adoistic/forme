@@ -128,7 +128,9 @@ async function main() {
   await makeAdImage("Fieldnotes", "A weekly for people who take the long way home.", 2480, 3508, "#3F6F6E", path.join(ADS_DIR, "ibc-fieldnotes.png"));
   await makeAdImage("Saptahik Press", "Print matters. Still. Always.", 2480, 3508, "#1A1A1A", path.join(ADS_DIR, "back-saptahik.png"));
   await makeAdImage("HORIZON BOOKS", "Independent bookstore · Defence Colony", 2480, 3508, "#8A6A2A", path.join(ADS_DIR, "between-horizon.png"));
-  await makeAdImage("Saptahik · Subscribe", "1 year · ₹1,200 · saptahik.in", 2480, 875, "#C96E4E", path.join(ADS_DIR, "strip-subscribe.png"));
+  // Strip slot aspect = 210/35 = 6.0 (per src/shared/schemas/ad.ts).
+  // At 2480px wide the height must be 2480/6 ≈ 413 to pass the 1% tolerance.
+  await makeAdImage("Saptahik · Subscribe", "1 year · ₹1,200 · saptahik.in", 2480, 413, "#C96E4E", path.join(ADS_DIR, "strip-subscribe.png"));
 
   // Portraits for matrimonial classifieds
   for (const seed of [

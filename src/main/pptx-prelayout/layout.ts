@@ -15,6 +15,22 @@
 // PowerPoint so it can justify properly.
 
 import { installCanvasShim } from "./measure.js";
+import { computeFirstPageGeometry } from "@shared/pptx-builder/first-page-geometry.js";
+// Hyphen library + Knuth-Liang patterns for English + Hindi. Used to
+// insert SOFT HYPHENS (U+00AD) into body words so PowerPoint can break
+// long words across line ends — the same way every print magazine does.
+// Soft hyphens are invisible unless the line breaks at that point.
+import createHyphenator from "hyphen";
+import enUsPatterns from "hyphen/patterns/en-us";
+import hiPatterns from "hyphen/patterns/hi";
+
+const SOFT_HYPHEN = "\u00AD";
+const hyphenateEn = createHyphenator(enUsPatterns, {
+  hyphenChar: SOFT_HYPHEN,
+});
+const hyphenateHi = createHyphenator(hiPatterns, {
+  hyphenChar: SOFT_HYPHEN,
+});
 
 let pretextModule: typeof import("@chenglou/pretext") | null = null;
 async function getPretext(): Promise<typeof import("@chenglou/pretext")> {
@@ -70,28 +86,66 @@ interface MeasuredParagraph {
 export async function preLayoutArticleBody(
   input: PrelayoutInput
 ): Promise<PrelayoutOutput> {
+  // Use pretext for body line measurement. Pretext is browser-canvas-
+  // accurate against the registered Fraunces/Mukta TTFs in @napi-rs/canvas
+  // (Skia). Trust its count — no artificial safety-factor narrowing,
+  // no character-width fallback that would inflate the count. The earlier
+  // safety factor was over-counting by 4-12% which left the column 20-40%
+  // empty after PowerPoint actually rendered.
   const pretext = await getPretext();
   const fontSizePx = ptToPx(input.bodyPt);
   const fontStr = `${fontSizePx}px ${JSON.stringify(input.bodyFontFace)}`;
-  // Measure at a fraction of column width to leave PowerPoint slack to
-  // re-wrap. Devanagari needs MORE slack: Skia's measurement of Mukta
-  // doesn't account for matra/conjunct stacking the same way LibreOffice
-  // does, so Hindi text rendered ~6-8% wider than measured. We use 88%
-  // for hi/bilingual (12% slack) vs 96% for Latin (4% slack).
-  const safetyFactor =
-    input.language === "hi" || input.language === "bilingual" ? 0.88 : 0.96;
-  const measureColPx = inToPx(input.columnWidthIn) * safetyFactor;
+  const colWidthPx = inToPx(input.columnWidthIn);
+
+  const isDevanagari = (text: string): boolean => {
+    const dev = text.match(/[\u0900-\u097F]/g);
+    return dev !== null && dev.length / Math.max(1, text.length) > 0.1;
+  };
 
   const measure = (text: string): number => {
     if (!text.trim()) return 0;
     const prepared = pretext.prepareWithSegments(text, fontStr);
-    return pretext.measureLineStats(prepared, measureColPx).lineCount;
+    const lines = pretext.measureLineStats(prepared, colWidthPx).lineCount;
+    if (!isDevanagari(text)) {
+      // Latin: pretext + Skia + Fraunces matches PowerPoint render.
+      // Fall back to char-width only on a 0-line result.
+      if (lines > 0) return lines;
+      const charsPerLine = Math.max(
+        14,
+        Math.floor(colWidthPx / (fontSizePx * 0.45))
+      );
+      return Math.ceil(text.length / charsPerLine);
+    }
+    // Devanagari: Skia's Mukta shaper systematically under-counts by
+    // ~1-2 lines per paragraph because it doesn't expand stacked matras
+    // and conjuncts the way LibreOffice's HarfBuzz does. Take the max
+    // of pretext + a 0.50em char-width estimate so we plan for the
+    // larger value and don't overflow the body bottom.
+    const charsPerLine = Math.max(
+      14,
+      Math.floor(colWidthPx / (fontSizePx * 0.50))
+    );
+    const fallback = Math.ceil(text.length / charsPerLine);
+    return Math.max(lines, fallback);
+  };
+
+  // Insert SOFT HYPHENS (\u00AD) so PowerPoint can break long words across
+  // line ends — exactly what print-magazine body type does. Pretext sees
+  // the soft hyphens as discretionary break points (browser-canvas-accurate
+  // line counting). PowerPoint and LibreOffice render the hyphen ONLY at
+  // the line end where the break actually happens — invisible everywhere
+  // else. This single change densifies justified body type by 10-20%
+  // without changing the visible text content.
+  const hyphenate = (text: string): string => {
+    if (!text) return text;
+    return isDevanagari(text) ? hyphenateHi(text) : hyphenateEn(text);
   };
 
   const sourceParagraphs = input.body
     .split(/\n{2,}/)
     .map((p) => p.replace(/\s+/g, " ").trim())
-    .filter((p) => p.length > 0);
+    .filter((p) => p.length > 0)
+    .map((p) => hyphenate(p));
 
   // Wikipedia plaintext (and many other sources) sometimes has a single
   // 10K-char paragraph for the entire article body. Magazine readers
@@ -116,30 +170,10 @@ export async function preLayoutArticleBody(
     }
   }
 
-  // Belt-and-braces line-count: take pretext's measurement, but floor it
-  // to a character-width estimate so a paragraph never reports 0 lines
-  // when it has visible text. Mukta on Skia sometimes returns 0/1 for
-  // multi-line Devanagari paragraphs because Skia's shaper doesn't size
-  // the conjuncts the same way LibreOffice's HarfBuzz pipeline does.
-  // Without this floor, the last-page balancer fires too early and the
-  // packer leaves half the article on the floor.
-  //
-  // Per-script character-width ratio (em-units per glyph):
-  //   Latin (Inter/Fraunces) ≈ 0.45em average
-  //   Devanagari (Mukta) ≈ 0.65em — wider base + conjuncts add stacking
-  // Bilingual content gets the wider Devanagari ratio so we don't under-
-  // estimate when Hindi paragraphs show up.
-  const charWidthRatio =
-    input.language === "hi" || input.language === "bilingual" ? 0.65 : 0.45;
-  const charsPerLineFallback = Math.max(
-    14,
-    Math.floor(inToPx(input.columnWidthIn) / (fontSizePx * charWidthRatio))
-  );
-  const measured: MeasuredParagraph[] = rawParagraphs.map((p) => {
-    const measuredLines = measure(p);
-    const fallback = Math.max(1, Math.ceil(p.length / charsPerLineFallback));
-    return { text: p, lines: Math.max(measuredLines, fallback) };
-  });
+  const measured: MeasuredParagraph[] = rawParagraphs.map((p) => ({
+    text: p,
+    lines: measure(p),
+  }));
 
   // PARAGRAPH_GAP_PT is the actual vertical space PowerPoint will emit
   // between paragraphs (paraSpaceAfter, in points). The packer subtracts
@@ -168,13 +202,28 @@ export async function preLayoutArticleBody(
     return pendingLn + measuredLn + gapOverhead;
   };
 
+  const DEBUG = process.env.LAYOUT_DEBUG === "1";
   while (
     pageIdx < input.pageBodyHeightsIn.length &&
     (pendingParagraph !== null || measured.length > 0)
   ) {
     const heightIn = input.pageBodyHeightsIn[pageIdx] ?? 0;
+    // PowerPoint applies paraSpaceAfter (4pt) to EVERY paragraph,
+    // including the last in a column. The packer counts gaps between
+    // paragraphs (N-1 gaps for N paras) but PowerPoint emits N gaps,
+    // so the actual rendered height exceeds our planned height by 4pt
+    // per column. Subtract that one extra gap from the per-page capacity
+    // so the bottom of the textbox stays inside the trim margin.
+    const trailingGapIn = PARAGRAPH_GAP_PT / PT_PER_INCH;
+    const usableHeightIn = Math.max(0, heightIn - trailingGapIn);
     const fullLinesPerCol =
-      (heightIn * PT_PER_INCH) / input.bodyLeadingPt;
+      (usableHeightIn * PT_PER_INCH) / input.bodyLeadingPt;
+    if (DEBUG) {
+      // eslint-disable-next-line no-console
+      console.error(
+        `[layout] page ${pageIdx + 1}: heightIn=${heightIn.toFixed(2)}, fullLinesPerCol=${fullLinesPerCol.toFixed(1)}, measured.length=${measured.length}, pending=${pendingParagraph ? "yes" : "no"}`
+      );
+    }
 
     // Last-page detection: if all remaining content fits within one
     // page's worth of capacity (colCount × fullLinesPerCol), we're on
@@ -196,14 +245,22 @@ export async function preLayoutArticleBody(
     const overshoot = onLastPage
       ? Math.max(4, linesPerCol * 0.35)
       : 0;
+    // Cap overshoot at the page's actual line capacity. The balancer
+    // intentionally lets cols 1+2 grow past balancedTarget so col 3
+    // doesn't end up taller, but the previous "+overshoot" arm could
+    // exceed fullLinesPerCol on a short last page — pushing the bottom
+    // ~2 lines of cols 1+2 past the body bottom into the footer area.
+    // Never let any col plan beyond what physically fits on the page.
+    const safeColCap = Math.min(linesPerCol + overshoot, fullLinesPerCol);
 
     const cols: string[][] = [];
     for (let c = 0; c < input.columnCount; c += 1) {
       const col: string[] = [];
       let used = 0;
       const isLastCol = c === input.columnCount - 1;
-      // Last col on the last page absorbs ANY remaining content.
-      const colCap = isLastCol && onLastPage ? Infinity : linesPerCol + overshoot;
+      // Last col on the last page absorbs whatever's left, but still
+      // capped at the page's physical capacity (no overflow).
+      const colCap = isLastCol && onLastPage ? fullLinesPerCol : safeColCap;
 
       if (pendingParagraph) {
         const fit = fitParagraph(pendingParagraph, colCap - used, measure);
@@ -240,6 +297,11 @@ export async function preLayoutArticleBody(
         }
       }
 
+      if (DEBUG) {
+        console.error(
+          `[layout]   col ${c + 1}: ${col.length} paras, used=${used.toFixed(1)}/${colCap === Infinity ? "inf" : colCap.toFixed(1)} lines, pending after=${pendingParagraph ? `${pendingParagraph.lines}L` : "no"}`
+        );
+      }
       cols.push(col);
       if (!pendingParagraph && measured.length === 0) break;
     }
@@ -306,22 +368,12 @@ function fitParagraph(
   }
 
   if (!acc) {
-    // Even one sentence overflows the available space. If we have at
-    // least HALF the column free, take the first sentence anyway and
-    // accept the small overflow — better than leaving a 30%-empty col
-    // because the next paragraph couldn't be cleanly split. If we have
-    // less than half free, push the paragraph to the next column.
-    if (linesAvailable >= 4 && sentences.length > 0) {
-      const firstSentence = sentences[0]!;
-      const firstLines = measure(firstSentence);
-      const restText = sentences.slice(1).join(" ").trim();
-      return {
-        fitting: { text: firstSentence, lines: firstLines },
-        rest: restText
-          ? { text: restText, lines: measure(restText) }
-          : null,
-      };
-    }
+    // Even the first sentence overflows the available space. The earlier
+    // "take it anyway if linesAvailable >= 4" rule was the source of
+    // pages overflowing into the footer: a 20-line first sentence
+    // would get force-placed into a 4-line gap, spilling 16 lines past
+    // the textbox. Push the whole paragraph forward instead — accept a
+    // short col bottom rather than a corrupted page bottom.
     return { fitting: null, rest: para };
   }
 
@@ -338,8 +390,11 @@ function fitParagraph(
  */
 export async function preLayoutForTemplate(args: {
   body: string;
+  /** Headline text — needed to estimate first-page furniture height. */
+  headline: string;
+  /** Deck text or null — needed to estimate first-page furniture height. */
+  deck: string | null;
   language: "en" | "hi" | "bilingual";
-  hasDeck: boolean;
   hasTopByline: boolean;
   hasHero: boolean;
   /**
@@ -372,26 +427,28 @@ export async function preLayoutForTemplate(args: {
   const columnWidthIn =
     (pageContentWidthIn - gutterIn * (t.columns - 1)) / t.columns;
 
-  // Furniture reservations on page 1 — match PPTX builder values.
-  const HEADLINE_LINES = 3;
-  const DECK_LINES = 3;
-  const headlineHeightIn =
-    (t.typography.headline_pt * 1.15 * HEADLINE_LINES) / PT_PER_INCH;
-  const deckHeightIn = args.hasDeck
-    ? ((t.typography.deck_pt ?? 16) * 1.35 * DECK_LINES) / PT_PER_INCH
-    : 0;
-  const bylineHeightIn = args.hasTopByline ? (14 + 10) / PT_PER_INCH : 0;
-  const heroHeightIn = args.hasHero ? 220 / PT_PER_INCH + 20 / PT_PER_INCH : 0;
-  const paddingIn = (10 + 6 + 10) / PT_PER_INCH;
-  const firstPageBodyIn = Math.max(
-    0,
-    pageContentHeightIn -
-      headlineHeightIn -
-      deckHeightIn -
-      bylineHeightIn -
-      heroHeightIn -
-      paddingIn
-  );
+  // First-page body height — uses the SAME formulas the PPTX builder
+  // uses to position the body container. Single source of truth in
+  // first-page-geometry.ts. Without this, a 1-line headline like "कबीर"
+  // got reserved 3 lines worth of height, leaving the body container
+  // ~2 inches (~11 lines) under-filled per column.
+  const firstPageDeck =
+    args.deck && args.deck.trim().length > 0 ? args.deck : null;
+  const { bodyHeightIn: firstPageBodyIn } = computeFirstPageGeometry({
+    headline: args.headline,
+    deck: firstPageDeck,
+    hasTopByline: args.hasTopByline,
+    hasHero: args.hasHero,
+    heroPlacement: args.heroPlacement ?? "below-headline",
+    trim_mm: t.trim_mm,
+    margins_mm: t.margins_mm,
+    typography: {
+      headline_pt: t.typography.headline_pt,
+      ...(t.typography.deck_pt !== undefined
+        ? { deck_pt: t.typography.deck_pt }
+        : {}),
+    },
+  });
 
   const pageHeights: number[] = [];
   for (let p = 0; p < t.page_count_range[1]; p += 1) {

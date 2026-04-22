@@ -61,8 +61,9 @@ async function main() {
 
     const prelaidPages = await preLayoutForTemplate({
       body: parsed.body,
+      headline: parsed.headline,
+      deck: parsed.deck,
       language,
-      hasDeck: !!parsed.deck,
       hasTopByline: !!parsed.byline,
       hasHero: false,
       template: {
