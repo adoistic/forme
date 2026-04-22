@@ -3,7 +3,9 @@ node_modules
 
 # output
 out
-dist
+# dist — INTENTIONALLY tracked: Forme vendors pretext WITH its built dist
+# (Layer 2 insurance per docs/eng-plan.md) so CI doesn't need to rebuild
+# it on every install. Top-level .gitignore documents the same.
 site
 *.tgz
 

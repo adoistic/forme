@@ -29,6 +29,13 @@ out/
 release/
 *.tsbuildinfo
 
+# Exception: the vendored Pretext build IS checked in. Pretext is
+# vendored deliberately as Layer 2 insurance (per docs/eng-plan.md),
+# and the dist/ files are part of what we vendored — CI should not
+# need to rebuild them. Un-ignore vendor/pretext/dist/ specifically.
+!vendor/pretext/dist/
+!vendor/pretext/dist/**
+
 # Electron-builder
 /release-builds/
 /dist-electron/
