@@ -1,4 +1,5 @@
 import { randomUUID } from "node:crypto";
+import type { Kysely } from "kysely";
 import { addHandler } from "../register.js";
 import { getState } from "../../app-state.js";
 import { parseDocx } from "../../docx-ingest/parse.js";
@@ -12,6 +13,18 @@ import type {
 } from "@shared/ipc-contracts/channels.js";
 import { countWords } from "@shared/schemas/article.js";
 import type { ContentType, BylinePosition, HeroPlacement } from "@shared/schemas/article.js";
+import { makeError } from "@shared/errors/structured.js";
+import { emitDiskUsageChanged } from "../../disk-usage-events.js";
+import { createLogger } from "../../logger.js";
+import type { Database } from "../../sqlite/schema.js";
+import type { SnapshotStore } from "../../snapshot-store/store.js";
+
+const logger = createLogger("ipc:article");
+
+export interface ArticleHandlerDeps {
+  db: Kysely<Database>;
+  snapshots: SnapshotStore;
+}
 
 function nowISO(): string {
   return new Date().toISOString();
@@ -32,11 +45,18 @@ type ArticleRow = {
   word_count: number;
   content_type: string;
   created_at: string;
+  body: string;
+  body_format: string;
 };
 
 function normalizeHeroPlacement(s: string | null | undefined): HeroPlacement {
   if (s === "above-headline" || s === "full-bleed") return s;
   return "below-headline";
+}
+
+function normalizeBodyFormat(s: string | null | undefined): "plain" | "markdown" | "blocks" {
+  if (s === "markdown" || s === "blocks") return s;
+  return "plain";
 }
 
 function rowToSummary(row: ArticleRow): ArticleSummary {
@@ -55,6 +75,8 @@ function rowToSummary(row: ArticleRow): ArticleSummary {
     wordCount: row.word_count,
     contentType: row.content_type as ContentType,
     createdAt: row.created_at,
+    body: row.body,
+    bodyFormat: normalizeBodyFormat(row.body_format),
   };
 }
 
@@ -73,6 +95,8 @@ const SUMMARY_COLUMNS = [
   "word_count",
   "content_type",
   "created_at",
+  "body",
+  "body_format",
 ] as const;
 
 export function registerArticleHandlers(): void {
@@ -88,7 +112,7 @@ export function registerArticleHandlers(): void {
   });
 
   addHandler("article:import-docx", async (payload: ImportDocxInput): Promise<ArticleSummary> => {
-    const { db, blobs } = getState();
+    const { db, blobs, snapshots } = getState();
     const buf = Buffer.from(payload.base64, "base64");
 
     const parsed = await parseDocx(buf);
@@ -165,6 +189,12 @@ export function registerArticleHandlers(): void {
       }
     }
 
+    // Notify renderer about the new image blobs (if any landed). Cheap to
+    // emit even when the article had no images.
+    if (parsed.images.length > 0) {
+      await emitDiskUsageChanged({ db, snapshotStore: snapshots });
+    }
+
     return {
       id,
       issueId: payload.issueId,
@@ -180,6 +210,8 @@ export function registerArticleHandlers(): void {
       wordCount: parsed.word_count,
       contentType: "Article",
       createdAt: now,
+      body: parsed.body,
+      bodyFormat: "plain",
     };
   });
 
@@ -233,29 +265,93 @@ export function registerArticleHandlers(): void {
       wordCount,
       contentType,
       createdAt: now,
+      body,
+      bodyFormat: "plain",
     };
   });
 
   addHandler("article:update", async (payload: UpdateArticleInput): Promise<ArticleSummary> => {
-    const { db } = getState();
-    const patch: Record<string, unknown> = { updated_at: nowISO() };
-    if (payload.headline !== undefined) patch["headline"] = payload.headline;
-    if (payload.deck !== undefined) patch["deck"] = payload.deck;
-    if (payload.byline !== undefined) patch["byline"] = payload.byline;
-    if (payload.bylinePosition !== undefined) patch["byline_position"] = payload.bylinePosition;
-    if (payload.heroPlacement !== undefined) patch["hero_placement"] = payload.heroPlacement;
-    if (payload.heroCaption !== undefined) patch["hero_caption"] = payload.heroCaption;
-    if (payload.heroCredit !== undefined) patch["hero_credit"] = payload.heroCredit;
-    if (payload.section !== undefined) patch["section"] = payload.section;
-    if (payload.contentType !== undefined) patch["content_type"] = payload.contentType;
-
-    await db.updateTable("articles").set(patch).where("id", "=", payload.id).execute();
-
-    const row = await db
-      .selectFrom("articles")
-      .select([...SUMMARY_COLUMNS])
-      .where("id", "=", payload.id)
-      .executeTakeFirstOrThrow();
-    return rowToSummary(row as ArticleRow);
+    const { db, snapshots } = getState();
+    return updateArticle({ db, snapshots }, payload);
   });
+
+  addHandler("article:delete", async (payload: { id: string }) => {
+    const { db, snapshots } = getState();
+    return deleteArticle({ db, snapshots }, payload);
+  });
+}
+
+export async function updateArticle(
+  deps: ArticleHandlerDeps,
+  payload: UpdateArticleInput
+): Promise<ArticleSummary> {
+  const { db, snapshots } = deps;
+  const patch: Record<string, unknown> = { updated_at: nowISO() };
+  if (payload.headline !== undefined) patch["headline"] = payload.headline;
+  if (payload.deck !== undefined) patch["deck"] = payload.deck;
+  if (payload.byline !== undefined) patch["byline"] = payload.byline;
+  if (payload.bylinePosition !== undefined) patch["byline_position"] = payload.bylinePosition;
+  if (payload.heroPlacement !== undefined) patch["hero_placement"] = payload.heroPlacement;
+  if (payload.heroCaption !== undefined) patch["hero_caption"] = payload.heroCaption;
+  if (payload.heroCredit !== undefined) patch["hero_credit"] = payload.heroCredit;
+  if (payload.section !== undefined) patch["section"] = payload.section;
+  if (payload.contentType !== undefined) patch["content_type"] = payload.contentType;
+
+  let bodyChanged = false;
+  if (payload.body !== undefined) {
+    // CEO plan decision 2A: editing to empty must use the delete flow,
+    // not the save flow. Operators get a clear message instead of a
+    // silently empty article.
+    if (payload.body.trim() === "") {
+      throw makeError("article_body_required", "error", { articleId: payload.id });
+    }
+    patch["body"] = payload.body;
+    patch["word_count"] = countWords(payload.body);
+    if (payload.bodyFormat !== undefined) {
+      patch["body_format"] = payload.bodyFormat;
+    }
+    bodyChanged = true;
+  }
+
+  await db.updateTable("articles").set(patch).where("id", "=", payload.id).execute();
+
+  const row = await db
+    .selectFrom("articles")
+    .select([...SUMMARY_COLUMNS])
+    .where("id", "=", payload.id)
+    .executeTakeFirstOrThrow();
+  const summary = rowToSummary(row as ArticleRow);
+
+  // Snapshot is independent of the body save (CEO plan 2A): if the
+  // snapshot fails we still return the saved article with a warning the
+  // renderer can surface as a non-blocking toast.
+  if (bodyChanged && payload.body !== undefined) {
+    try {
+      await snapshots.saveArticleSnapshot(payload.id, payload.body);
+      await emitDiskUsageChanged({ db, snapshotStore: snapshots });
+    } catch (err) {
+      logger.error(
+        { articleId: payload.id, err: err instanceof Error ? err.message : String(err) },
+        "snapshot save failed after body update"
+      );
+      summary.snapshotWarning = "Edit saved, but the version history snapshot couldn't be written.";
+    }
+  }
+  return summary;
+}
+
+export async function deleteArticle(
+  deps: ArticleHandlerDeps,
+  payload: { id: string }
+): Promise<{ id: string; deleted: true }> {
+  const { db, snapshots } = deps;
+  // CASCADE drops article_images + article-level snapshot rows. Issue-level
+  // snapshots are unaffected because they reference issue_id.
+  const result = await db.deleteFrom("articles").where("id", "=", payload.id).execute();
+  const deleted = result.reduce((sum, r) => sum + Number(r.numDeletedRows ?? 0), 0);
+  if (deleted === 0) {
+    throw makeError("not_found", "error", { resource: "article", id: payload.id });
+  }
+  await emitDiskUsageChanged({ db, snapshotStore: snapshots });
+  return { id: payload.id, deleted: true };
 }

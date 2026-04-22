@@ -75,6 +75,16 @@ export interface ArticleSummary {
   wordCount: number;
   contentType: ContentType;
   createdAt: string;
+  /** The article body — plain text, markdown source, or BlockNote JSON. */
+  body: string;
+  /** Encoding of `body`. v0.5 articles default to "plain"; v0.6 block edits use "blocks". */
+  bodyFormat: "plain" | "markdown" | "blocks";
+  /**
+   * Set on responses from `article:update` when the body saved but the
+   * accompanying snapshot write failed (CEO plan decision 2A). The renderer
+   * surfaces this as a non-blocking warning toast.
+   */
+  snapshotWarning?: string;
 }
 
 export interface UpdateArticleInput {
@@ -88,6 +98,36 @@ export interface UpdateArticleInput {
   heroCredit?: string | null;
   section?: string | null;
   contentType?: ContentType;
+  /** Article body content. When provided, the body and a snapshot are saved. */
+  body?: string;
+  /** Encoding of `body`. Required when `body` is provided. */
+  bodyFormat?: "plain" | "markdown" | "blocks";
+}
+
+// ---- Snapshots (v0.6 article edit history) ----
+
+export interface ArticleSnapshotSummary {
+  id: string;
+  articleId: string;
+  createdAt: string;
+  label: string | null;
+  starred: boolean;
+  sizeBytes: number;
+  blockSchemaVersion: number;
+}
+
+export interface ArticleSnapshotBody {
+  articleId: string;
+  body: string;
+  createdAt: string;
+  label: string | null;
+  starred: boolean;
+}
+
+export interface DiskUsageSnapshot {
+  snapshots: number;
+  blobs: number;
+  total: number;
 }
 
 // ---- Classifieds ----
@@ -265,6 +305,27 @@ export interface ChannelMap {
   "article:import-docx": { request: ImportDocxInput; response: ArticleSummary };
   "article:create": { request: CreateArticleInput; response: ArticleSummary };
   "article:update": { request: UpdateArticleInput; response: ArticleSummary };
+  "article:delete": { request: { id: string }; response: { id: string; deleted: true } };
+
+  "snapshot:list": {
+    request: { articleId: string; limit?: number };
+    response: ArticleSnapshotSummary[];
+  };
+  "snapshot:read": { request: { snapshotId: string }; response: ArticleSnapshotBody };
+  "snapshot:restore": { request: { snapshotId: string }; response: ArticleSummary };
+  "snapshot:delete": {
+    request: { snapshotId: string };
+    response: { snapshotId: string; deleted: true };
+  };
+  "snapshot:label": {
+    request: { snapshotId: string; label: string | null };
+    response: ArticleSnapshotSummary;
+  };
+  "snapshot:star": {
+    request: { snapshotId: string; starred: boolean };
+    response: ArticleSnapshotSummary;
+  };
+  "snapshot:totalBytes": { request: Record<string, never>; response: DiskUsageSnapshot };
 
   "classified:list": {
     request: { issueId: string | null };

@@ -63,6 +63,11 @@ export const errorMessages: Record<string, string> = {
   snapshot_corrupt: "Most recent snapshot is corrupt. Restore from {earlier_timestamp}?",
   blob_hash_mismatch: "Image {filename} has been corrupted.",
   restore_failed: "Couldn't restore that snapshot. Try another?",
+  snapshot_stale: "That snapshot was deleted. The list will refresh.",
+
+  // Article edit (v0.6)
+  article_body_required: "Article body can't be empty. Delete the article instead.",
+  not_found: "Couldn't find that {resource}. It may have been deleted.",
 
   // CSV import
   encoding_error: "Row {row} is not valid UTF-8. Re-save as UTF-8 and retry.",

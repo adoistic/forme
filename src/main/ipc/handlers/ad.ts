@@ -4,6 +4,7 @@ import { getState } from "../../app-state.js";
 import { ingestImage } from "../../image-ingest/ingest.js";
 import { validateAdAspect, validateResolution, AD_SLOT_TRIM_WIDTH_MM } from "@shared/schemas/ad.js";
 import { makeError } from "@shared/errors/structured.js";
+import { emitDiskUsageChanged } from "../../disk-usage-events.js";
 import type { AdSummary, UploadAdInput } from "@shared/ipc-contracts/channels.js";
 import type { AdSlotType } from "@shared/schemas/ad.js";
 
@@ -107,6 +108,9 @@ export function registerAdHandlers(): void {
         created_at: now,
       })
       .execute();
+
+    const { snapshots } = getState();
+    await emitDiskUsageChanged({ db, snapshotStore: snapshots });
 
     return {
       id,

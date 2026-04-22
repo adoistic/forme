@@ -7,6 +7,7 @@ import { getState } from "../../app-state.js";
 import { ingestImage } from "../../image-ingest/ingest.js";
 import { validateClassified, type ClassifiedType } from "@shared/schemas/classified.js";
 import { makeError } from "@shared/errors/structured.js";
+import { emitDiskUsageChanged } from "../../disk-usage-events.js";
 import type {
   AddClassifiedInput,
   ClassifiedSummary,
@@ -261,6 +262,11 @@ export function registerClassifiedHandlers(): void {
           errors.push({ row: rowNum, reason: err instanceof Error ? err.message : String(err) });
         }
       }
+
+      // CSV import may have ingested photo blobs — emit disk-usage-changed
+      // once at the end (cheaper than per-row).
+      const { snapshots } = getState();
+      await emitDiskUsageChanged({ db, snapshotStore: snapshots });
 
       return { imported: imported.length, errors };
     }

@@ -6,6 +6,9 @@ declare global {
     forme: {
       invoke<T>(channel: string, payload: unknown): Promise<T>;
       on(channel: string, listener: (...args: unknown[]) => void): () => void;
+      onDiskUsageChanged(
+        cb: (usage: { snapshots: number; blobs: number; total: number }) => void
+      ): () => void;
       platform: NodeJS.Platform;
     };
   }

@@ -8,6 +8,7 @@ import { registerClassifiedHandlers } from "./ipc/handlers/classified.js";
 import { registerAdHandlers } from "./ipc/handlers/ad.js";
 import { registerPublisherHandlers } from "./ipc/handlers/publisher.js";
 import { registerExportHandlers } from "./ipc/handlers/export.js";
+import { registerSnapshotHandlers } from "./ipc/handlers/snapshot.js";
 import { handleSecondInstance } from "./crash-recovery/single-instance.js";
 import { bootstrap } from "./app-state.js";
 
@@ -90,6 +91,7 @@ void app.whenReady().then(async () => {
   registerAdHandlers();
   registerPublisherHandlers();
   registerExportHandlers();
+  registerSnapshotHandlers();
 
   registerIpcHandlers(ipcMain);
 
