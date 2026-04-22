@@ -1,0 +1,43 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 1024 1024">
+  <!--
+    Forme app icon.
+
+    Brief: an editorial CMS for print. Voice "confident and quiet."
+    Palette is locked: cream #F5EFE7 (canvas), rust #C96E4E (the only
+    accent), charcoal #1A1A1A (text). Display face is Fraunces (the
+    same serif that sets every Forme magazine cover).
+
+    Mark: a single Fraunces "F" in rust on cream, with a small charcoal
+    setting dot to its lower-right — the print-shop mark of a "set" or
+    "made-up forme" (the tray of locked-up type a printer's forme is
+    named after). Reads as a wordmark at 16px, as a single-letter mark
+    everywhere else.
+
+    Geometry follows Apple HIG Big Sur+: full-bleed squircle (no
+    additional canvas padding), corner radius 22.5% of side.
+  -->
+
+  <!-- Squircle: cream canvas -->
+  <rect width="1024" height="1024" rx="230" ry="230" fill="#F5EFE7"/>
+
+  <!-- A single page-edge hairline at top + bottom — barely-there print
+       reference. Inner-margin marks on a folio. -->
+  <line x1="120" y1="156" x2="904" y2="156" stroke="#E5DFD5" stroke-width="2"/>
+  <line x1="120" y1="868" x2="904" y2="868" stroke="#E5DFD5" stroke-width="2"/>
+
+  <!-- The Fraunces "F". Centered horizontally; vertically dropped so
+       the ascender sits below the top hairline and the baseline above
+       the bottom hairline. Rust. -->
+  <text x="512" y="710"
+        font-family="Fraunces, 'Fraunces Regular', Georgia, serif"
+        font-size="720"
+        font-weight="700"
+        text-anchor="middle"
+        fill="#C96E4E">F</text>
+
+  <!-- Setting dot — small charcoal square at the F's lower-right.
+       Reads as a punctuation period at small sizes; as a "register
+       mark / setter's mark" at large sizes. The asymmetry makes the
+       mark feel like a logotype, not a letterform. -->
+  <rect x="660" y="688" width="42" height="42" fill="#1A1A1A"/>
+</svg>

@@ -57,6 +57,7 @@
           ]
         }
       ],
+      "icon": "build-resources/icon.icns",
       "artifactName": "Forme-${version}-${arch}.${ext}",
       "darkModeSupport": false,
       "hardenedRuntime": false,

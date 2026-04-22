@@ -63,8 +63,17 @@ export function Sidebar(): React.ReactElement {
       aria-label="Primary"
       className="border-border-default bg-bg-canvas flex h-full w-[260px] shrink-0 flex-col border-r"
     >
-      {/* Masthead-free sidebar per Pass 1 IA fix — masthead moves to canvas header */}
-      <div className="app-region-drag h-16" />
+      {/* Masthead. Wordmark sits inside the macOS traffic-light row's
+          drag region. Fraunces "F" + Inter "orme" + the same rust setting-
+          dot the app icon uses — keeps the in-app brand and the .icns
+          mark in lockstep so the operator sees one identity everywhere. */}
+      <div className="app-region-drag relative flex h-16 items-end justify-end pr-5 pb-2.5">
+        <div className="font-display text-text-primary flex items-baseline gap-[3px] text-[20px] leading-none tracking-tight">
+          <span className="text-accent font-bold">F</span>
+          <span className="font-medium">orme</span>
+          <span className="bg-text-primary ml-[2px] inline-block h-[5px] w-[5px] translate-y-[-2px]" />
+        </div>
+      </div>
 
       <nav className="flex-1 px-3 py-2">
         <ul className="space-y-0.5">
