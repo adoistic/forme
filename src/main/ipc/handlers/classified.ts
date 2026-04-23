@@ -8,6 +8,7 @@ import { addHandler } from "../register.js";
 import { getState } from "../../app-state.js";
 import type { Database } from "../../sqlite/schema.js";
 import { ingestImage } from "../../image-ingest/ingest.js";
+import { coerceClassifiedRowFields } from "../../csv-import/coerce-classified-row.js";
 import { validateClassified, type ClassifiedType } from "@shared/schemas/classified.js";
 import { makeError } from "@shared/errors/structured.js";
 import { emitDiskUsageChanged } from "../../disk-usage-events.js";
@@ -162,25 +163,6 @@ export function registerClassifiedHandlers(): void {
 
       const imported: string[] = [];
       const errors: { row: number; reason: string }[] = [];
-      const standardKeys = new Set([
-        "type",
-        "language",
-        "weeks_to_run",
-        "billing_reference",
-        "photo_path", // resolved separately into photo_blob_hash
-      ]);
-      const numericKeys = new Set([
-        "age",
-        "year",
-        "kilometers",
-        "expected_price",
-        "asking_price",
-        "rent_amount",
-        "bedrooms",
-        "built_up_area_sqft",
-        "plot_area_sqft",
-      ]);
-      const arrayKeys = new Set(["contact_phones", "sender_names"]);
 
       for (let i = 0; i < parsed.data.length; i += 1) {
         const row = parsed.data[i] ?? {};
@@ -195,24 +177,7 @@ export function registerClassifiedHandlers(): void {
           const weeksToRun = Number(row["weeks_to_run"]) || 1;
           const billingReference = row["billing_reference"]?.trim() || null;
 
-          const fields: Record<string, unknown> = {};
-          for (const [k, v] of Object.entries(row)) {
-            if (standardKeys.has(k)) continue;
-            if (v === undefined || v === null) continue;
-            const trimmed = String(v).trim();
-            if (trimmed === "") continue;
-            if (numericKeys.has(k)) {
-              const n = Number(trimmed);
-              if (!Number.isNaN(n)) fields[k] = n;
-            } else if (arrayKeys.has(k)) {
-              fields[k] = trimmed
-                .split(/[;,]/)
-                .map((s) => s.trim())
-                .filter((s) => s.length > 0);
-            } else {
-              fields[k] = trimmed;
-            }
-          }
+          const fields = coerceClassifiedRowFields(row);
 
           const validation = validateClassified(type, fields);
           if (!validation.ok) {
