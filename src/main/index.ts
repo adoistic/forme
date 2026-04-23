@@ -9,6 +9,7 @@ import { registerAdHandlers } from "./ipc/handlers/ad.js";
 import { registerPublisherHandlers } from "./ipc/handlers/publisher.js";
 import { registerExportHandlers } from "./ipc/handlers/export.js";
 import { registerSnapshotHandlers } from "./ipc/handlers/snapshot.js";
+import { registerDiskUsageHandlers } from "./ipc/handlers/disk-usage.js";
 import { handleSecondInstance } from "./crash-recovery/single-instance.js";
 import { bootstrap } from "./app-state.js";
 
@@ -92,6 +93,7 @@ void app.whenReady().then(async () => {
   registerPublisherHandlers();
   registerExportHandlers();
   registerSnapshotHandlers();
+  registerDiskUsageHandlers();
 
   registerIpcHandlers(ipcMain);
 

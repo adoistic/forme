@@ -341,6 +341,12 @@ export interface ChannelMap {
   };
   "snapshot:totalBytes": { request: Record<string, never>; response: DiskUsageSnapshot };
 
+  // Synchronous fetch of the current disk-usage snapshot. Used by the
+  // app-shell `<StorageThresholdBanner>` to know the current total before
+  // any `disk-usage-changed` event has fired (T11). Same payload as the
+  // event, computed via `computeDiskUsage`.
+  "disk-usage:current": { request: Record<string, never>; response: DiskUsageSnapshot };
+
   "classified:list": {
     request: { issueId: string | null };
     response: ClassifiedSummary[];
