@@ -31,6 +31,23 @@ function nowISO(): string {
   return new Date().toISOString();
 }
 
+// New articles land at the tail of the operator's list. v0.6 T13: pick
+// max(display_position) + 1 within the issue so the row appears below the
+// last existing article. The SQL default of 0 applies if the query somehow
+// returns no max (empty list — first article in the issue).
+async function nextArticlePosition(
+  db: Kysely<Database>,
+  issueId: string
+): Promise<number> {
+  const row = await db
+    .selectFrom("articles")
+    .select((eb) => eb.fn.max<number>("display_position").as("max"))
+    .where("issue_id", "=", issueId)
+    .executeTakeFirst();
+  const current = Number(row?.max ?? 0);
+  return current + 1;
+}
+
 type ArticleRow = {
   id: string;
   issue_id: string;
@@ -103,11 +120,15 @@ const SUMMARY_COLUMNS = [
 export function registerArticleHandlers(): void {
   addHandler("article:list", async (payload: { issueId: string }) => {
     const { db } = getState();
+    // v0.6 T13: list by operator-controlled display_position. Tie-break on
+    // created_at so brand-new rows that haven't received a fractional
+    // position yet still order predictably.
     const rows = await db
       .selectFrom("articles")
       .select([...SUMMARY_COLUMNS])
       .where("issue_id", "=", payload.issueId)
-      .orderBy("created_at", "desc")
+      .orderBy("display_position", "asc")
+      .orderBy("created_at", "asc")
       .execute();
     return rows.map((r) => rowToSummary(r as ArticleRow));
   });
@@ -121,6 +142,7 @@ export function registerArticleHandlers(): void {
     const id = randomUUID();
     const now = nowISO();
     const language = parsed.language ?? detectLanguage(parsed.body);
+    const display_position = await nextArticlePosition(db, payload.issueId);
 
     await db
       .insertInto("articles")
@@ -141,6 +163,7 @@ export function registerArticleHandlers(): void {
         content_type: "Article",
         pull_quote: null,
         sidebar: null,
+        display_position,
         created_at: now,
         updated_at: now,
       })
@@ -228,6 +251,7 @@ export function registerArticleHandlers(): void {
     const language = payload.language ?? detectLanguage(body);
     const contentType = payload.contentType ?? "Article";
     const wordCount = countWords(body);
+    const display_position = await nextArticlePosition(db, payload.issueId);
     await db
       .insertInto("articles")
       .values({
@@ -247,6 +271,7 @@ export function registerArticleHandlers(): void {
         content_type: contentType,
         pull_quote: null,
         sidebar: null,
+        display_position,
         created_at: now,
         updated_at: now,
       })

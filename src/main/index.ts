@@ -11,6 +11,7 @@ import { registerExportHandlers } from "./ipc/handlers/export.js";
 import { registerSnapshotHandlers } from "./ipc/handlers/snapshot.js";
 import { registerDiskUsageHandlers } from "./ipc/handlers/disk-usage.js";
 import { registerStorageHandlers } from "./ipc/handlers/storage.js";
+import { registerReorderHandlers } from "./ipc/handlers/reorder.js";
 import { handleSecondInstance } from "./crash-recovery/single-instance.js";
 import { bootstrap } from "./app-state.js";
 
@@ -96,6 +97,7 @@ void app.whenReady().then(async () => {
   registerSnapshotHandlers();
   registerDiskUsageHandlers();
   registerStorageHandlers();
+  registerReorderHandlers();
 
   registerIpcHandlers(ipcMain);
 

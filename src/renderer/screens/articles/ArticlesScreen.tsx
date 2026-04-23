@@ -1,5 +1,21 @@
 import React, { useState } from "react";
 import { marked } from "marked";
+import {
+  DndContext,
+  PointerSensor,
+  useSensor,
+  useSensors,
+  closestCenter,
+  type DragEndEvent,
+} from "@dnd-kit/core";
+import {
+  arrayMove,
+  SortableContext,
+  useSortable,
+  verticalListSortingStrategy,
+} from "@dnd-kit/sortable";
+import { CSS } from "@dnd-kit/utilities";
+import { DotsSixVertical } from "@phosphor-icons/react";
 import { useIssueStore, useShallow } from "../../stores/issue.js";
 import { useToast } from "../../components/Toast.js";
 import { invoke } from "../../ipc/client.js";
@@ -9,12 +25,13 @@ import { NewArticleModal } from "./NewArticleModal.js";
 import type { ArticleSummary } from "@shared/ipc-contracts/channels.js";
 
 export function ArticlesScreen(): React.ReactElement {
-  const { currentIssue, articles, refreshArticles, refreshIssues } = useIssueStore(
+  const { currentIssue, articles, refreshArticles, refreshIssues, setArticles } = useIssueStore(
     useShallow((s) => ({
       currentIssue: s.currentIssue,
       articles: s.articles,
       refreshArticles: s.refreshArticles,
       refreshIssues: s.refreshIssues,
+      setArticles: s.setArticles,
     }))
   );
   const toast = useToast();
@@ -177,7 +194,23 @@ export function ArticlesScreen(): React.ReactElement {
             </div>
           </div>
         ) : (
-          <ArticleList articles={articles} onEdit={(a) => setEditing(a)} />
+          <ArticleList
+            articles={articles}
+            onEdit={(a) => setEditing(a)}
+            onReorder={async (next, movedId, newPosition) => {
+              // Optimistic local update so the row stays where the operator
+              // dropped it. Persist via IPC; on failure, refetch to roll
+              // the local state back to truth.
+              setArticles(next);
+              try {
+                await invoke("articles:reorder", { articleId: movedId, newPosition });
+                await refreshArticles();
+              } catch (e) {
+                toast.push("error", describeError(e));
+                await refreshArticles();
+              }
+            }}
+          />
         )}
 
         {isDragging ? (
@@ -231,68 +264,153 @@ export function ArticlesScreen(): React.ReactElement {
 function ArticleList({
   articles,
   onEdit,
+  onReorder,
 }: {
   articles: ArticleSummary[];
   onEdit: (a: ArticleSummary) => void;
+  /**
+   * Called after a successful drag. Receives the new article order, the
+   * id of the moved article, and the fractional position to persist.
+   */
+  onReorder: (
+    next: ArticleSummary[],
+    movedId: string,
+    newPosition: number
+  ) => Promise<void> | void;
 }): React.ReactElement {
+  // Require ~6px of pointer movement before treating it as a drag. Without
+  // a distance threshold dnd-kit captures plain clicks as drags and the
+  // edit button stops working.
+  const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 6 } }));
+
+  function handleDragEnd(event: DragEndEvent): void {
+    const { active, over } = event;
+    if (!over || active.id === over.id) return;
+    const oldIndex = articles.findIndex((a) => a.id === active.id);
+    const newIndex = articles.findIndex((a) => a.id === over.id);
+    if (oldIndex < 0 || newIndex < 0) return;
+    const next = arrayMove(articles, oldIndex, newIndex);
+    // Compute the fractional midpoint of the new neighbors. The list
+    // index is the post-move index; "before" sits at next[newIndex-1]
+    // and "after" sits at next[newIndex+1] in the new ordering.
+    // Default position values come from the server-side display_position.
+    // For renderer-side optimism we synthesize a midpoint using simple
+    // index halving — the IPC handler validates and rebalances if the
+    // float gap collapses.
+    const before = next[newIndex - 1];
+    const after = next[newIndex + 1];
+    const beforePos = before ? indexAsPosition(before, articles) : null;
+    const afterPos = after ? indexAsPosition(after, articles) : null;
+    const newPosition = computeRendererMidpoint(beforePos, afterPos);
+    void onReorder(next, String(active.id), newPosition);
+  }
+
   return (
     <div className="mx-auto max-w-[920px]">
-      <ul className="divide-border-default divide-y">
-        {articles.map((a) => (
-          <li
-            key={a.id}
-            className="group flex items-start gap-4 py-4"
-            data-testid={`article-row-${a.id}`}
-          >
-            <button
-              type="button"
-              onClick={() => onEdit(a)}
-              className="min-w-0 flex-1 text-left"
-              data-testid={`article-edit-${a.id}`}
-            >
-              <div className="font-display text-title-lg text-text-primary group-hover:text-accent truncate">
-                {a.headline}
-              </div>
-              {a.byline ? (
-                <div className="text-caption text-text-tertiary">
-                  {a.byline}
-                  {a.bylinePosition === "end" ? (
-                    <span className="border-border-default text-label-caps text-text-tertiary ml-2 rounded-full border px-2">
-                      END
-                    </span>
-                  ) : null}
-                </div>
-              ) : (
-                <div className="text-caption text-text-tertiary italic">
-                  No byline — click to add
-                </div>
-              )}
-              <div className="text-caption text-text-tertiary mt-1">
-                {a.wordCount.toLocaleString()} words · {a.contentType}
-              </div>
-            </button>
-            <div className="flex shrink-0 items-center gap-3">
-              <span
-                className={[
-                  "text-label-caps rounded-full px-2 py-0.5",
-                  a.language === "hi"
-                    ? "bg-accent-muted text-text-primary"
-                    : a.language === "bilingual"
-                      ? "bg-warning-bg text-warning"
-                      : "bg-border-default text-text-secondary",
-                ].join(" ")}
-              >
-                {a.language === "en" ? "EN" : a.language === "hi" ? "HI" : "EN+HI"}
-              </span>
-              <span className="text-caption text-text-tertiary">
-                {new Date(a.createdAt).toLocaleDateString()}
-              </span>
-            </div>
-          </li>
-        ))}
-      </ul>
+      <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
+        <SortableContext items={articles.map((a) => a.id)} strategy={verticalListSortingStrategy}>
+          <ul className="divide-border-default divide-y">
+            {articles.map((a) => (
+              <SortableArticleRow key={a.id} article={a} onEdit={onEdit} />
+            ))}
+          </ul>
+        </SortableContext>
+      </DndContext>
     </div>
   );
+}
+
+function SortableArticleRow({
+  article,
+  onEdit,
+}: {
+  article: ArticleSummary;
+  onEdit: (a: ArticleSummary) => void;
+}): React.ReactElement {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
+    id: article.id,
+  });
+  const style: React.CSSProperties = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    opacity: isDragging ? 0.5 : 1,
+  };
+  return (
+    <li
+      ref={setNodeRef}
+      style={style}
+      className="group flex items-start gap-3 py-4"
+      data-testid={`article-row-${article.id}`}
+    >
+      <button
+        type="button"
+        {...attributes}
+        {...listeners}
+        aria-label="Reorder article"
+        className="text-text-tertiary hover:text-text-primary mt-1 cursor-grab touch-none active:cursor-grabbing"
+        data-testid={`article-drag-handle-${article.id}`}
+      >
+        <DotsSixVertical size={20} weight="bold" />
+      </button>
+      <button
+        type="button"
+        onClick={() => onEdit(article)}
+        className="min-w-0 flex-1 text-left"
+        data-testid={`article-edit-${article.id}`}
+      >
+        <div className="font-display text-title-lg text-text-primary group-hover:text-accent truncate">
+          {article.headline}
+        </div>
+        {article.byline ? (
+          <div className="text-caption text-text-tertiary">
+            {article.byline}
+            {article.bylinePosition === "end" ? (
+              <span className="border-border-default text-label-caps text-text-tertiary ml-2 rounded-full border px-2">
+                END
+              </span>
+            ) : null}
+          </div>
+        ) : (
+          <div className="text-caption text-text-tertiary italic">No byline — click to add</div>
+        )}
+        <div className="text-caption text-text-tertiary mt-1">
+          {article.wordCount.toLocaleString()} words · {article.contentType}
+        </div>
+      </button>
+      <div className="flex shrink-0 items-center gap-3">
+        <span
+          className={[
+            "text-label-caps rounded-full px-2 py-0.5",
+            article.language === "hi"
+              ? "bg-accent-muted text-text-primary"
+              : article.language === "bilingual"
+                ? "bg-warning-bg text-warning"
+                : "bg-border-default text-text-secondary",
+          ].join(" ")}
+        >
+          {article.language === "en" ? "EN" : article.language === "hi" ? "HI" : "EN+HI"}
+        </span>
+        <span className="text-caption text-text-tertiary">
+          {new Date(article.createdAt).toLocaleDateString()}
+        </span>
+      </div>
+    </li>
+  );
+}
+
+// Renderer doesn't ship the DB-side display_position values today; map the
+// pre-move index to a synthetic position so the midpoint formula makes
+// sense. The IPC handler reconciles against the real neighbors and
+// rebalances if our guess is off — see handlers/reorder.ts.
+function indexAsPosition(item: ArticleSummary, originalOrder: ArticleSummary[]): number {
+  return originalOrder.findIndex((a) => a.id === item.id) + 1;
+}
+
+function computeRendererMidpoint(before: number | null, after: number | null): number {
+  if (before === null && after === null) return 1;
+  if (before === null) return (after as number) - 1;
+  if (after === null) return (before as number) + 1;
+  return (before + after) / 2;
 }
 
 function NoIssue(): React.ReactElement {

@@ -403,6 +403,24 @@ export interface ChannelMap {
   "ad:list": { request: { issueId: string | null }; response: AdSummary[] };
   "ad:upload": { request: UploadAdInput; response: AdSummary };
 
+  // Drag-reorder (v0.6 T13). Renderer sends the midpoint between the two
+  // neighbors it dropped between; main persists it on the row's
+  // display_position. `rebalanced=true` means the table was re-spaced
+  // because the supplied position was too close to a neighbor; the
+  // returned `newPosition` is the value actually persisted.
+  "articles:reorder": {
+    request: { articleId: string; newPosition: number };
+    response: { id: string; newPosition: number; rebalanced: boolean };
+  };
+  "classifieds:reorder": {
+    request: { classifiedId: string; newPosition: number };
+    response: { id: string; newPosition: number; rebalanced: boolean };
+  };
+  "ads:reorder": {
+    request: { adId: string; newPosition: number };
+    response: { id: string; newPosition: number; rebalanced: boolean };
+  };
+
   "publisher:get": { request: null; response: PublisherProfile | null };
   "publisher:save": { request: PublisherProfile; response: PublisherProfile };
 

@@ -1,9 +1,26 @@
 import React, { useState } from "react";
+import {
+  DndContext,
+  PointerSensor,
+  useSensor,
+  useSensors,
+  closestCenter,
+  type DragEndEvent,
+} from "@dnd-kit/core";
+import {
+  arrayMove,
+  SortableContext,
+  useSortable,
+  verticalListSortingStrategy,
+} from "@dnd-kit/sortable";
+import { CSS } from "@dnd-kit/utilities";
+import { DotsSixVertical } from "@phosphor-icons/react";
 import { useIssueStore, useShallow } from "../../stores/issue.js";
 import { useToast } from "../../components/Toast.js";
 import { invoke } from "../../ipc/client.js";
 import { describeError } from "../../lib/error-helpers.js";
 import { AddClassifiedModal } from "./AddClassifiedModal.js";
+import type { ClassifiedSummary } from "@shared/ipc-contracts/channels.js";
 import type { ClassifiedType } from "@shared/schemas/classified.js";
 
 const CLASSIFIED_TYPE_LABELS: Record<ClassifiedType, string> = {
@@ -22,14 +39,16 @@ const CLASSIFIED_TYPE_LABELS: Record<ClassifiedType, string> = {
 };
 
 export function ClassifiedsScreen(): React.ReactElement {
-  const { currentIssue, classifieds, refreshClassifieds, refreshIssues } = useIssueStore(
-    useShallow((s) => ({
-      currentIssue: s.currentIssue,
-      classifieds: s.classifieds,
-      refreshClassifieds: s.refreshClassifieds,
-      refreshIssues: s.refreshIssues,
-    }))
-  );
+  const { currentIssue, classifieds, refreshClassifieds, refreshIssues, setClassifieds } =
+    useIssueStore(
+      useShallow((s) => ({
+        currentIssue: s.currentIssue,
+        classifieds: s.classifieds,
+        refreshClassifieds: s.refreshClassifieds,
+        refreshIssues: s.refreshIssues,
+        setClassifieds: s.setClassifieds,
+      }))
+    );
   const toast = useToast();
   const [adding, setAdding] = useState<ClassifiedType | null>(null);
   const [pickingType, setPickingType] = useState(false);
@@ -115,7 +134,20 @@ export function ClassifiedsScreen(): React.ReactElement {
             </div>
           </div>
         ) : (
-          <ClassifiedList classifieds={classifieds} typeLabels={CLASSIFIED_TYPE_LABELS} />
+          <ClassifiedList
+            classifieds={classifieds}
+            typeLabels={CLASSIFIED_TYPE_LABELS}
+            onReorder={async (next, movedId, newPosition) => {
+              setClassifieds(next);
+              try {
+                await invoke("classifieds:reorder", { classifiedId: movedId, newPosition });
+                await refreshClassifieds();
+              } catch (e) {
+                toast.push("error", describeError(e));
+                await refreshClassifieds();
+              }
+            }}
+          />
         )}
       </div>
 
@@ -149,16 +181,40 @@ export function ClassifiedsScreen(): React.ReactElement {
 function ClassifiedList({
   classifieds,
   typeLabels,
+  onReorder,
 }: {
-  classifieds: import("@shared/ipc-contracts/channels.js").ClassifiedSummary[];
+  classifieds: ClassifiedSummary[];
   typeLabels: Record<ClassifiedType, string>;
+  onReorder: (
+    next: ClassifiedSummary[],
+    movedId: string,
+    newPosition: number
+  ) => Promise<void> | void;
 }): React.ReactElement {
-  // Group by type
-  const byType = new Map<ClassifiedType, typeof classifieds>();
+  // Group by type — operators reorder within a type, not across types.
+  // Drag-and-drop uses one DndContext per group so cross-group drops are
+  // impossible (and cross-type drops would semantically be a re-categorize).
+  const byType = new Map<ClassifiedType, ClassifiedSummary[]>();
   for (const c of classifieds) {
     const arr = byType.get(c.type) ?? [];
     arr.push(c);
     byType.set(c.type, arr);
+  }
+
+  function handleGroupReorder(
+    type: ClassifiedType,
+    nextGroup: ClassifiedSummary[],
+    movedId: string,
+    newPosition: number
+  ): void {
+    // Splice the reordered group back into the full list, preserving the
+    // global section ordering (matches the iteration order of the map).
+    const next: ClassifiedSummary[] = [];
+    for (const [t, entries] of byType.entries()) {
+      if (t === type) next.push(...nextGroup);
+      else next.push(...entries);
+    }
+    void onReorder(next, movedId, newPosition);
   }
 
   return (
@@ -168,27 +224,101 @@ function ClassifiedList({
           <h2 className="font-display text-title-lg text-text-primary mb-3">
             {typeLabels[type]} <span className="text-text-tertiary">({entries.length})</span>
           </h2>
-          <ul className="divide-border-default border-border-default bg-bg-surface divide-y rounded-lg border">
-            {entries.map((c) => (
-              <li
-                key={c.id}
-                className="flex items-center gap-4 px-4 py-3"
-                data-testid={`classified-row-${c.id}`}
-              >
-                <div className="text-body text-text-primary min-w-0 flex-1 truncate">
-                  {c.displayName}
-                </div>
-                <span className="bg-border-default text-label-caps text-text-secondary rounded-full px-2 py-0.5">
-                  {c.language === "hi" ? "HI" : "EN"}
-                </span>
-                <span className="text-caption text-text-tertiary">{c.weeksToRun} weeks</span>
-              </li>
-            ))}
-          </ul>
+          <ClassifiedGroup
+            entries={entries}
+            onReorder={(next, movedId, newPosition) =>
+              handleGroupReorder(type, next, movedId, newPosition)
+            }
+          />
         </section>
       ))}
     </div>
   );
+}
+
+function ClassifiedGroup({
+  entries,
+  onReorder,
+}: {
+  entries: ClassifiedSummary[];
+  onReorder: (next: ClassifiedSummary[], movedId: string, newPosition: number) => void;
+}): React.ReactElement {
+  const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 6 } }));
+
+  function handleDragEnd(event: DragEndEvent): void {
+    const { active, over } = event;
+    if (!over || active.id === over.id) return;
+    const oldIndex = entries.findIndex((c) => c.id === active.id);
+    const newIndex = entries.findIndex((c) => c.id === over.id);
+    if (oldIndex < 0 || newIndex < 0) return;
+    const next = arrayMove(entries, oldIndex, newIndex);
+    const before = next[newIndex - 1];
+    const after = next[newIndex + 1];
+    const beforePos = before ? entries.findIndex((c) => c.id === before.id) + 1 : null;
+    const afterPos = after ? entries.findIndex((c) => c.id === after.id) + 1 : null;
+    const newPosition = computeRendererMidpoint(beforePos, afterPos);
+    onReorder(next, String(active.id), newPosition);
+  }
+
+  return (
+    <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
+      <SortableContext items={entries.map((e) => e.id)} strategy={verticalListSortingStrategy}>
+        <ul className="divide-border-default border-border-default bg-bg-surface divide-y rounded-lg border">
+          {entries.map((c) => (
+            <SortableClassifiedRow key={c.id} classified={c} />
+          ))}
+        </ul>
+      </SortableContext>
+    </DndContext>
+  );
+}
+
+function SortableClassifiedRow({
+  classified,
+}: {
+  classified: ClassifiedSummary;
+}): React.ReactElement {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
+    id: classified.id,
+  });
+  const style: React.CSSProperties = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    opacity: isDragging ? 0.5 : 1,
+  };
+  return (
+    <li
+      ref={setNodeRef}
+      style={style}
+      className="flex items-center gap-3 px-4 py-3"
+      data-testid={`classified-row-${classified.id}`}
+    >
+      <button
+        type="button"
+        {...attributes}
+        {...listeners}
+        aria-label="Reorder classified"
+        className="text-text-tertiary hover:text-text-primary cursor-grab touch-none active:cursor-grabbing"
+        data-testid={`classified-drag-handle-${classified.id}`}
+      >
+        <DotsSixVertical size={18} weight="bold" />
+      </button>
+      <div className="text-body text-text-primary min-w-0 flex-1 truncate">
+        {classified.displayName}
+      </div>
+      <span className="bg-border-default text-label-caps text-text-secondary rounded-full px-2 py-0.5">
+        {classified.language === "hi" ? "HI" : "EN"}
+      </span>
+      <span className="text-caption text-text-tertiary">{classified.weeksToRun} weeks</span>
+    </li>
+  );
+}
+
+function computeRendererMidpoint(before: number | null, after: number | null): number {
+  if (before === null && after === null) return 1;
+  if (before === null) return (after as number) - 1;
+  if (after === null) return (before as number) + 1;
+  return (before + after) / 2;
 }
 
 function TypePicker({

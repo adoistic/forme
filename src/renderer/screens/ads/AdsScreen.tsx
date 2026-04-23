@@ -1,4 +1,20 @@
 import React, { useState } from "react";
+import {
+  DndContext,
+  PointerSensor,
+  useSensor,
+  useSensors,
+  closestCenter,
+  type DragEndEvent,
+} from "@dnd-kit/core";
+import {
+  arrayMove,
+  SortableContext,
+  useSortable,
+  verticalListSortingStrategy,
+} from "@dnd-kit/sortable";
+import { CSS } from "@dnd-kit/utilities";
+import { DotsSixVertical } from "@phosphor-icons/react";
 import { useIssueStore, useShallow } from "../../stores/issue.js";
 import { useToast } from "../../components/Toast.js";
 import { invoke } from "../../ipc/client.js";
@@ -21,12 +37,13 @@ const SLOT_LABELS: Record<AdSlotType, string> = {
 };
 
 export function AdsScreen(): React.ReactElement {
-  const { currentIssue, ads, refreshAds, refreshIssues } = useIssueStore(
+  const { currentIssue, ads, refreshAds, refreshIssues, setAds } = useIssueStore(
     useShallow((s) => ({
       currentIssue: s.currentIssue,
       ads: s.ads,
       refreshAds: s.refreshAds,
       refreshIssues: s.refreshIssues,
+      setAds: s.setAds,
     }))
   );
   const toast = useToast();
@@ -172,46 +189,117 @@ export function AdsScreen(): React.ReactElement {
             </div>
           </div>
         ) : (
-          <AdList ads={ads} />
+          <AdList
+            ads={ads}
+            onReorder={async (next, movedId, newPosition) => {
+              setAds(next);
+              try {
+                await invoke("ads:reorder", { adId: movedId, newPosition });
+                await refreshAds();
+              } catch (e) {
+                toast.push("error", describeError(e));
+                await refreshAds();
+              }
+            }}
+          />
         )}
       </div>
     </div>
   );
 }
 
-function AdList({ ads }: { ads: AdSummary[] }): React.ReactElement {
+function AdList({
+  ads,
+  onReorder,
+}: {
+  ads: AdSummary[];
+  onReorder: (next: AdSummary[], movedId: string, newPosition: number) => Promise<void> | void;
+}): React.ReactElement {
+  const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 6 } }));
+
+  function handleDragEnd(event: DragEndEvent): void {
+    const { active, over } = event;
+    if (!over || active.id === over.id) return;
+    const oldIndex = ads.findIndex((a) => a.id === active.id);
+    const newIndex = ads.findIndex((a) => a.id === over.id);
+    if (oldIndex < 0 || newIndex < 0) return;
+    const next = arrayMove(ads, oldIndex, newIndex);
+    const before = next[newIndex - 1];
+    const after = next[newIndex + 1];
+    const beforePos = before ? ads.findIndex((a) => a.id === before.id) + 1 : null;
+    const afterPos = after ? ads.findIndex((a) => a.id === after.id) + 1 : null;
+    const newPosition = computeRendererMidpoint(beforePos, afterPos);
+    void onReorder(next, String(active.id), newPosition);
+  }
+
   return (
     <div className="mx-auto max-w-[920px]">
-      <ul className="divide-border-default border-border-default bg-bg-surface divide-y rounded-lg border">
-        {ads.map((ad) => (
-          <li
-            key={ad.id}
-            className="flex items-center gap-4 px-4 py-3"
-            data-testid={`ad-row-${ad.id}`}
-          >
-            <div className="min-w-0 flex-1">
-              <div className="text-body text-text-primary truncate">{ad.creativeFilename}</div>
-              <div className="text-caption text-text-tertiary">
-                {SLOT_LABELS[ad.slotType]} · {ad.positionLabel}
-              </div>
-            </div>
-            <span className="bg-accent-bg text-label-caps text-accent rounded-full px-2 py-0.5">
-              {ad.kind}
-            </span>
-            {ad.bwFlag ? (
-              <span className="bg-border-default text-label-caps text-text-secondary rounded-full px-2 py-0.5">
-                BW
-              </span>
-            ) : (
-              <span className="bg-border-default text-label-caps text-text-secondary rounded-full px-2 py-0.5">
-                COLOR
-              </span>
-            )}
-          </li>
-        ))}
-      </ul>
+      <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
+        <SortableContext items={ads.map((a) => a.id)} strategy={verticalListSortingStrategy}>
+          <ul className="divide-border-default border-border-default bg-bg-surface divide-y rounded-lg border">
+            {ads.map((ad) => (
+              <SortableAdRow key={ad.id} ad={ad} />
+            ))}
+          </ul>
+        </SortableContext>
+      </DndContext>
     </div>
   );
+}
+
+function SortableAdRow({ ad }: { ad: AdSummary }): React.ReactElement {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
+    id: ad.id,
+  });
+  const style: React.CSSProperties = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    opacity: isDragging ? 0.5 : 1,
+  };
+  return (
+    <li
+      ref={setNodeRef}
+      style={style}
+      className="flex items-center gap-3 px-4 py-3"
+      data-testid={`ad-row-${ad.id}`}
+    >
+      <button
+        type="button"
+        {...attributes}
+        {...listeners}
+        aria-label="Reorder ad"
+        className="text-text-tertiary hover:text-text-primary cursor-grab touch-none active:cursor-grabbing"
+        data-testid={`ad-drag-handle-${ad.id}`}
+      >
+        <DotsSixVertical size={18} weight="bold" />
+      </button>
+      <div className="min-w-0 flex-1">
+        <div className="text-body text-text-primary truncate">{ad.creativeFilename}</div>
+        <div className="text-caption text-text-tertiary">
+          {SLOT_LABELS[ad.slotType]} · {ad.positionLabel}
+        </div>
+      </div>
+      <span className="bg-accent-bg text-label-caps text-accent rounded-full px-2 py-0.5">
+        {ad.kind}
+      </span>
+      {ad.bwFlag ? (
+        <span className="bg-border-default text-label-caps text-text-secondary rounded-full px-2 py-0.5">
+          BW
+        </span>
+      ) : (
+        <span className="bg-border-default text-label-caps text-text-secondary rounded-full px-2 py-0.5">
+          COLOR
+        </span>
+      )}
+    </li>
+  );
+}
+
+function computeRendererMidpoint(before: number | null, after: number | null): number {
+  if (before === null && after === null) return 1;
+  if (before === null) return (after as number) - 1;
+  if (after === null) return (before as number) + 1;
+  return (before + after) / 2;
 }
 
 function bytesToBase64(bytes: Uint8Array): string {

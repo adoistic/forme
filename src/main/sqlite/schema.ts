@@ -42,6 +42,9 @@ export interface ArticlesTable {
   content_type: string; // Article, Poem, Interview, Photo Essay, Opinion, Brief, Letter
   pull_quote: string | null;
   sidebar: string | null;
+  // v0.6 T13: operator-controlled order. Fractional REAL so single-row
+  // reorders are O(1). Defaulted via SQL so legacy inserts compile unchanged.
+  display_position: Generated<number>;
   created_at: string;
   updated_at: string;
 }
@@ -98,6 +101,8 @@ export interface ClassifiedsTable {
   photo_blob_hash: string | null;
   fields_json: string; // type-specific field set
   billing_reference: string | null;
+  // v0.6 T13 — see ArticlesTable.display_position.
+  display_position: Generated<number>;
   created_at: string;
   updated_at: string;
 }
@@ -112,6 +117,8 @@ export interface AdsTable {
   creative_blob_hash: string;
   creative_filename: string;
   billing_reference: string | null;
+  // v0.6 T13 — see ArticlesTable.display_position.
+  display_position: Generated<number>;
   created_at: string;
 }
 

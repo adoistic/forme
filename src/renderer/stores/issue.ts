@@ -25,6 +25,13 @@ interface IssueState {
   refreshAds: () => Promise<void>;
   refreshProfile: () => Promise<void>;
   refreshAll: () => Promise<void>;
+
+  // v0.6 T13: optimistic local reordering. Renderer applies the new order
+  // immediately so dragging feels snappy; the IPC persist + a refresh
+  // follow asynchronously via the screen.
+  setArticles: (articles: ArticleSummary[]) => void;
+  setClassifieds: (classifieds: ClassifiedSummary[]) => void;
+  setAds: (ads: AdSummary[]) => void;
 }
 
 export const useIssueStore = create<IssueState>((set, get) => ({
@@ -87,6 +94,16 @@ export const useIssueStore = create<IssueState>((set, get) => ({
       get().refreshAds(),
       get().refreshProfile(),
     ]);
+  },
+
+  setArticles(articles) {
+    set({ articles });
+  },
+  setClassifieds(classifieds) {
+    set({ classifieds });
+  },
+  setAds(ads) {
+    set({ ads });
   },
 }));
 

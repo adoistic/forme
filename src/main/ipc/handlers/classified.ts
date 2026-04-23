@@ -1,9 +1,11 @@
 import { randomUUID } from "node:crypto";
 import fs from "node:fs/promises";
 import path from "node:path";
+import type { Kysely } from "kysely";
 import Papa from "papaparse";
 import { addHandler } from "../register.js";
 import { getState } from "../../app-state.js";
+import type { Database } from "../../sqlite/schema.js";
 import { ingestImage } from "../../image-ingest/ingest.js";
 import { validateClassified, type ClassifiedType } from "@shared/schemas/classified.js";
 import { makeError } from "@shared/errors/structured.js";
@@ -17,6 +19,21 @@ import type {
 
 function nowISO(): string {
   return new Date().toISOString();
+}
+
+// New classifieds land at the tail of the operator's list. v0.6 T13: pick
+// max(display_position) + 1 within the issue scope (or null queue) so the
+// new row appears below the last existing one.
+async function nextClassifiedPosition(
+  db: Kysely<Database>,
+  issueId: string | null
+): Promise<number> {
+  let q = db
+    .selectFrom("classifieds")
+    .select((eb) => eb.fn.max<number>("display_position").as("max"));
+  q = issueId === null ? q.where("issue_id", "is", null) : q.where("issue_id", "=", issueId);
+  const row = await q.executeTakeFirst();
+  return Number(row?.max ?? 0) + 1;
 }
 
 function deriveDisplayName(type: ClassifiedType, fields: Record<string, unknown>): string {
@@ -51,10 +68,13 @@ function deriveDisplayName(type: ClassifiedType, fields: Record<string, unknown>
 export function registerClassifiedHandlers(): void {
   addHandler("classified:list", async (payload: { issueId: string | null }) => {
     const { db } = getState();
+    // v0.6 T13: list by display_position (operator-controlled). Tie-break
+    // on created_at so brand-new rows order predictably.
     let query = db
       .selectFrom("classifieds")
       .select(["id", "issue_id", "type", "language", "weeks_to_run", "fields_json", "created_at"])
-      .orderBy("created_at", "desc");
+      .orderBy("display_position", "asc")
+      .orderBy("created_at", "asc");
     if (payload.issueId === null) {
       query = query.where("issue_id", "is", null);
     } else {
@@ -94,6 +114,7 @@ export function registerClassifiedHandlers(): void {
 
     const id = randomUUID();
     const now = nowISO();
+    const display_position = await nextClassifiedPosition(db, payload.issueId);
     await db
       .insertInto("classifieds")
       .values({
@@ -105,6 +126,7 @@ export function registerClassifiedHandlers(): void {
         photo_blob_hash: null,
         fields_json: JSON.stringify(payload.fields),
         billing_reference: payload.billingReference,
+        display_position,
         created_at: now,
         updated_at: now,
       })
@@ -242,6 +264,7 @@ export function registerClassifiedHandlers(): void {
 
           const id = randomUUID();
           const now = nowISO();
+          const display_position = await nextClassifiedPosition(db, payload.issueId);
           await db
             .insertInto("classifieds")
             .values({
@@ -253,6 +276,7 @@ export function registerClassifiedHandlers(): void {
               photo_blob_hash: photoBlobHash,
               fields_json: JSON.stringify(fields),
               billing_reference: billingReference,
+              display_position,
               created_at: now,
               updated_at: now,
             })
