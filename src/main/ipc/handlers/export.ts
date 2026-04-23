@@ -1,4 +1,6 @@
 import path from "node:path";
+import os from "node:os";
+import type { Kysely } from "kysely";
 import { addHandler } from "../register.js";
 import { getState } from "../../app-state.js";
 import { buildPptx } from "@shared/pptx-builder/build.js";
@@ -6,9 +8,178 @@ import { preLayoutForTemplate } from "../../pptx-prelayout/layout.js";
 import { makeError } from "@shared/errors/structured.js";
 import type { ExportIssueInput, ExportIssueResult } from "@shared/ipc-contracts/channels.js";
 import type { PptxAd, PptxClassified, PptxPlacement } from "@shared/pptx-builder/types.js";
+import type { Database } from "../../sqlite/schema.js";
 import { createLogger } from "../../logger.js";
 
 const logger = createLogger("export");
+
+/**
+ * Result the save dialog returns. Keeps the test surface free of any
+ * Electron type imports — the production handler adapts the real
+ * `dialog.showSaveDialog` return value to this shape.
+ */
+export interface SaveDialogResult {
+  canceled: boolean;
+  filePath?: string;
+}
+
+/**
+ * Show-save-dialog signature consumed by `exportIssue`. Defaulted to a
+ * thin wrapper around Electron's `dialog.showSaveDialog` in production;
+ * tests pass a stub.
+ */
+export type ShowSaveDialog = (opts: {
+  title: string;
+  defaultPath: string;
+  filters: { name: string; extensions: string[] }[];
+}) => Promise<SaveDialogResult>;
+
+const LAST_EXPORT_DIR_KEY = "last_export_dir";
+
+/**
+ * Read a value from the app_settings KV store. Returns `null` if missing.
+ * v0.6 T17 uses this for `last_export_dir`; future settings can reuse it.
+ */
+export async function readAppSetting(
+  db: Kysely<Database>,
+  key: string
+): Promise<string | null> {
+  const row = await db
+    .selectFrom("app_settings")
+    .select("value")
+    .where("key", "=", key)
+    .executeTakeFirst();
+  return row?.value ?? null;
+}
+
+/**
+ * Upsert a value into the app_settings KV store. Idempotent — uses
+ * INSERT OR REPLACE so callers don't have to read-then-decide.
+ */
+export async function writeAppSetting(
+  db: Kysely<Database>,
+  key: string,
+  value: string
+): Promise<void> {
+  await db
+    .insertInto("app_settings")
+    .values({ key, value, updated_at: new Date().toISOString() })
+    .onConflict((oc) =>
+      oc.column("key").doUpdateSet({ value, updated_at: new Date().toISOString() })
+    )
+    .execute();
+}
+
+/**
+ * Resolve the default save-as path for a given filename. Prefers the
+ * operator's last-used export directory (persisted in `app_settings`);
+ * falls back to ~/Downloads on first use.
+ */
+export async function resolveDefaultExportPath(
+  db: Kysely<Database>,
+  filename: string
+): Promise<string> {
+  const lastDir = await readAppSetting(db, LAST_EXPORT_DIR_KEY);
+  const baseDir = lastDir ?? path.join(os.homedir(), "Downloads");
+  return path.join(baseDir, filename);
+}
+
+/**
+ * Run the save dialog and return the operator's chosen path, or `null`
+ * if they canceled. On success, persists the chosen directory to
+ * `app_settings.last_export_dir` so the next export defaults to it.
+ *
+ * Extracted from the `export:pptx` handler so tests can drive the
+ * cancel + happy + last-dir-memory paths without standing up a full
+ * Electron BrowserWindow.
+ */
+export async function chooseExportPath(
+  db: Kysely<Database>,
+  filename: string,
+  showSaveDialog: ShowSaveDialog
+): Promise<string | null> {
+  const defaultPath = await resolveDefaultExportPath(db, filename);
+  const result = await showSaveDialog({
+    title: "Export to PowerPoint",
+    defaultPath,
+    filters: [{ name: "PowerPoint", extensions: ["pptx"] }],
+  });
+  if (result.canceled || !result.filePath) return null;
+  await writeAppSetting(db, LAST_EXPORT_DIR_KEY, path.dirname(result.filePath));
+  return result.filePath;
+}
+
+/**
+ * Test seam — defaults to Electron's real `dialog.showSaveDialog` in
+ * production. Tests call `setShowSaveDialog` in beforeEach to swap in
+ * a stub without spinning up a BrowserWindow.
+ */
+let showSaveDialogImpl: ShowSaveDialog | null = null;
+export function setShowSaveDialog(impl: ShowSaveDialog | null): void {
+  showSaveDialogImpl = impl;
+}
+async function defaultShowSaveDialog(opts: {
+  title: string;
+  defaultPath: string;
+  filters: { name: string; extensions: string[] }[];
+}): Promise<SaveDialogResult> {
+  // E2E shim: when running under FORME_TEST_DOCUMENTS_DIR (Playwright
+  // launches the real Electron binary, which can't accept a dialog stub
+  // from a separate process), short-circuit to the documented test
+  // export dir. Production paths are unaffected.
+  const testDir = process.env.FORME_TEST_DOCUMENTS_DIR;
+  if (testDir) {
+    const exportDir = path.join(testDir, "Forme");
+    const { mkdir } = await import("node:fs/promises");
+    await mkdir(exportDir, { recursive: true });
+    return { canceled: false, filePath: path.join(exportDir, path.basename(opts.defaultPath)) };
+  }
+  const electron = await import("electron");
+  const win =
+    electron.BrowserWindow.getFocusedWindow() ?? electron.BrowserWindow.getAllWindows()[0];
+  const result = win
+    ? await electron.dialog.showSaveDialog(win, opts)
+    : await electron.dialog.showSaveDialog(opts);
+  return {
+    canceled: result.canceled,
+    ...(result.filePath ? { filePath: result.filePath } : {}),
+  };
+}
+
+/**
+ * Test seam for the heavy `buildPptx` call. Defaults to the real
+ * implementation. Tests stub this so they can verify the registered
+ * handler wires the chosen save-dialog path through to disk without
+ * spinning up the full pptx generation pipeline.
+ */
+let buildPptxImpl: typeof buildPptx | null = null;
+export function setBuildPptxImpl(impl: typeof buildPptx | null): void {
+  buildPptxImpl = impl;
+}
+
+/**
+ * Test seam for `shell.showItemInFolder`. Production calls Electron's
+ * real shell module; tests inject a spy.
+ */
+let revealItemImpl: ((p: string) => void) | null = null;
+export function setRevealItemImpl(impl: ((p: string) => void) | null): void {
+  revealItemImpl = impl;
+}
+async function defaultRevealItem(p: string): Promise<void> {
+  const electron = await import("electron");
+  electron.shell.showItemInFolder(p);
+}
+
+/**
+ * Reveal a file in the OS file manager. Exported so the shell:reveal
+ * IPC handler can be exercised directly from tests without touching
+ * the IPC dispatcher.
+ */
+export async function revealInFinder(payload: { path: string }): Promise<{ ok: true }> {
+  const reveal = revealItemImpl ?? defaultRevealItem;
+  await reveal(payload.path);
+  return { ok: true };
+}
 
 /**
  * Turn a classified's raw fields into a displayable title + body lines.
@@ -166,7 +337,7 @@ function slugify(s: string): string {
 
 export function registerExportHandlers(): void {
   addHandler("export:pptx", async (payload: ExportIssueInput): Promise<ExportIssueResult> => {
-    const { db, templates, exportDir, blobs } = getState();
+    const { db, templates, blobs } = getState();
 
     const issueRow = await db
       .selectFrom("issues")
@@ -191,6 +362,21 @@ export function registerExportHandlers(): void {
         article_title: issueRow.title,
         field: "at least one article",
       });
+    }
+
+    // T17: ask the operator where to save BEFORE doing any heavy lifting.
+    // Cancel returns immediately as a silent no-op (per CEO plan); a chosen
+    // path is persisted to last_export_dir so the next export defaults to
+    // the same folder.
+    const filename = `${slugify(issueRow.title)}-${issueRow.issue_date}.pptx`;
+    const outputPath = await chooseExportPath(
+      db,
+      filename,
+      showSaveDialogImpl ?? defaultShowSaveDialog
+    );
+    if (outputPath === null) {
+      logger.info({ issueId: payload.issueId }, "Export canceled by operator");
+      return { canceled: true };
     }
 
     // Templates available for this issue's page size
@@ -461,9 +647,6 @@ export function registerExportHandlers(): void {
       });
     }
 
-    const filename = `${slugify(issueRow.title)}-${issueRow.issue_date}.pptx`;
-    const outputPath = path.join(exportDir, filename);
-
     logger.info(
       {
         issueId: payload.issueId,
@@ -492,7 +675,8 @@ export function registerExportHandlers(): void {
         ? profileName
         : issueRow.title.split(/\s+[—-]\s+/)[0]!.trim();
 
-    const result = await buildPptx(
+    const builder = buildPptxImpl ?? buildPptx;
+    const result = await builder(
       {
         issueTitle: issueRow.title,
         issueNumber: issueRow.issue_number,
@@ -514,4 +698,9 @@ export function registerExportHandlers(): void {
       warnings: result.warnings,
     };
   });
+
+  // T17: reveal-in-finder action for the export-success toast. Thin
+  // wrapper around `shell.showItemInFolder` so the renderer can highlight
+  // the freshly exported .pptx without leaving the app.
+  addHandler("shell:reveal", revealInFinder);
 }

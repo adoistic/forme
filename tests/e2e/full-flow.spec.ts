@@ -123,9 +123,12 @@ test("full flow: create issue → import docs → add classified → upload ad �
   await expect(window.getByText(/uploaded /i)).toBeVisible({ timeout: 15_000 });
 
   // 5) Export from the Issue Board header ───────────────────────────
+  // T17 — the dialog is shimmed via FORME_TEST_DOCUMENTS_DIR so the file
+  // still lands in `${documentsDir}/Forme/...`. Toast wording switched to
+  // "Exported to <filename>".
   await window.getByTestId("nav-issue-board").click();
   await window.getByTestId("export-issue-button").click();
-  await expect(window.getByText(/exported.*pages/i)).toBeVisible({
+  await expect(window.getByText(/exported to /i)).toBeVisible({
     timeout: 60_000,
   });
 

@@ -177,9 +177,11 @@ test("big issue: 20 articles via NewArticleModal + 120 classifieds + every ad po
   }
 
   // 5) Export ──────────────────────────────────────────────────────
+  // T17 — dialog shimmed via FORME_TEST_DOCUMENTS_DIR; toast now says
+  // "Exported to <filename>".
   await window.getByTestId("nav-issue-board").click();
   await window.getByTestId("export-issue-button").click();
-  await expect(window.getByText(/exported.*pages/i)).toBeVisible({
+  await expect(window.getByText(/exported to /i)).toBeVisible({
     timeout: 5 * 60_000,
   });
 

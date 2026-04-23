@@ -283,10 +283,16 @@ export interface ExportIssueInput {
 }
 
 export interface ExportIssueResult {
-  outputPath: string;
-  bytes: number;
-  pageCount: number;
-  warnings: string[];
+  /**
+   * Set to `true` when the operator dismissed the save dialog (T17).
+   * The renderer treats this as a silent no-op — no toast, no error.
+   * When `canceled` is true, the path/bytes/pageCount fields are omitted.
+   */
+  canceled?: boolean;
+  outputPath?: string;
+  bytes?: number;
+  pageCount?: number;
+  warnings?: string[];
 }
 
 /**
@@ -483,6 +489,10 @@ export interface ChannelMap {
     request: { plan: ExportPlan; rendered: RenderedExportPlan };
     response: ExportIssueResult;
   };
+
+  // Reveal a file in the OS file manager (Finder on macOS). Used by the
+  // "Reveal in Finder" action in the export-success toast (T17).
+  "shell:reveal": { request: { path: string }; response: { ok: true } };
 }
 
 export type ChannelName = keyof ChannelMap;

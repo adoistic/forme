@@ -24,10 +24,16 @@ export function IssueBoardScreen(): React.ReactElement {
     setExporting(true);
     try {
       const result = await invoke("export:pptx", { issueId: currentIssue.id });
-      toast.push(
-        "success",
-        `Exported ${result.pageCount} pages → ${result.outputPath}\nOpen it in PowerPoint to review.`
-      );
+      // Operator cancelled the save dialog — silent no-op per CEO plan.
+      if (result.canceled || !result.outputPath) return;
+      const filename = result.outputPath.split(/[\\/]/).pop() ?? result.outputPath;
+      const savedPath = result.outputPath;
+      toast.push("success", `Exported to ${filename}`, {
+        label: "Reveal in Finder",
+        onClick: () => {
+          void invoke("shell:reveal", { path: savedPath });
+        },
+      });
     } catch (e) {
       toast.push("error", describeError(e));
     } finally {

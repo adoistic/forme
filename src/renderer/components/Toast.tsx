@@ -4,14 +4,24 @@ import React, { createContext, useCallback, useContext, useState } from "react";
 // Replace with Radix Toast when polish phase lands.
 
 type ToastKind = "success" | "error" | "info";
+/**
+ * Optional inline action rendered next to the toast message — e.g.
+ * "Reveal in Finder" on the export-success toast (T17). Clicking the
+ * action runs the handler then dismisses the toast.
+ */
+interface ToastAction {
+  label: string;
+  onClick: () => void;
+}
 interface Toast {
   id: string;
   kind: ToastKind;
   message: string;
+  action?: ToastAction;
 }
 
 interface ToastContextValue {
-  push: (kind: ToastKind, message: string) => void;
+  push: (kind: ToastKind, message: string, action?: ToastAction) => void;
 }
 
 const ToastContext = createContext<ToastContextValue | null>(null);
@@ -19,12 +29,16 @@ const ToastContext = createContext<ToastContextValue | null>(null);
 export function ToastProvider({ children }: { children: React.ReactNode }): React.ReactElement {
   const [toasts, setToasts] = useState<Toast[]>([]);
 
-  const push = useCallback((kind: ToastKind, message: string) => {
+  const push = useCallback((kind: ToastKind, message: string, action?: ToastAction) => {
     const id = Math.random().toString(36).slice(2);
-    setToasts((prev) => [...prev, { id, kind, message }]);
+    setToasts((prev) => [...prev, { id, kind, message, ...(action ? { action } : {}) }]);
     setTimeout(() => {
       setToasts((prev) => prev.filter((t) => t.id !== id));
     }, 5000);
+  }, []);
+
+  const dismiss = useCallback((id: string) => {
+    setToasts((prev) => prev.filter((t) => t.id !== id));
   }, []);
 
   return (
@@ -53,6 +67,19 @@ export function ToastProvider({ children }: { children: React.ReactNode }): Reac
               {t.kind}
             </div>
             <div className="text-text-primary break-words whitespace-pre-wrap">{t.message}</div>
+            {t.action ? (
+              <button
+                type="button"
+                data-testid="toast-action"
+                onClick={() => {
+                  t.action!.onClick();
+                  dismiss(t.id);
+                }}
+                className="text-accent hover:text-accent-hover mt-2 text-sm font-semibold underline underline-offset-2"
+              >
+                {t.action.label}
+              </button>
+            ) : null}
           </div>
         ))}
       </div>
