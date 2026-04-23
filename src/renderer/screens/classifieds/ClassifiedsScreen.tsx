@@ -20,6 +20,8 @@ import { useToast } from "../../components/Toast.js";
 import { invoke } from "../../ipc/client.js";
 import { describeError } from "../../lib/error-helpers.js";
 import { AddClassifiedModal } from "./AddClassifiedModal.js";
+import { JsonImportModal } from "./JsonImportModal.js";
+import { ColumnReferencePanel } from "./ColumnReferencePanel.js";
 import type { ClassifiedSummary } from "@shared/ipc-contracts/channels.js";
 import type { ClassifiedType } from "@shared/schemas/classified.js";
 
@@ -53,6 +55,22 @@ export function ClassifiedsScreen(): React.ReactElement {
   const [adding, setAdding] = useState<ClassifiedType | null>(null);
   const [pickingType, setPickingType] = useState(false);
   const [importing, setImporting] = useState(false);
+  const [jsonImportOpen, setJsonImportOpen] = useState(false);
+  const [downloadingSample, setDownloadingSample] = useState(false);
+
+  async function handleDownloadSample(): Promise<void> {
+    setDownloadingSample(true);
+    try {
+      const res = await invoke("classifieds:download-sample-csv", {});
+      if (res) {
+        toast.push("success", `Sample CSV saved to ${res.outputPath}.`);
+      }
+    } catch (err) {
+      toast.push("error", describeError(err));
+    } finally {
+      setDownloadingSample(false);
+    }
+  }
 
   async function handleCsvUpload(e: React.ChangeEvent<HTMLInputElement>): Promise<void> {
     const file = e.target.files?.[0];
@@ -96,6 +114,15 @@ export function ClassifiedsScreen(): React.ReactElement {
           </div>
         </div>
         <div className="flex items-center gap-3">
+          <button
+            type="button"
+            onClick={handleDownloadSample}
+            disabled={downloadingSample}
+            className="text-title-sm text-text-secondary hover:text-text-primary rounded-md px-3 py-1.5 disabled:opacity-40"
+            data-testid="download-sample-csv-button"
+          >
+            {downloadingSample ? "Saving..." : "Download sample CSV"}
+          </button>
           <label
             className="border-accent text-title-sm text-accent hover:bg-accent-bg cursor-pointer rounded-md border-[1.5px] px-4 py-1.5"
             data-testid="import-csv-button"
@@ -111,6 +138,14 @@ export function ClassifiedsScreen(): React.ReactElement {
           </label>
           <button
             type="button"
+            onClick={() => setJsonImportOpen(true)}
+            className="border-accent text-title-sm text-accent hover:bg-accent-bg rounded-md border-[1.5px] px-4 py-1.5"
+            data-testid="import-json-button"
+          >
+            Import JSON
+          </button>
+          <button
+            type="button"
             onClick={() => setPickingType(true)}
             className="bg-accent text-title-sm text-text-inverse hover:bg-accent-hover rounded-md px-4 py-2 font-semibold"
             data-testid="add-classified-button"
@@ -121,8 +156,11 @@ export function ClassifiedsScreen(): React.ReactElement {
       </header>
 
       <div className="flex-1 overflow-auto p-8">
+        <div className="mx-auto mb-6 max-w-[920px]">
+          <ColumnReferencePanel typeLabels={CLASSIFIED_TYPE_LABELS} />
+        </div>
         {classifieds.length === 0 ? (
-          <div className="flex h-full items-center justify-center">
+          <div className="flex items-center justify-center py-16">
             <div className="max-w-[480px] text-center">
               <div className="text-label-caps text-accent mb-2">NO CLASSIFIEDS YET</div>
               <h2 className="font-display text-display-md text-text-primary mb-3">
@@ -171,6 +209,21 @@ export function ClassifiedsScreen(): React.ReactElement {
             setAdding(null);
             await Promise.all([refreshClassifieds(), refreshIssues()]);
             toast.push("success", "Classified added to the queue.");
+          }}
+        />
+      ) : null}
+
+      {jsonImportOpen ? (
+        <JsonImportModal
+          issueId={currentIssue?.id ?? null}
+          onClose={() => setJsonImportOpen(false)}
+          onImported={async (count) => {
+            setJsonImportOpen(false);
+            await Promise.all([refreshClassifieds(), refreshIssues()]);
+            toast.push(
+              "success",
+              `Imported ${count} classified${count === 1 ? "" : "s"} from JSON.`
+            );
           }}
         />
       ) : null}

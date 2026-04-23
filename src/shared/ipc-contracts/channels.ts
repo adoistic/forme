@@ -428,6 +428,15 @@ export interface ChannelMap {
     request: ImportClassifiedsCsvInput;
     response: ImportClassifiedsCsvResult;
   };
+  /**
+   * Open a save dialog and write the sample CSV (one row per classified
+   * type, all required columns filled) to the operator's chosen location.
+   * Returns `null` when the operator cancels the dialog.
+   */
+  "classifieds:download-sample-csv": {
+    request: Record<string, never>;
+    response: { outputPath: string } | null;
+  };
 
   "ad:list": { request: { issueId: string | null }; response: AdSummary[] };
   "ad:upload": { request: UploadAdInput; response: AdSummary };

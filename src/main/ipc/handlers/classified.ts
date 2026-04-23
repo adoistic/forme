@@ -1,6 +1,7 @@
 import { randomUUID } from "node:crypto";
 import fs from "node:fs/promises";
 import path from "node:path";
+import { dialog, BrowserWindow } from "electron";
 import type { Kysely } from "kysely";
 import Papa from "papaparse";
 import { addHandler } from "../register.js";
@@ -10,6 +11,7 @@ import { ingestImage } from "../../image-ingest/ingest.js";
 import { validateClassified, type ClassifiedType } from "@shared/schemas/classified.js";
 import { makeError } from "@shared/errors/structured.js";
 import { emitDiskUsageChanged } from "../../disk-usage-events.js";
+import { SAMPLE_CLASSIFIEDS_CSV } from "../../classifieds-sample.js";
 import type {
   AddClassifiedInput,
   ClassifiedSummary,
@@ -174,6 +176,9 @@ export function registerClassifiedHandlers(): void {
         "expected_price",
         "asking_price",
         "rent_amount",
+        "bedrooms",
+        "built_up_area_sqft",
+        "plot_area_sqft",
       ]);
       const arrayKeys = new Set(["contact_phones", "sender_names"]);
 
@@ -295,4 +300,25 @@ export function registerClassifiedHandlers(): void {
       return { imported: imported.length, errors };
     }
   );
+
+  // Sample CSV download (T16). Opens a save dialog, writes the bundled
+  // sample to the chosen location. Returns null when the operator cancels
+  // so the renderer can suppress the success toast.
+  addHandler("classifieds:download-sample-csv", async (): Promise<{ outputPath: string } | null> => {
+    const win = BrowserWindow.getFocusedWindow() ?? BrowserWindow.getAllWindows()[0];
+    const result = win
+      ? await dialog.showSaveDialog(win, {
+          title: "Save sample classifieds CSV",
+          defaultPath: "classifieds-sample.csv",
+          filters: [{ name: "CSV", extensions: ["csv"] }],
+        })
+      : await dialog.showSaveDialog({
+          title: "Save sample classifieds CSV",
+          defaultPath: "classifieds-sample.csv",
+          filters: [{ name: "CSV", extensions: ["csv"] }],
+        });
+    if (result.canceled || !result.filePath) return null;
+    await fs.writeFile(result.filePath, SAMPLE_CLASSIFIEDS_CSV, "utf8");
+    return { outputPath: result.filePath };
+  });
 }
