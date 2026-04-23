@@ -6,6 +6,7 @@ import { describeError } from "../../lib/error-helpers.js";
 import { ArticleBodyEditor } from "../../components/article-body-editor/ArticleBodyEditor.js";
 import { ArticleHistoryPanel } from "../../components/article-history-panel/ArticleHistoryPanel.js";
 import { DiffViewer } from "../../components/diff-viewer/DiffViewer.js";
+import { RestoreUnsavedDialog } from "../../components/restore-unsaved-dialog/RestoreUnsavedDialog.js";
 import type { BodyFormat } from "../../components/article-body-editor/ArticleBodyEditor.js";
 import type { ArticleSummary } from "@shared/ipc-contracts/channels.js";
 import type { BylinePosition, HeroPlacement, ContentType } from "@shared/schemas/article.js";
@@ -355,29 +356,94 @@ function EditArticleModalReady({
   }
 
   // ---- Restore flow -------------------------------------------------------
+  /**
+   * Core restore step — calls snapshot:restore and folds the result back
+   * into the editor. Shared by the simple "clean restore" confirm and
+   * both paths of the unsaved-edits 3-option dialog (CEO plan G3).
+   * Throws on IPC failure so the caller can surface it.
+   */
+  async function performRestore(snapshotId: string): Promise<void> {
+    const restored = await invoke("snapshot:restore", { snapshotId });
+    // Replace the editor body with the restored values. ArticleBodyEditor
+    // is keyed by `restoreToken` below so it re-mounts and picks up
+    // the new initialContent.
+    setBody(restored.body);
+    setBodyFormat(restored.bodyFormat);
+    setDirty(false);
+    setSavedAt(new Date());
+    setSelectedSnapshotId(null);
+    setHistoryVersion((v) => v + 1);
+  }
+
   async function handleConfirmRestore(): Promise<void> {
     if (!restoreConfirmId) return;
     setRestoring(true);
     try {
-      const restored = await invoke("snapshot:restore", { snapshotId: restoreConfirmId });
-      // Replace the editor body with the restored values. ArticleBodyEditor
-      // is keyed by `restoreToken` below so it re-mounts and picks up
-      // the new initialContent.
-      setBody(restored.body);
-      setBodyFormat(restored.bodyFormat);
-      setDirty(false);
-      setSavedAt(new Date());
-      setSelectedSnapshotId(null);
-      setHistoryVersion((v) => v + 1);
+      await performRestore(restoreConfirmId);
       setRestoreConfirmId(null);
       // Sync meta in case the restored snapshot belongs to a version with
       // different defaults — though the snapshot store only carries body.
       // Safe to leave meta alone; operator can save again to commit.
-      toast.push("success", "Version restored.");
+      toast.push("success", "Restored");
     } catch (err) {
       toast.push("error", describeError(err));
     } finally {
       setRestoring(false);
+    }
+  }
+
+  /**
+   * G3 path — operator has unsaved edits and chose "Save current draft
+   * first, then restore." Writes a snapshot of the current draft (per
+   * CEO 1C, save always snapshots) before pulling the older version
+   * back in. Failure of either step surfaces a toast and leaves the
+   * dialog open so the operator can retry or pick another option.
+   */
+  async function handleSaveThenRestore(snapshotId: string): Promise<void> {
+    if (!headline.trim()) {
+      toast.push("error", "A headline is required.");
+      throw new Error("missing headline");
+    }
+    try {
+      const updated = await invoke("article:update", {
+        id: article.id,
+        headline: headline.trim(),
+        deck: deck.trim() || null,
+        byline: byline.trim() || null,
+        bylinePosition,
+        contentType,
+        heroPlacement,
+        heroCaption: heroCaption.trim() || null,
+        heroCredit: heroCredit.trim() || null,
+        section: section.trim() || null,
+        body,
+        bodyFormat,
+      });
+      onSaved(updated);
+      if (updated.snapshotWarning) {
+        toast.push("info", updated.snapshotWarning);
+      }
+      await performRestore(snapshotId);
+      setRestoreConfirmId(null);
+      toast.push("success", "Restored");
+    } catch (err) {
+      toast.push("error", describeError(err));
+      throw err;
+    }
+  }
+
+  /**
+   * G3 path — operator chose "Discard current draft and restore."
+   * Skips the save and goes straight to snapshot:restore.
+   */
+  async function handleDiscardThenRestore(snapshotId: string): Promise<void> {
+    try {
+      await performRestore(snapshotId);
+      setRestoreConfirmId(null);
+      toast.push("success", "Restored");
+    } catch (err) {
+      toast.push("error", describeError(err));
+      throw err;
     }
   }
 
@@ -595,17 +661,30 @@ function EditArticleModalReady({
         />
       ) : null}
 
-      {/* Restore confirm dialog */}
-      {restoreConfirmId ? (
+      {/* Restore confirm dialogs.
+        * - Clean editor: simple "Restore version from <timestamp>?" confirm.
+        * - Dirty editor: 3-option dialog (CEO plan G3) — Save first, Discard,
+        *   Cancel. Both paths route through their respective handlers and
+        *   close on success. */}
+      {restoreConfirmId && !dirty ? (
         <ConfirmDialog
           testid="edit-article-restore-confirm"
           title="Restore this version?"
-          body={`Restore version from ${formatRestoreTimestamp(snapshotPreview?.createdAt)}? Your current draft will be saved as a new version first.`}
+          body={`Restore version from ${formatRestoreTimestamp(snapshotPreview?.createdAt)}?`}
           confirmLabel={restoring ? "Restoring…" : "Restore version"}
           confirmVariant="primary"
           onCancel={() => setRestoreConfirmId(null)}
           onConfirm={() => void handleConfirmRestore()}
           confirming={restoring}
+        />
+      ) : null}
+      {restoreConfirmId && dirty ? (
+        <RestoreUnsavedDialog
+          open
+          snapshotTimestamp={formatRestoreTimestamp(snapshotPreview?.createdAt)}
+          onSaveFirst={() => handleSaveThenRestore(restoreConfirmId)}
+          onDiscard={() => handleDiscardThenRestore(restoreConfirmId)}
+          onCancel={() => setRestoreConfirmId(null)}
         />
       ) : null}
     </Dialog.Root>

@@ -93,13 +93,17 @@ body {
   border-radius: 6px;
 }
 
-/* Reduce-motion respect */
+/* Reduce-motion respect — global reset per ER2-6 / design review 6A.
+ * Tailwind 4's `motion-reduce:` utilities cover its own animations, but
+ * any third-party CSS (BlockNote, Radix, etc.) needs this nuke-from-orbit
+ * fallback to honor the OS preference. */
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,
   *::after {
-    animation-duration: 0.01ms !important;
-    transition-duration: 0.01ms !important;
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
     scroll-behavior: auto !important;
   }
 }

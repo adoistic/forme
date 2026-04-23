@@ -393,7 +393,7 @@ describe("<EditArticleModal>", () => {
     );
   });
 
-  test("Restore button → confirm dialog → on confirm calls snapshot:restore", async () => {
+  test("Restore button on a clean editor → simple confirm → snapshot:restore", async () => {
     const article = makeArticle();
     const snapshot = makeSnapshot({ id: "snap-42" });
     let restoreCalledWith: unknown = null;
@@ -411,13 +411,149 @@ describe("<EditArticleModal>", () => {
     await flushAsync();
 
     fireEvent.click(screen.getByTestId("article-history-restore"));
-    // Confirm dialog appears.
+    // Simple confirm dialog appears (clean editor).
     expect(screen.getByTestId("edit-article-restore-confirm")).toBeTruthy();
+    expect(screen.queryByTestId("restore-unsaved-dialog")).toBeNull();
     fireEvent.click(screen.getByTestId("edit-article-restore-confirm-confirm"));
     await flushAsync();
 
     expect(restoreCalledWith).toEqual({ snapshotId: "snap-42" });
     expect(mockedInvoke).toHaveBeenCalledWith("snapshot:restore", { snapshotId: "snap-42" });
+  });
+
+  test("Restore on a dirty editor → 3-option dialog (G3), not the simple confirm", async () => {
+    const article = makeArticle();
+    const snapshot = makeSnapshot({ id: "snap-42" });
+    await mountModal({ article, snapshots: [snapshot] });
+
+    // Mark dirty by editing the headline.
+    fireEvent.click(screen.getByTestId("edit-article-details-toggle"));
+    const headline = screen.getByTestId("edit-article-headline") as HTMLInputElement;
+    fireEvent.change(headline, { target: { value: "Edited headline" } });
+
+    fireEvent.click(screen.getByTestId("article-history-row-snap-42"));
+    await flushAsync();
+
+    fireEvent.click(screen.getByTestId("article-history-restore"));
+
+    expect(screen.getByTestId("restore-unsaved-dialog")).toBeTruthy();
+    expect(screen.queryByTestId("edit-article-restore-confirm")).toBeNull();
+    // All three actions present.
+    expect(screen.getByTestId("restore-unsaved-save-first")).toBeTruthy();
+    expect(screen.getByTestId("restore-unsaved-discard")).toBeTruthy();
+    expect(screen.getByTestId("restore-unsaved-cancel")).toBeTruthy();
+  });
+
+  test("Restore on dirty + Save-first path: article:update then snapshot:restore", async () => {
+    const article = makeArticle();
+    const snapshot = makeSnapshot({ id: "snap-42" });
+    let updateCalled = false;
+    let restoreCalled = false;
+    const callOrder: string[] = [];
+    await mountModal({
+      article,
+      snapshots: [snapshot],
+      onUpdate: () => {
+        updateCalled = true;
+        callOrder.push("article:update");
+        return article;
+      },
+      onRestore: () => {
+        restoreCalled = true;
+        callOrder.push("snapshot:restore");
+        return makeArticle({ body: "Restored body.", bodyFormat: "plain" });
+      },
+    });
+
+    // Mark dirty.
+    fireEvent.click(screen.getByTestId("edit-article-details-toggle"));
+    const headline = screen.getByTestId("edit-article-headline") as HTMLInputElement;
+    fireEvent.change(headline, { target: { value: "Edited headline" } });
+
+    fireEvent.click(screen.getByTestId("article-history-row-snap-42"));
+    await flushAsync();
+
+    fireEvent.click(screen.getByTestId("article-history-restore"));
+    expect(screen.getByTestId("restore-unsaved-dialog")).toBeTruthy();
+
+    fireEvent.click(screen.getByTestId("restore-unsaved-save-first"));
+    await flushAsync();
+
+    expect(updateCalled).toBe(true);
+    expect(restoreCalled).toBe(true);
+    expect(callOrder).toEqual(["article:update", "snapshot:restore"]);
+    // Dialog dismissed after success.
+    expect(screen.queryByTestId("restore-unsaved-dialog")).toBeNull();
+  });
+
+  test("Restore on dirty + Discard path: snapshot:restore only, no article:update", async () => {
+    const article = makeArticle();
+    const snapshot = makeSnapshot({ id: "snap-42" });
+    let updateCalled = false;
+    let restoreCalledWith: unknown = null;
+    await mountModal({
+      article,
+      snapshots: [snapshot],
+      onUpdate: () => {
+        updateCalled = true;
+        return article;
+      },
+      onRestore: (payload) => {
+        restoreCalledWith = payload;
+        return makeArticle({ body: "Restored body.", bodyFormat: "plain" });
+      },
+    });
+
+    // Mark dirty.
+    fireEvent.click(screen.getByTestId("edit-article-details-toggle"));
+    const headline = screen.getByTestId("edit-article-headline") as HTMLInputElement;
+    fireEvent.change(headline, { target: { value: "Edited headline" } });
+
+    fireEvent.click(screen.getByTestId("article-history-row-snap-42"));
+    await flushAsync();
+
+    fireEvent.click(screen.getByTestId("article-history-restore"));
+    fireEvent.click(screen.getByTestId("restore-unsaved-discard"));
+    await flushAsync();
+
+    expect(updateCalled).toBe(false);
+    expect(restoreCalledWith).toEqual({ snapshotId: "snap-42" });
+    expect(screen.queryByTestId("restore-unsaved-dialog")).toBeNull();
+  });
+
+  test("Restore on dirty + Cancel: nothing IPC-side; dialog closes", async () => {
+    const article = makeArticle();
+    const snapshot = makeSnapshot({ id: "snap-42" });
+    let updateCalled = false;
+    let restoreCalled = false;
+    await mountModal({
+      article,
+      snapshots: [snapshot],
+      onUpdate: () => {
+        updateCalled = true;
+        return article;
+      },
+      onRestore: () => {
+        restoreCalled = true;
+        return article;
+      },
+    });
+
+    // Mark dirty.
+    fireEvent.click(screen.getByTestId("edit-article-details-toggle"));
+    const headline = screen.getByTestId("edit-article-headline") as HTMLInputElement;
+    fireEvent.change(headline, { target: { value: "Edited headline" } });
+
+    fireEvent.click(screen.getByTestId("article-history-row-snap-42"));
+    await flushAsync();
+
+    fireEvent.click(screen.getByTestId("article-history-restore"));
+    fireEvent.click(screen.getByTestId("restore-unsaved-cancel"));
+    await flushAsync();
+
+    expect(updateCalled).toBe(false);
+    expect(restoreCalled).toBe(false);
+    expect(screen.queryByTestId("restore-unsaved-dialog")).toBeNull();
   });
 
   test("below 1000px modal width, the right preview pane is hidden", async () => {
