@@ -38,6 +38,7 @@ export function StorageThresholdBanner(): React.ReactElement | null {
   const [currentTotal, setCurrentTotal] = useState<number>(0);
   const [dismissedAt, setDismissedAt] = useState<number | null>(null);
   const setActiveTab = useNavStore((s) => s.setActiveTab);
+  const setSettingsTab = useNavStore((s) => s.setSettingsTab);
 
   // Initial fetch + event subscription. The component needs the current
   // total before any `disk-usage-changed` event has fired.
@@ -68,8 +69,9 @@ export function StorageThresholdBanner(): React.ReactElement | null {
   }, [currentTotal]);
 
   const handleManage = useCallback(() => {
+    setSettingsTab("storage");
     setActiveTab("settings");
-  }, [setActiveTab]);
+  }, [setActiveTab, setSettingsTab]);
 
   if (tier === "hidden") return null;
 

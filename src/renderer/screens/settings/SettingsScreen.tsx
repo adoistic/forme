@@ -1,8 +1,15 @@
 import React, { useEffect, useState } from "react";
+import * as Tabs from "@radix-ui/react-tabs";
 import { useIssueStore, useShallow } from "../../stores/issue.js";
+import {
+  useNavStore,
+  useShallow as useNavShallow,
+  type SettingsTab,
+} from "../../stores/navigation.js";
 import { useToast } from "../../components/Toast.js";
 import { invoke } from "../../ipc/client.js";
 import { describeError } from "../../lib/error-helpers.js";
+import { StorageSettings } from "./StorageSettings.js";
 import type { PublisherProfile } from "@shared/ipc-contracts/channels.js";
 import type { Language } from "@shared/schemas/language.js";
 
@@ -21,6 +28,77 @@ export function SettingsScreen(): React.ReactElement {
   const { profile, refreshProfile } = useIssueStore(
     useShallow((s) => ({ profile: s.profile, refreshProfile: s.refreshProfile }))
   );
+  const { settingsTab, setSettingsTab } = useNavStore(
+    useNavShallow((s) => ({ settingsTab: s.settingsTab, setSettingsTab: s.setSettingsTab }))
+  );
+
+  return (
+    <Tabs.Root
+      value={settingsTab}
+      onValueChange={(v) => setSettingsTab(v as SettingsTab)}
+      className="flex h-full flex-col overflow-hidden"
+    >
+      <header className="border-border-default flex h-16 shrink-0 items-center justify-between border-b px-8">
+        <div>
+          <h1 className="font-display text-display-md text-text-primary">Settings</h1>
+          <div className="text-caption text-text-tertiary">
+            Publisher Profile + storage usage.
+          </div>
+        </div>
+        <Tabs.List
+          aria-label="Settings sections"
+          className="bg-bg-canvas inline-flex items-center gap-1 rounded-md p-1"
+        >
+          <SettingsTabTrigger value="profile" label="Profile" />
+          <SettingsTabTrigger value="storage" label="Storage" />
+        </Tabs.List>
+      </header>
+
+      <div className="flex-1 overflow-auto p-8">
+        <Tabs.Content value="profile" className="mx-auto max-w-[720px]">
+          <ProfileForm
+            profile={profile}
+            refreshProfile={refreshProfile}
+          />
+        </Tabs.Content>
+        <Tabs.Content value="storage" className="mx-auto max-w-[920px]">
+          <StorageSettings />
+        </Tabs.Content>
+      </div>
+    </Tabs.Root>
+  );
+}
+
+function SettingsTabTrigger({
+  value,
+  label,
+}: {
+  value: SettingsTab;
+  label: string;
+}): React.ReactElement {
+  return (
+    <Tabs.Trigger
+      value={value}
+      data-testid={`settings-tab-${value}`}
+      className={[
+        "text-title-sm rounded px-3 py-1.5 transition-colors",
+        "text-text-secondary hover:text-text-primary",
+        "data-[state=active]:bg-bg-surface data-[state=active]:text-text-primary",
+        "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/35",
+      ].join(" ")}
+    >
+      {label}
+    </Tabs.Trigger>
+  );
+}
+
+function ProfileForm({
+  profile,
+  refreshProfile,
+}: {
+  profile: PublisherProfile | null;
+  refreshProfile: () => Promise<void>;
+}): React.ReactElement {
   const toast = useToast();
 
   const [draft, setDraft] = useState<PublisherProfile>(profile ?? DEFAULT_PROFILE);
@@ -55,14 +133,78 @@ export function SettingsScreen(): React.ReactElement {
   }
 
   return (
-    <form onSubmit={handleSave} className="flex h-full flex-col overflow-hidden">
-      <header className="border-border-default flex h-16 shrink-0 items-center justify-between border-b px-8">
-        <div>
-          <h1 className="font-display text-display-md text-text-primary">Settings</h1>
-          <div className="text-caption text-text-tertiary">
-            Publisher Profile — defaults applied to new issues.
-          </div>
+    <form onSubmit={handleSave} className="space-y-6">
+      <Section title="Publication basics" subline="Name, default typography, accent color">
+        <LabeledInput
+          label="Publication name"
+          required
+          value={draft.publicationName}
+          onChange={(v) => update("publicationName", v)}
+          placeholder="The Daily Saptahik"
+          data-testid="profile-publication-name"
+        />
+
+        <LabeledSelect
+          label="Typography pairing default"
+          value={draft.typographyPairingDefault}
+          onChange={(v) => update("typographyPairingDefault", v)}
+          options={["Editorial Serif", "News Sans", "Literary", "Modern Geometric"]}
+        />
+
+        <LabeledInput
+          label="House-style accent color (optional)"
+          value={draft.accentColor ?? ""}
+          onChange={(v) => update("accentColor", v || null)}
+          placeholder="#C96E4E or a CSS color"
+        />
+      </Section>
+
+      <Section title="Print defaults" subline="Applied to new issues you create">
+        <div className="grid grid-cols-2 gap-4">
+          <LabeledPills
+            label="Default page size"
+            value={draft.pageSizeDefault}
+            options={["A4", "A5"] as const}
+            onChange={(v) => update("pageSizeDefault", v)}
+          />
+          <LabeledPills
+            label="Default language"
+            value={draft.primaryLanguageDefault}
+            options={["en", "hi", "bilingual"] as Language[]}
+            labels={{ en: "English", hi: "Hindi", bilingual: "Bilingual" }}
+            onChange={(v) => update("primaryLanguageDefault", v)}
+          />
         </div>
+        <LabeledSelect
+          label="Issue cadence"
+          value={draft.issueCadence ?? ""}
+          onChange={(v) =>
+            update("issueCadence", v ? (v as PublisherProfile["issueCadence"]) : null)
+          }
+          options={["weekly", "fortnightly", "monthly"]}
+          allowEmpty
+        />
+      </Section>
+
+      <Section
+        title="Printer + billing"
+        subline="Shown at export time; billing label is for your own bookkeeping"
+      >
+        <LabeledInput
+          label="Printer contact"
+          value={draft.printerContact ?? ""}
+          onChange={(v) => update("printerContact", v || null)}
+          placeholder="email@press.com or phone"
+        />
+        <LabeledInput
+          label="Classifieds billing label"
+          value={draft.classifiedsBillingLabel}
+          onChange={(v) => update("classifiedsBillingLabel", v)}
+          placeholder="Billing Ref / Invoice # / …"
+        />
+      </Section>
+
+      <div className="flex justify-end">
         <button
           type="submit"
           disabled={busy || !dirty}
@@ -71,80 +213,6 @@ export function SettingsScreen(): React.ReactElement {
         >
           {busy ? "Saving..." : "Save changes"}
         </button>
-      </header>
-
-      <div className="flex-1 overflow-auto p-8">
-        <div className="mx-auto max-w-[720px] space-y-6">
-          <Section title="Publication basics" subline="Name, default typography, accent color">
-            <LabeledInput
-              label="Publication name"
-              required
-              value={draft.publicationName}
-              onChange={(v) => update("publicationName", v)}
-              placeholder="The Daily Saptahik"
-              data-testid="profile-publication-name"
-            />
-
-            <LabeledSelect
-              label="Typography pairing default"
-              value={draft.typographyPairingDefault}
-              onChange={(v) => update("typographyPairingDefault", v)}
-              options={["Editorial Serif", "News Sans", "Literary", "Modern Geometric"]}
-            />
-
-            <LabeledInput
-              label="House-style accent color (optional)"
-              value={draft.accentColor ?? ""}
-              onChange={(v) => update("accentColor", v || null)}
-              placeholder="#C96E4E or a CSS color"
-            />
-          </Section>
-
-          <Section title="Print defaults" subline="Applied to new issues you create">
-            <div className="grid grid-cols-2 gap-4">
-              <LabeledPills
-                label="Default page size"
-                value={draft.pageSizeDefault}
-                options={["A4", "A5"] as const}
-                onChange={(v) => update("pageSizeDefault", v)}
-              />
-              <LabeledPills
-                label="Default language"
-                value={draft.primaryLanguageDefault}
-                options={["en", "hi", "bilingual"] as Language[]}
-                labels={{ en: "English", hi: "Hindi", bilingual: "Bilingual" }}
-                onChange={(v) => update("primaryLanguageDefault", v)}
-              />
-            </div>
-            <LabeledSelect
-              label="Issue cadence"
-              value={draft.issueCadence ?? ""}
-              onChange={(v) =>
-                update("issueCadence", v ? (v as PublisherProfile["issueCadence"]) : null)
-              }
-              options={["weekly", "fortnightly", "monthly"]}
-              allowEmpty
-            />
-          </Section>
-
-          <Section
-            title="Printer + billing"
-            subline="Shown at export time; billing label is for your own bookkeeping"
-          >
-            <LabeledInput
-              label="Printer contact"
-              value={draft.printerContact ?? ""}
-              onChange={(v) => update("printerContact", v || null)}
-              placeholder="email@press.com or phone"
-            />
-            <LabeledInput
-              label="Classifieds billing label"
-              value={draft.classifiedsBillingLabel}
-              onChange={(v) => update("classifiedsBillingLabel", v)}
-              placeholder="Billing Ref / Invoice # / …"
-            />
-          </Section>
-        </div>
       </div>
     </form>
   );

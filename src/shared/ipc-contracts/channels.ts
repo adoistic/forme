@@ -137,6 +137,40 @@ export interface DiskUsageSnapshot {
   total: number;
 }
 
+// ---- Storage panel (v0.6 T12) ----
+
+/**
+ * Aggregate disk usage summary for the Settings → Storage panel.
+ * `total` and `snapshots`/`blobs` mirror DiskUsageSnapshot; the
+ * `blobsByKind` breakdown attributes blob bytes to their owners.
+ */
+export interface StorageOverview {
+  total: number;
+  snapshots: number;
+  blobs: number;
+  blobsByKind: {
+    hero: number;
+    ad: number;
+    classifieds: number;
+    other: number;
+  };
+}
+
+/**
+ * Per-article storage row for the Settings → Storage list. Articles
+ * with no snapshots and no blobs still appear with zero totals so the
+ * operator sees the full inventory, not just the heavy hitters.
+ */
+export interface ArticleStorageRow {
+  articleId: string;
+  issueId: string;
+  headline: string;
+  snapshotBytes: number;
+  snapshotCount: number;
+  blobBytes: number;
+  totalBytes: number;
+}
+
 // ---- Classifieds ----
 
 export interface AddClassifiedInput<T extends ClassifiedType = ClassifiedType> {
@@ -346,6 +380,15 @@ export interface ChannelMap {
   // any `disk-usage-changed` event has fired (T11). Same payload as the
   // event, computed via `computeDiskUsage`.
   "disk-usage:current": { request: Record<string, never>; response: DiskUsageSnapshot };
+
+  // Settings → Storage panel (T12). Overview surfaces the total + per-kind
+  // breakdown; per-article returns one row per article (including those with
+  // zero usage) so the operator can drill into version history.
+  "storage:overview": { request: Record<string, never>; response: StorageOverview };
+  "storage:per-article": {
+    request: { issueId?: string };
+    response: ArticleStorageRow[];
+  };
 
   "classified:list": {
     request: { issueId: string | null };

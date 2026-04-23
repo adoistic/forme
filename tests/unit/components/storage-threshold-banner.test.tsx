@@ -21,9 +21,14 @@ vi.mock("../../../src/renderer/ipc/client.js", () => ({
 // Mock the navigation store so we can assert on Manage → behavior without
 // pulling in the real Zustand store across tests.
 const mockedSetActiveTab = vi.fn();
+const mockedSetSettingsTab = vi.fn();
 vi.mock("../../../src/renderer/stores/navigation.js", () => ({
-  useNavStore: (selector: (s: { setActiveTab: (tab: string) => void }) => unknown) =>
-    selector({ setActiveTab: mockedSetActiveTab }),
+  useNavStore: (
+    selector: (s: {
+      setActiveTab: (tab: string) => void;
+      setSettingsTab: (tab: string) => void;
+    }) => unknown
+  ) => selector({ setActiveTab: mockedSetActiveTab, setSettingsTab: mockedSetSettingsTab }),
 }));
 
 import { invoke } from "../../../src/renderer/ipc/client.js";
@@ -44,6 +49,7 @@ let unsubscribeSpy: ReturnType<typeof vi.fn>;
 beforeEach(() => {
   mockedInvoke.mockReset();
   mockedSetActiveTab.mockReset();
+  mockedSetSettingsTab.mockReset();
   unsubscribeSpy = vi.fn();
   diskUsageListener = null;
 
@@ -196,10 +202,11 @@ describe("<StorageThresholdBanner>", () => {
     expect(unsubscribeSpy).toHaveBeenCalledTimes(1);
   });
 
-  test("Manage → switches the active tab to settings", async () => {
+  test("Manage → switches the active tab to settings + lands on storage", async () => {
     await renderBanner(600 * MB);
     fireEvent.click(screen.getByTestId("storage-threshold-banner-manage"));
     expect(mockedSetActiveTab).toHaveBeenCalledWith("settings");
+    expect(mockedSetSettingsTab).toHaveBeenCalledWith("storage");
   });
 
   test("event-driven update can lift tier from hidden to warn", async () => {
