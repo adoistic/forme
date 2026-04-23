@@ -73,14 +73,13 @@ export function Sidebar(): React.ReactElement {
       className="border-border-default bg-bg-canvas flex h-full w-[260px] shrink-0 flex-col border-r"
     >
       {/* Masthead. Wordmark sits inside the macOS traffic-light row's
-          drag region. Fraunces "F" + Inter "orme" + the same rust setting-
-          dot the app icon uses — keeps the in-app brand and the .icns
-          mark in lockstep so the operator sees one identity everywhere. */}
-      <div className="app-region-drag relative flex h-16 items-end justify-end pr-5 pb-2.5">
-        <div className="font-display text-text-primary flex items-baseline gap-[3px] text-[20px] leading-none tracking-tight">
+          drag region — left-aligned past the lights, vertically centered
+          on the 64px masthead so the rust "F" lines up with the active-tab
+          accent bar below. */}
+      <div className="app-region-drag relative flex h-16 items-center pl-20">
+        <div className="font-display text-text-primary flex items-baseline text-[22px] leading-none tracking-tight">
           <span className="text-accent font-bold">F</span>
           <span className="font-medium">orme</span>
-          <span className="bg-text-primary ml-[2px] inline-block h-[5px] w-[5px] translate-y-[-2px]" />
         </div>
       </div>
 
