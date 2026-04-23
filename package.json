@@ -160,6 +160,7 @@
     "dompurify": "^3.4.1",
     "hyphen": "^1.14.1",
     "immer": "^11.1.4",
+    "ipaddr.js": "^2.3.0",
     "jsondiffpatch": "^0.7.3",
     "kysely": "^0.28.16",
     "mammoth": "^1.12.0",

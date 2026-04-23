@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from "react";
+import React, { useMemo, useRef, useState } from "react";
 import { useEditor, EditorContent } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
 import { marked } from "marked";
@@ -16,6 +16,14 @@ interface Props {
 }
 
 type EditorMode = "richtext" | "markdown";
+
+// Hero upload state machine. Operator picks a file (via picker / drop) OR
+// types a URL — never both. We keep them in separate slots so the submit
+// path can route to the correct IPC handler.
+type HeroSource =
+  | { kind: "none" }
+  | { kind: "file"; file: File; previewUrl: string }
+  | { kind: "url"; url: string };
 
 const CONTENT_TYPES: ContentType[] = [
   "Article",
@@ -99,6 +107,74 @@ export function NewArticleModal({ issueId, onClose, onSaved }: Props): React.Rea
   const [markdown, setMarkdown] = useState("");
   const [busy, setBusy] = useState(false);
 
+  // Hero upload — staged locally until article:create succeeds, then
+  // forwarded to the hero:upload-* IPC. Operators see a preview before
+  // committing.
+  const [hero, setHero] = useState<HeroSource>({ kind: "none" });
+  const [urlExpanded, setUrlExpanded] = useState(false);
+  const [urlDraft, setUrlDraft] = useState("");
+  const [dragOver, setDragOver] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
+
+  function clearHero(): void {
+    if (hero.kind === "file") {
+      URL.revokeObjectURL(hero.previewUrl);
+    }
+    setHero({ kind: "none" });
+    setUrlDraft("");
+    setUrlExpanded(false);
+  }
+
+  function handleFileChosen(file: File | null): void {
+    if (!file) return;
+    if (!file.type.startsWith("image/")) {
+      toast.push("error", "That file isn't an image.");
+      return;
+    }
+    if (hero.kind === "file") {
+      URL.revokeObjectURL(hero.previewUrl);
+    }
+    setHero({ kind: "file", file, previewUrl: URL.createObjectURL(file) });
+    setUrlDraft("");
+    setUrlExpanded(false);
+  }
+
+  function handleUrlConfirm(): void {
+    const trimmed = urlDraft.trim();
+    if (!trimmed) return;
+    if (hero.kind === "file") {
+      URL.revokeObjectURL(hero.previewUrl);
+    }
+    setHero({ kind: "url", url: trimmed });
+  }
+
+  function handleDrop(e: React.DragEvent<HTMLDivElement>): void {
+    e.preventDefault();
+    setDragOver(false);
+    const file = e.dataTransfer.files?.[0];
+    if (file) handleFileChosen(file);
+  }
+
+  // Helper: read a File as base64 without holding the whole string in memory
+  // an extra time (the FileReader output IS the base64 we need).
+  async function fileToBase64(file: File): Promise<string> {
+    return new Promise<string>((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => {
+        const result = reader.result;
+        if (typeof result !== "string") {
+          reject(new Error("FileReader returned non-string"));
+          return;
+        }
+        // dataURL form is `data:<mime>;base64,<payload>` — strip prefix.
+        const comma = result.indexOf(",");
+        resolve(comma >= 0 ? result.slice(comma + 1) : result);
+      };
+      reader.onerror = () => reject(reader.error ?? new Error("FileReader error"));
+      reader.readAsDataURL(file);
+    });
+  }
+
   const editor = useEditor({
     extensions: [StarterKit],
     content: "",
@@ -144,7 +220,7 @@ export function NewArticleModal({ issueId, onClose, onSaved }: Props): React.Rea
     }
     setBusy(true);
     try {
-      const created = await invoke("article:create", {
+      let created = await invoke("article:create", {
         issueId,
         headline: headline.trim(),
         body: bodyText,
@@ -152,6 +228,43 @@ export function NewArticleModal({ issueId, onClose, onSaved }: Props): React.Rea
         byline: byline.trim() || null,
         contentType,
       });
+
+      // Stage 2: hero upload, if the operator picked one. We attempt this
+      // AFTER the article is created so the article id exists. Failure here
+      // doesn't roll back the article — operator gets a warning toast and
+      // can re-attempt the hero from the edit modal.
+      if (hero.kind === "file") {
+        try {
+          const base64 = await fileToBase64(hero.file);
+          created = await invoke("hero:upload-file", {
+            articleId: created.id,
+            base64,
+            filename: hero.file.name,
+          });
+        } catch (heroErr) {
+          toast.push(
+            "error",
+            `Article saved, but the hero image didn't attach: ${describeError(heroErr)}`
+          );
+        }
+      } else if (hero.kind === "url") {
+        try {
+          created = await invoke("hero:upload-url", {
+            articleId: created.id,
+            url: hero.url,
+          });
+        } catch (heroErr) {
+          toast.push(
+            "error",
+            `Article saved, but the hero image didn't attach: ${describeError(heroErr)}`
+          );
+        }
+      }
+
+      // Tear down preview URL before parent unmounts the modal.
+      if (hero.kind === "file") {
+        URL.revokeObjectURL(hero.previewUrl);
+      }
       onSaved(created);
     } catch (err) {
       toast.push("error", describeError(err));
@@ -250,6 +363,24 @@ export function NewArticleModal({ issueId, onClose, onSaved }: Props): React.Rea
           </div>
         </div>
 
+        {/* Hero upload — drop zone + file picker + URL paste (T14) */}
+        <div className="border-border-default border-b px-8 py-4" data-testid="new-article-hero">
+          <HeroUploadSection
+            hero={hero}
+            dragOver={dragOver}
+            urlExpanded={urlExpanded}
+            urlDraft={urlDraft}
+            fileInputRef={fileInputRef}
+            onSetUrlDraft={setUrlDraft}
+            onSetDragOver={setDragOver}
+            onSetUrlExpanded={setUrlExpanded}
+            onUrlConfirm={handleUrlConfirm}
+            onClear={clearHero}
+            onFileChosen={handleFileChosen}
+            onDrop={handleDrop}
+          />
+        </div>
+
         {/* Body */}
         <div className="flex-1 overflow-hidden">
           {mode === "richtext" ? (
@@ -278,6 +409,173 @@ export function NewArticleModal({ issueId, onClose, onSaved }: Props): React.Rea
           </button>
         </div>
       </form>
+    </div>
+  );
+}
+
+/**
+ * HeroUploadSection — three-affordance upload row per design-shotgun
+ * "drop-zone-primary" variant:
+ *   - Big dashed-rust drop zone (clicking it opens the file picker)
+ *   - "Or paste a URL" link below (toggles a URL input)
+ *   - Selected-state replaces the zone with a small preview + "Remove"
+ *
+ * Drag/drop wiring lives on the zone itself. The parent owns the state
+ * (so the submit handler can read it after `article:create` returns).
+ */
+function HeroUploadSection({
+  hero,
+  dragOver,
+  urlExpanded,
+  urlDraft,
+  fileInputRef,
+  onSetUrlDraft,
+  onSetDragOver,
+  onSetUrlExpanded,
+  onUrlConfirm,
+  onClear,
+  onFileChosen,
+  onDrop,
+}: {
+  hero: HeroSource;
+  dragOver: boolean;
+  urlExpanded: boolean;
+  urlDraft: string;
+  fileInputRef: React.MutableRefObject<HTMLInputElement | null>;
+  onSetUrlDraft: (s: string) => void;
+  onSetDragOver: (b: boolean) => void;
+  onSetUrlExpanded: (b: boolean) => void;
+  onUrlConfirm: () => void;
+  onClear: () => void;
+  onFileChosen: (file: File | null) => void;
+  onDrop: (e: React.DragEvent<HTMLDivElement>) => void;
+}): React.ReactElement {
+  // Selected state — show a small preview + remove button.
+  if (hero.kind === "file") {
+    return (
+      <div className="flex items-center gap-4" data-testid="new-article-hero-selected">
+        <img
+          src={hero.previewUrl}
+          alt="Hero preview"
+          className="border-border-default h-16 w-16 rounded-md border object-cover"
+        />
+        <div className="min-w-0 flex-1">
+          <div className="text-label-caps text-text-secondary">HERO IMAGE</div>
+          <div className="text-caption text-text-primary truncate">{hero.file.name}</div>
+        </div>
+        <button
+          type="button"
+          onClick={onClear}
+          className="text-caption text-text-secondary hover:text-text-primary rounded-md px-3 py-1.5 hover:bg-black/[0.04]"
+          data-testid="new-article-hero-remove"
+        >
+          Remove
+        </button>
+      </div>
+    );
+  }
+  if (hero.kind === "url") {
+    return (
+      <div className="flex items-center gap-4" data-testid="new-article-hero-selected">
+        <div className="border-border-default bg-bg-canvas flex h-16 w-16 items-center justify-center rounded-md border">
+          <span className="text-label-caps text-text-tertiary">URL</span>
+        </div>
+        <div className="min-w-0 flex-1">
+          <div className="text-label-caps text-text-secondary">HERO IMAGE</div>
+          <div className="text-caption text-text-primary truncate" title={hero.url}>
+            {hero.url}
+          </div>
+        </div>
+        <button
+          type="button"
+          onClick={onClear}
+          className="text-caption text-text-secondary hover:text-text-primary rounded-md px-3 py-1.5 hover:bg-black/[0.04]"
+          data-testid="new-article-hero-remove"
+        >
+          Remove
+        </button>
+      </div>
+    );
+  }
+
+  // Empty state — drop zone + URL paste.
+  return (
+    <div className="flex flex-col gap-2">
+      <div
+        role="button"
+        tabIndex={0}
+        onClick={() => fileInputRef.current?.click()}
+        onKeyDown={(e) => {
+          if (e.key === "Enter" || e.key === " ") {
+            e.preventDefault();
+            fileInputRef.current?.click();
+          }
+        }}
+        onDragOver={(e) => {
+          e.preventDefault();
+          if (!dragOver) onSetDragOver(true);
+        }}
+        onDragLeave={() => onSetDragOver(false)}
+        onDrop={onDrop}
+        className={[
+          "flex flex-col items-center justify-center gap-1 rounded-lg border-2 border-dashed py-8 text-center transition-colors",
+          dragOver
+            ? "border-accent bg-accent-bg"
+            : "border-border-dashed bg-bg-canvas hover:bg-black/[0.02]",
+        ].join(" ")}
+        data-testid="new-article-hero-dropzone"
+      >
+        <span className="text-title-sm text-text-primary">Drop a hero image here</span>
+        <span className="text-caption text-text-secondary">
+          or click to choose a file (PNG, JPG, WebP)
+        </span>
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept="image/*"
+          className="hidden"
+          onChange={(e) => onFileChosen(e.target.files?.[0] ?? null)}
+          data-testid="new-article-hero-file-input"
+        />
+      </div>
+      {urlExpanded ? (
+        <div className="flex items-center gap-2">
+          <input
+            type="url"
+            value={urlDraft}
+            onChange={(e) => onSetUrlDraft(e.target.value)}
+            placeholder="https://example.com/hero.jpg"
+            className="border-border-default bg-bg-surface text-caption text-text-primary focus:border-accent flex-1 rounded-md border px-3 py-1.5 focus:outline-none"
+            data-testid="new-article-hero-url-input"
+            autoFocus
+          />
+          <button
+            type="button"
+            onClick={onUrlConfirm}
+            disabled={!urlDraft.trim()}
+            className="bg-accent text-caption text-text-inverse hover:bg-accent-hover rounded-md px-3 py-1.5 font-semibold disabled:opacity-40"
+            data-testid="new-article-hero-url-confirm"
+          >
+            Use URL
+          </button>
+          <button
+            type="button"
+            onClick={() => onSetUrlExpanded(false)}
+            className="text-caption text-text-secondary rounded-md px-2 py-1.5 hover:bg-black/[0.04]"
+          >
+            Cancel
+          </button>
+        </div>
+      ) : (
+        <button
+          type="button"
+          onClick={() => onSetUrlExpanded(true)}
+          className="text-caption text-text-secondary hover:text-accent self-center underline-offset-2 hover:underline"
+          data-testid="new-article-hero-url-toggle"
+        >
+          Or paste a URL
+        </button>
+      )}
     </div>
   );
 }

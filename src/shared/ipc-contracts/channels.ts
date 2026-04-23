@@ -403,6 +403,20 @@ export interface ChannelMap {
   "ad:list": { request: { issueId: string | null }; response: AdSummary[] };
   "ad:upload": { request: UploadAdInput; response: AdSummary };
 
+  // Hero image upload for an article (v0.6 T14). Two channels because the
+  // payload shape differs: `upload-file` carries base64 bytes from a file
+  // picker / drag-drop; `upload-url` carries a URL the main process fetches
+  // through the SSRF guard. Both return the updated ArticleSummary so the
+  // renderer can rerender without a separate `article:open-for-edit` call.
+  "hero:upload-file": {
+    request: { articleId: string; base64: string; filename: string };
+    response: ArticleSummary;
+  };
+  "hero:upload-url": {
+    request: { articleId: string; url: string };
+    response: ArticleSummary;
+  };
+
   // Drag-reorder (v0.6 T13). Renderer sends the midpoint between the two
   // neighbors it dropped between; main persists it on the row's
   // display_position. `rebalanced=true` means the table was re-spaced

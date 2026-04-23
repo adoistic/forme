@@ -93,6 +93,14 @@ export const errorMessages: Record<string, string> = {
   unknown_error: "Something went wrong. Export diagnostics from Help menu and share with support.",
   ipc_handler_missing: "Internal error: no handler registered for this request.",
   ipc_handler_threw: "Internal error in '{channel}'.",
+
+  // URL fetch / SSRF (v0.6 T14)
+  url_invalid_scheme: "URL must be http or https.",
+  url_private_address: "URL points at a private network address.",
+  url_too_large: "Image is larger than 50MB.",
+  url_not_image: "URL didn't return an image.",
+  url_timeout: "Image fetch timed out (30s).",
+  url_fetch_failed: "Couldn't fetch the image. Check the URL.",
 } as const;
 
 /**
