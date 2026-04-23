@@ -5,7 +5,7 @@ export default defineConfig({
   test: {
     environment: "node",
     globals: false,
-    include: ["tests/unit/**/*.test.ts", "tests/integration/**/*.test.ts"],
+    include: ["tests/unit/**/*.test.{ts,tsx}", "tests/integration/**/*.test.{ts,tsx}"],
     exclude: ["node_modules", "dist", "out", "tests/e2e/**"],
     coverage: {
       provider: "v8",
@@ -24,7 +24,10 @@ export default defineConfig({
         statements: 80,
       },
     },
-    environmentMatchGlobs: [["tests/integration/renderer/**", "jsdom"]],
+    environmentMatchGlobs: [
+      ["tests/integration/renderer/**", "jsdom"],
+      ["tests/unit/components/**", "jsdom"],
+    ],
   },
   resolve: {
     alias: {
