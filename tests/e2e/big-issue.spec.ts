@@ -163,9 +163,9 @@ test("big issue: 20 articles via NewArticleModal + 120 classifieds + every ad po
   ];
   for (const ad of adUploads) {
     await window.getByTestId("ad-slot-type").selectOption(ad.slot);
-    // Position label is a free-text input; find it by the placeholder text
-    const positionInput = window.locator('input[placeholder*="Run of Book" i]').first();
-    await positionInput.fill(ad.label);
+    // T15 (v0.6) replaced the free-text position label with structured
+    // placement_kind radio buttons. All ads here use Cover placement.
+    await window.getByTestId("ad-placement-cover").check();
     await window.getByTestId("ad-upload-input").setInputFiles(ad.file);
     // Match the upload toast specifically — the page header also says
     // "N uploaded · strict aspect-ratio…", so a bare /uploaded /i regex
