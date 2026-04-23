@@ -273,3 +273,84 @@ describe("<ArticleHistoryPanel>", () => {
     expect(onSelect).toHaveBeenLastCalledWith("s10");
   });
 });
+
+describe("<ArticleHistoryPanel> hover callout (T8)", () => {
+  // Three snapshots, newest-first as the IPC delivers them. Relative
+  // version numbers are reckoned from oldest, so:
+  //   s_newest  → v3
+  //   s_middle  → v2
+  //   s_oldest  → v1
+  const calloutData = [
+    snap({ id: "s_newest", minutesAgo: 5, label: "current draft" }),
+    snap({ id: "s_middle", minutesAgo: 60, label: "first edit pass", starred: true }),
+    snap({ id: "s_oldest", minutesAgo: 120, label: null }),
+  ];
+
+  test("hovering a row reveals the callout", async () => {
+    await renderPanel({ snapshots: calloutData });
+
+    expect(screen.queryByTestId("article-history-hover-callout")).toBeNull();
+    fireEvent.mouseEnter(screen.getByTestId("article-history-row-s_newest"));
+    expect(screen.getByTestId("article-history-hover-callout")).toBeTruthy();
+  });
+
+  test("callout shows the relative version number reckoned from oldest", async () => {
+    await renderPanel({ snapshots: calloutData });
+
+    // 3rd snapshot from the oldest = v3 (newest of the three).
+    fireEvent.mouseEnter(screen.getByTestId("article-history-row-s_newest"));
+    expect(screen.getByTestId("article-history-hover-callout").textContent).toContain("v3");
+
+    fireEvent.mouseLeave(screen.getByTestId("article-history-row-s_newest"));
+    // 1st snapshot ever saved = v1.
+    fireEvent.mouseEnter(screen.getByTestId("article-history-row-s_oldest"));
+    expect(screen.getByTestId("article-history-hover-callout").textContent).toContain("v1");
+  });
+
+  test("callout shows a formatted timestamp for the snapshot", async () => {
+    await renderPanel({ snapshots: calloutData });
+
+    fireEvent.mouseEnter(screen.getByTestId("article-history-row-s_newest"));
+    const callout = screen.getByTestId("article-history-hover-callout");
+    // Same-day snapshots format as "h:mm AM/PM" — assert on the AM/PM
+    // suffix rather than a locale-specific exact string.
+    expect(callout.textContent).toMatch(/\d{1,2}:\d{2}\s?(AM|PM)/);
+  });
+
+  test("callout shows a star icon plus the label when starred + labeled", async () => {
+    await renderPanel({ snapshots: calloutData });
+
+    fireEvent.mouseEnter(screen.getByTestId("article-history-row-s_middle"));
+    const callout = screen.getByTestId("article-history-hover-callout");
+    expect(screen.getByTestId("article-history-hover-callout-star")).toBeTruthy();
+    expect(callout.textContent).toContain("first edit pass");
+  });
+
+  test("mouse leave hides the callout", async () => {
+    await renderPanel({ snapshots: calloutData });
+
+    fireEvent.mouseEnter(screen.getByTestId("article-history-row-s_newest"));
+    expect(screen.getByTestId("article-history-hover-callout")).toBeTruthy();
+
+    fireEvent.mouseLeave(screen.getByTestId("article-history-row-s_newest"));
+    expect(screen.queryByTestId("article-history-hover-callout")).toBeNull();
+  });
+
+  test("keyboard focus on a row reveals the callout (a11y)", async () => {
+    await renderPanel({ snapshots: calloutData });
+
+    expect(screen.queryByTestId("article-history-hover-callout")).toBeNull();
+    fireEvent.focus(screen.getByTestId("article-history-row-s_middle"));
+    expect(screen.getByTestId("article-history-hover-callout")).toBeTruthy();
+  });
+
+  test("blur hides the callout once focus moves away", async () => {
+    await renderPanel({ snapshots: calloutData });
+
+    fireEvent.focus(screen.getByTestId("article-history-row-s_middle"));
+    expect(screen.getByTestId("article-history-hover-callout")).toBeTruthy();
+
+    fireEvent.blur(screen.getByTestId("article-history-row-s_middle"));
+    expect(screen.queryByTestId("article-history-hover-callout")).toBeNull();
+  });
+});

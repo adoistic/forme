@@ -1,7 +1,8 @@
-import React from "react";
+import React, { useState } from "react";
 import { Star, DotsThree } from "@phosphor-icons/react";
 import type { ArticleSnapshotSummary } from "@shared/ipc-contracts/channels.js";
 import { formatRowTime } from "./bucket.js";
+import { HoverCallout } from "./HoverCallout.js";
 
 /**
  * A single snapshot row in `<ArticleHistoryPanel>`. Displays timestamp +
@@ -16,6 +17,8 @@ export interface VersionRowProps {
   isMenuOpen: boolean;
   isEditingLabel: boolean;
   now: Date;
+  /** 1-indexed from oldest. v1 = first snapshot, vN = newest. */
+  versionNumber: number;
   onClick: () => void;
   onToggleMenu: () => void;
   onCloseMenu: () => void;
@@ -31,6 +34,7 @@ export function VersionRow({
   isMenuOpen,
   isEditingLabel,
   now,
+  versionNumber,
   onClick,
   onToggleMenu,
   onCloseMenu,
@@ -39,6 +43,14 @@ export function VersionRow({
   onCommitLabel,
   onAskDelete,
 }: VersionRowProps): React.ReactElement {
+  // Hover and focus both reveal the floating callout. Tracking them as
+  // separate flags lets either signal hold the callout open
+  // independently — important so a focused row doesn't lose the callout
+  // when the operator's mouse drifts away mid keyboard-navigation.
+  const [isHovered, setIsHovered] = useState(false);
+  const [isFocused, setIsFocused] = useState(false);
+  const showCallout = isHovered || isFocused;
+
   const time = formatRowTime(snap.createdAt, now);
   const label = snap.label ?? "Auto-saved";
 
@@ -64,6 +76,10 @@ export function VersionRow({
         e.preventDefault();
         onToggleMenu();
       }}
+      onMouseEnter={() => setIsHovered(true)}
+      onMouseLeave={() => setIsHovered(false)}
+      onFocus={() => setIsFocused(true)}
+      onBlur={() => setIsFocused(false)}
     >
       <div className="min-w-0 flex-1">
         <div className="text-body text-text-primary truncate">{time}</div>
@@ -156,6 +172,18 @@ export function VersionRow({
           </div>
         )}
       </div>
+
+      {/* Hover/focus callout — design-shotgun variant A polish detail.
+          Positioned by the component itself; the parent row supplies the
+          relative positioning context. */}
+      {showCallout && (
+        <HoverCallout
+          versionNumber={versionNumber}
+          timestamp={snap.createdAt}
+          label={snap.label}
+          starred={snap.starred}
+        />
+      )}
     </div>
   );
 }

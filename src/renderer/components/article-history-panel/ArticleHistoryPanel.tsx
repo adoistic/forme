@@ -93,6 +93,20 @@ export function ArticleHistoryPanel({
     return snapshots.filter((s) => (s.label ?? "").toLowerCase().includes(q));
   }, [snapshots, query]);
 
+  // 1-indexed version number per snapshot, reckoned from the OLDEST
+  // snapshot (so v1 = first save ever, vN = newest). The store returns
+  // rows newest-first, so versionNumber = totalCount - newestIndex.
+  // Computed against the full list rather than the filtered `visible`
+  // set so a search that hides v3 doesn't shift the numbering of v4.
+  const versionNumberById = useMemo(() => {
+    const total = snapshots.length;
+    const map = new Map<string, number>();
+    snapshots.forEach((s, idx) => {
+      map.set(s.id, total - idx);
+    });
+    return map;
+  }, [snapshots]);
+
   // ---- Group by date bucket ------------------------------------------
   const groups = useMemo<GroupedSnapshots[]>(() => {
     const byBucket = new Map<DateBucket, ArticleSnapshotSummary[]>();
@@ -203,9 +217,7 @@ export function ArticleHistoryPanel({
 
       {/* Scrolling list */}
       <div className="flex-1 overflow-y-auto" data-testid="article-history-list">
-        {loading && (
-          <p className="text-caption text-text-tertiary px-3 py-4">Loading versions…</p>
-        )}
+        {loading && <p className="text-caption text-text-tertiary px-3 py-4">Loading versions…</p>}
         {error && !loading && (
           <p className="text-caption text-error px-3 py-4" role="alert">
             {error}
@@ -239,6 +251,7 @@ export function ArticleHistoryPanel({
                 isMenuOpen={openMenuId === snap.id}
                 isEditingLabel={editingLabelId === snap.id}
                 now={now}
+                versionNumber={versionNumberById.get(snap.id) ?? 0}
                 onClick={() => onSelect(snap.id)}
                 onToggleMenu={() => setOpenMenuId((id) => (id === snap.id ? null : snap.id))}
                 onCloseMenu={() => setOpenMenuId(null)}
