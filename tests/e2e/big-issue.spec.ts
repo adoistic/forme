@@ -70,6 +70,8 @@ const ADS = {
   back_cover: path.join(FIXTURES, "ads", "back-saptahik.png"),
   between: path.join(FIXTURES, "ads", "between-horizon.png"),
   bottom_strip: path.join(FIXTURES, "ads", "strip-subscribe.png"),
+  full_page_rust: path.join(FIXTURES, "ads", "full-page-rust.png"),
+  quarter_page_gold: path.join(FIXTURES, "ads", "quarter-page-gold.png"),
 };
 
 let app: ElectronApplication;
@@ -150,21 +152,19 @@ test("big issue: 20 articles via NewArticleModal + 120 classifieds + every ad po
 
   // 4) Upload every ad position ────────────────────────────────────
   await window.getByTestId("nav-ads").click();
-  const adUploads: Array<{
-    label: string;
-    slot: string;
-    file: string;
-  }> = [
+
+  // 4a) Cover-placement uploads — full-page + strip slots, no article tie.
+  const coverUploads: Array<{ label: string; slot: string; file: string }> = [
     { label: "Inside Front Cover", slot: "full_page", file: ADS.inside_front },
     { label: "Inside Back Cover", slot: "full_page", file: ADS.inside_back },
     { label: "Back Cover", slot: "full_page", file: ADS.back_cover },
     { label: "Run of Book", slot: "full_page", file: ADS.between },
     { label: "Bottom Strip", slot: "strip", file: ADS.bottom_strip },
   ];
-  for (const ad of adUploads) {
+  for (const ad of coverUploads) {
     await window.getByTestId("ad-slot-type").selectOption(ad.slot);
     // T15 (v0.6) replaced the free-text position label with structured
-    // placement_kind radio buttons. All ads here use Cover placement.
+    // placement_kind radio buttons.
     await window.getByTestId("ad-placement-cover").check();
     await window.getByTestId("ad-upload-input").setInputFiles(ad.file);
     // Match the upload toast specifically — the page header also says
@@ -173,6 +173,54 @@ test("big issue: 20 articles via NewArticleModal + 120 classifieds + every ad po
     const expected = `Uploaded ${path.basename(ad.file)}.`;
     await expect(window.getByText(expected)).toBeVisible({ timeout: 15_000 });
     // Tiny delay so the toast clears before the next upload
+    await window.waitForTimeout(400);
+  }
+
+  // 4b) T15 article-tied placements — exercise the between + bottom-of
+  //     branches of placement_kind so the export pipeline gets exercised
+  //     on every placement variant in the same issue. Pick the first two
+  //     articles in the picker to bind the ads to.
+  const articleAdUploads: Array<{
+    label: string;
+    slot: string;
+    placementTestId: "ad-placement-between" | "ad-placement-bottom-of";
+    file: string;
+    articleIndex: number;
+  }> = [
+    {
+      label: "Between articles",
+      slot: "full_page",
+      placementTestId: "ad-placement-between",
+      file: ADS.full_page_rust,
+      articleIndex: 0,
+    },
+    {
+      label: "Bottom of article",
+      slot: "quarter_page",
+      placementTestId: "ad-placement-bottom-of",
+      file: ADS.quarter_page_gold,
+      articleIndex: 1,
+    },
+  ];
+  for (const ad of articleAdUploads) {
+    await window.getByTestId("ad-slot-type").selectOption(ad.slot);
+    await window.getByTestId(ad.placementTestId).check();
+    // The article picker only shows up after a non-cover placement is
+    // selected. Wait for it, then pick the Nth real option (skip the
+    // "Choose an article..." placeholder at index 0).
+    const picker = window.getByTestId("ad-placement-article");
+    await picker.waitFor({ state: "visible", timeout: 5_000 });
+    const optionValues = await picker.evaluate((sel) =>
+      Array.from((sel as HTMLSelectElement).options)
+        .map((o) => o.value)
+        .filter((v) => v !== "")
+    );
+    const articleId = optionValues[ad.articleIndex] ?? optionValues[0];
+    if (!articleId) throw new Error(`no articles available for ${ad.label}`);
+    await picker.selectOption(articleId);
+    await window.getByTestId("ad-upload-input").setInputFiles(ad.file);
+    const expected = `Uploaded ${path.basename(ad.file)}.`;
+    await expect(window.getByText(expected)).toBeVisible({ timeout: 15_000 });
     await window.waitForTimeout(400);
   }
 
