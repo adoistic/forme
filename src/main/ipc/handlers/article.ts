@@ -18,6 +18,7 @@ import { emitDiskUsageChanged } from "../../disk-usage-events.js";
 import { createLogger } from "../../logger.js";
 import type { Database } from "../../sqlite/schema.js";
 import type { SnapshotStore } from "../../snapshot-store/store.js";
+import { migrateArticleToBlocknote } from "../../article-migration/blocknote.js";
 
 const logger = createLogger("ipc:article");
 
@@ -279,6 +280,11 @@ export function registerArticleHandlers(): void {
     const { db, snapshots } = getState();
     return deleteArticle({ db, snapshots }, payload);
   });
+
+  addHandler("article:open-for-edit", async (payload: { id: string }): Promise<ArticleSummary> => {
+    const { db } = getState();
+    return openArticleForEdit({ db }, payload);
+  });
 }
 
 export async function updateArticle(
@@ -354,4 +360,56 @@ export async function deleteArticle(
   }
   await emitDiskUsageChanged({ db, snapshotStore: snapshots });
   return { id: payload.id, deleted: true };
+}
+
+/**
+ * v0.6 §9A: lazy BlockNote migration on first open. If the article still
+ * carries `body_format='plain'`, convert it to BlockNote JSON, write a
+ * JSONL backup line BEFORE the DB update, and persist the new format.
+ * Idempotent on subsequent opens because `body_format` is now `'blocks'`.
+ *
+ * Migration failure (filesystem error, malformed body, etc.) MUST NOT
+ * block editing: the operator gets the original plain-text body back with
+ * a `migrationWarning` so the renderer can show a non-blocking notice and
+ * fall back to the plain-text editor surface.
+ */
+export async function openArticleForEdit(
+  deps: { db: Kysely<Database>; backupDir?: string },
+  payload: { id: string }
+): Promise<ArticleSummary> {
+  const { db } = deps;
+  let migrationWarning: string | null = null;
+  try {
+    const result = await migrateArticleToBlocknote(
+      db,
+      payload.id,
+      deps.backupDir ? { backupDir: deps.backupDir } : undefined
+    );
+    if (result.migrated) {
+      logger.info(
+        { articleId: payload.id, backupPath: result.backupPath },
+        "BlockNote migration complete"
+      );
+    }
+  } catch (err) {
+    logger.error(
+      {
+        articleId: payload.id,
+        err: err instanceof Error ? err.message : String(err),
+      },
+      "BlockNote migration failed; falling back to plain-text editor"
+    );
+    migrationWarning = "Could not migrate to rich-text editor. Plain-text fallback active.";
+  }
+
+  const row = await db
+    .selectFrom("articles")
+    .select([...SUMMARY_COLUMNS])
+    .where("id", "=", payload.id)
+    .executeTakeFirstOrThrow();
+  const summary = rowToSummary(row as ArticleRow);
+  if (migrationWarning !== null) {
+    summary.migrationWarning = migrationWarning;
+  }
+  return summary;
 }

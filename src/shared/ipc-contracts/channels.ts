@@ -85,6 +85,13 @@ export interface ArticleSummary {
    * surfaces this as a non-blocking warning toast.
    */
   snapshotWarning?: string;
+  /**
+   * Set on responses from `article:open-for-edit` when the lazy v0.5→v0.6
+   * BlockNote migration failed (CEO plan §9A "fallback marker persisted"
+   * path). The renderer surfaces this so the operator knows they're in
+   * plain-text fallback. Editing is NOT blocked.
+   */
+  migrationWarning?: string;
 }
 
 export interface UpdateArticleInput {
@@ -306,6 +313,7 @@ export interface ChannelMap {
   "article:create": { request: CreateArticleInput; response: ArticleSummary };
   "article:update": { request: UpdateArticleInput; response: ArticleSummary };
   "article:delete": { request: { id: string }; response: { id: string; deleted: true } };
+  "article:open-for-edit": { request: { id: string }; response: ArticleSummary };
 
   "snapshot:list": {
     request: { articleId: string; limit?: number };
