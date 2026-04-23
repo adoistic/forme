@@ -131,6 +131,40 @@ export interface ArticleSnapshotBody {
   starred: boolean;
 }
 
+/**
+ * Issue-level snapshot summary (v0.6 T19 — populated History tab).
+ * Issue snapshots have predated v0.6 — every issue mutation already
+ * writes one with an auto-generated `description` per CEO §17.2. The
+ * History tab consumes this list and offers preview-only browsing
+ * (restore is deferred — see TODOS.md).
+ */
+export interface IssueSnapshotSummary {
+  id: string;
+  issueId: string;
+  createdAt: string;
+  description: string;
+  sizeBytes: number;
+}
+
+/**
+ * Lightweight read-side projection of an issue snapshot for the
+ * History tab's preview pane. Counts are derived from the stored
+ * SerializedIssue so the renderer doesn't need to re-parse the body.
+ */
+export interface IssueSnapshotPreview {
+  id: string;
+  issueId: string;
+  createdAt: string;
+  description: string;
+  title: string;
+  issueNumber: number | null;
+  articleCount: number;
+  classifiedCount: number;
+  adCount: number;
+  /** Headlines of articles in the snapshot, in serialization order. */
+  articleHeadlines: string[];
+}
+
 export interface DiskUsageSnapshot {
   snapshots: number;
   blobs: number;
@@ -409,6 +443,18 @@ export interface ChannelMap {
     response: ArticleSnapshotSummary;
   };
   "snapshot:totalBytes": { request: Record<string, never>; response: DiskUsageSnapshot };
+
+  // Issue-level snapshot read APIs — power the History tab (v0.6 T19).
+  // Restore is intentionally not exposed here: an issue-level restore
+  // touches articles + classifieds + ads + placements and is deferred.
+  "issue-snapshot:list": {
+    request: { issueId: string; limit?: number };
+    response: IssueSnapshotSummary[];
+  };
+  "issue-snapshot:read": {
+    request: { snapshotId: string };
+    response: IssueSnapshotPreview;
+  };
 
   // Synchronous fetch of the current disk-usage snapshot. Used by the
   // app-shell `<StorageThresholdBanner>` to know the current total before

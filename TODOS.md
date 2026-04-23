@@ -426,6 +426,22 @@ Effort: S. Depends on: Pre-export screen shipped.
 
 ---
 
+### [P2] Issue-level snapshot restore from the History tab
+
+**What:** Wire a "Restore this version" button into `<IssueHistoryTimeline>` (T19) that reverts the entire issue — articles + classifieds + ads + placements — to the selected snapshot inside one SQLite transaction. Mirror the article-level restore pattern (T9): write a before-restore snapshot, replay the SerializedIssue into the live tables, write an after-restore snapshot.
+
+**Why:** T19 ships preview-only browsing because issue-level restore cascades across four tables and a snapshot diff against current state needs careful UX (what about hero images that no longer exist? Ads with deleted creatives?). Article-level restore (T8/T9) covers the primary v0.6 use case ("I overwrote the headline, take me back"); operators who need an issue-state recovery can read the preview pane and reconstruct manually for now.
+
+**Pros:** Closes the symmetry gap between article + issue history. Crash-recovery story strengthens because every save event becomes reversible end-to-end.
+
+**Cons:** Cascades — articles, classifieds, ads, placements — and orphan-blob handling (creative_filename references on ads) need a clear policy before implementation. Probably needs its own design pass.
+
+**Effort:** M (~3-5d CC after design pass on cascade UX).
+**Priority:** P2.
+**Depends on:** UX call on what happens to live blobs that the snapshot doesn't reference.
+
+---
+
 ## Explicitly NOT in TODOS (considered + rejected with reasoning)
 
 - **SQLCipher passphrase encryption for classified PII.** Rejected. Classifieds PII is printed publicly in the magazine. Encryption-at-rest on the operator's laptop protects nothing that isn't already on every newsstand. FileVault covers theft protection of the laptop generally. Documented here so a future reviewer doesn't re-raise the idea without considering the public-print reality.

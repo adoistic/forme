@@ -8,6 +8,8 @@ import type {
   ArticleSnapshotBody,
   ArticleSummary,
   DiskUsageSnapshot,
+  IssueSnapshotSummary,
+  IssueSnapshotPreview,
 } from "@shared/ipc-contracts/channels.js";
 import type { ContentType, BylinePosition, HeroPlacement } from "@shared/schemas/article.js";
 import { countWords } from "@shared/schemas/article.js";
@@ -216,6 +218,59 @@ export async function totalBytes(deps: SnapshotHandlerDeps): Promise<DiskUsageSn
   return computeDiskUsage(deps.db, deps.snapshots);
 }
 
+// ---- Issue-level snapshot reads (T19 / v0.6) -------------------------
+// Issue snapshots are written automatically on every issue mutation by
+// existing v0.5 code paths. The History tab consumes these for browse +
+// preview only — restore is deferred (TODOS.md) because it cascades
+// across articles + classifieds + ads + placements.
+
+export async function listIssueSnapshots(
+  deps: SnapshotHandlerDeps,
+  payload: { issueId: string; limit?: number }
+): Promise<IssueSnapshotSummary[]> {
+  const rows = await deps.snapshots.list(payload.issueId, payload.limit);
+  return rows.map((r) => ({
+    id: r.id,
+    issueId: r.issue_id,
+    createdAt: r.created_at,
+    description: r.description,
+    sizeBytes: r.size_bytes,
+  }));
+}
+
+export async function readIssueSnapshot(
+  deps: SnapshotHandlerDeps,
+  payload: { snapshotId: string }
+): Promise<IssueSnapshotPreview> {
+  // Confirm the row is an issue-level snapshot before reading; the shared
+  // snapshots table holds article rows too and `snapshot.read()` would
+  // happily return whatever JSON it finds.
+  const row = await deps.db
+    .selectFrom("snapshots")
+    .select(["id", "issue_id", "created_at", "description", "entity_kind"])
+    .where("id", "=", payload.snapshotId)
+    .executeTakeFirst();
+  if (!row || row.entity_kind !== "issue") {
+    throw makeError("snapshot_corrupt", "error", {
+      snapshotId: payload.snapshotId,
+      reason: "not_issue_snapshot",
+    });
+  }
+  const state = await deps.snapshots.read(payload.snapshotId);
+  return {
+    id: row.id,
+    issueId: row.issue_id,
+    createdAt: row.created_at,
+    description: row.description,
+    title: state.title,
+    issueNumber: state.issue_number,
+    articleCount: state.articles.length,
+    classifiedCount: state.classifieds.length,
+    adCount: state.ads.length,
+    articleHeadlines: state.articles.map((a) => a.headline),
+  };
+}
+
 // Look up a single article snapshot's summary row directly from the table.
 // Used by label/star handlers to return the post-mutation row to the renderer
 // without forcing the caller to re-list.
@@ -285,5 +340,15 @@ export function registerSnapshotHandlers(): void {
   addHandler("snapshot:totalBytes", async () => {
     const { db, snapshots } = getState();
     return totalBytes({ db, snapshots });
+  });
+
+  addHandler("issue-snapshot:list", async (payload: { issueId: string; limit?: number }) => {
+    const { db, snapshots } = getState();
+    return listIssueSnapshots({ db, snapshots }, payload);
+  });
+
+  addHandler("issue-snapshot:read", async (payload: { snapshotId: string }) => {
+    const { db, snapshots } = getState();
+    return readIssueSnapshot({ db, snapshots }, payload);
   });
 }

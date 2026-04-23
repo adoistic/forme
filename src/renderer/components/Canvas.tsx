@@ -5,6 +5,7 @@ import { ArticlesScreen } from "../screens/articles/ArticlesScreen.js";
 import { ClassifiedsScreen } from "../screens/classifieds/ClassifiedsScreen.js";
 import { AdsScreen } from "../screens/ads/AdsScreen.js";
 import { SettingsScreen } from "../screens/settings/SettingsScreen.js";
+import { IssueHistoryTimeline } from "../screens/history/IssueHistoryTimeline.js";
 import { EmptyScreen } from "./EmptyScreen.js";
 
 export function Canvas(): React.ReactElement {
@@ -30,13 +31,7 @@ export function Canvas(): React.ReactElement {
           subline="The engine ships with Standard Feature A4. Additional templates arrive in Phases 4-10."
         />
       )}
-      {activeTab === "history" && (
-        <EmptyScreen
-          label="HISTORY"
-          headline="Snapshot timeline."
-          subline="Every edit auto-saves. History UI wires this up in a later phase."
-        />
-      )}
+      {activeTab === "history" && <IssueHistoryTimeline />}
       {activeTab === "settings" && <SettingsScreen />}
     </main>
   );

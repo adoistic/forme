@@ -12,6 +12,8 @@ import {
   labelSnapshot,
   starSnapshot,
   totalBytes,
+  listIssueSnapshots,
+  readIssueSnapshot,
 } from "../../../src/main/ipc/handlers/snapshot.js";
 import { updateArticle, deleteArticle } from "../../../src/main/ipc/handlers/article.js";
 import { setBroadcaster, type Broadcaster } from "../../../src/main/disk-usage-events.js";
@@ -357,6 +359,108 @@ describe("snapshot:totalBytes", () => {
     expect(out.snapshots).toBeGreaterThan(0);
     expect(out.blobs).toBe(12345);
     expect(out.total).toBe(out.snapshots + out.blobs);
+  });
+});
+
+describe("issue-snapshot:list", () => {
+  test("returns issue snapshots newest-first with description", async () => {
+    // Drive a couple of issue saves through the store. The shared store
+    // already writes the description, sizes and ordering — the handler
+    // is a thin projection over it.
+    await snapshots.save(issueId, {
+      id: issueId,
+      title: "Test Issue",
+      issue_number: 1,
+      issue_date: "2026-04-21",
+      page_size: "A4",
+      typography_pairing: "Editorial Serif",
+      primary_language: "en",
+      bw_mode: false,
+      articles: [],
+      classifieds: [],
+      ads: [],
+      placements: [],
+      updated_at: nowISO(),
+    });
+    await new Promise((r) => setTimeout(r, 5));
+    await snapshots.save(issueId, {
+      id: issueId,
+      title: "Test Issue",
+      issue_number: 1,
+      issue_date: "2026-04-21",
+      page_size: "A4",
+      typography_pairing: "News Sans",
+      primary_language: "en",
+      bw_mode: false,
+      articles: [],
+      classifieds: [],
+      ads: [],
+      placements: [],
+      updated_at: nowISO(),
+    });
+
+    const out = await listIssueSnapshots({ db, snapshots }, { issueId });
+    expect(out).toHaveLength(2);
+    // Newest first
+    expect(out[0]!.description).toMatch(/typography pairing/);
+    expect(out[0]!.issueId).toBe(issueId);
+    expect(out[0]!.sizeBytes).toBeGreaterThan(0);
+    // Article-level snapshots in the same table must NOT appear here.
+    await snapshots.saveArticleSnapshot(
+      articleId,
+      bodyJson([{ id: "b1", type: "p", content: "x" }])
+    );
+    const stillIssueOnly = await listIssueSnapshots({ db, snapshots }, { issueId });
+    expect(stillIssueOnly).toHaveLength(2);
+  });
+});
+
+describe("issue-snapshot:read", () => {
+  test("returns the title + per-collection counts + headlines for the snapshot", async () => {
+    await snapshots.save(issueId, {
+      id: issueId,
+      title: "Test Issue",
+      issue_number: 47,
+      issue_date: "2026-04-21",
+      page_size: "A4",
+      typography_pairing: "Editorial Serif",
+      primary_language: "en",
+      bw_mode: false,
+      articles: [
+        { id: "a1", headline: "Modi visits Delhi", language: "en", word_count: 500, content_type: "Article" },
+        { id: "a2", headline: "India's future", language: "en", word_count: 700, content_type: "Article" },
+      ],
+      classifieds: [
+        { id: "c1", type: "matrimonial", language: "en", weeks_to_run: 1 },
+        { id: "c2", type: "obituary", language: "en", weeks_to_run: 2 },
+      ],
+      ads: [
+        { id: "ad1", slot_type: "quarter", position_label: "p3", creative_filename: "x.jpg" },
+      ],
+      placements: [],
+      updated_at: nowISO(),
+    });
+
+    const list = await listIssueSnapshots({ db, snapshots }, { issueId });
+    expect(list).toHaveLength(1);
+    const preview = await readIssueSnapshot({ db, snapshots }, { snapshotId: list[0]!.id });
+    expect(preview.title).toBe("Test Issue");
+    expect(preview.issueNumber).toBe(47);
+    expect(preview.articleCount).toBe(2);
+    expect(preview.classifiedCount).toBe(2);
+    expect(preview.adCount).toBe(1);
+    expect(preview.articleHeadlines).toEqual(["Modi visits Delhi", "India's future"]);
+    expect(preview.description).toMatch(/Created issue/);
+  });
+
+  test("rejects when the snapshotId points at an article snapshot", async () => {
+    const snap = await snapshots.saveArticleSnapshot(
+      articleId,
+      bodyJson([{ id: "b1", type: "p", content: "x" }])
+    );
+    await expect(
+      readIssueSnapshot({ db, snapshots }, { snapshotId: snap.id })
+    ).rejects.toMatchObject({ code: "snapshot_corrupt" });
   });
 });
 
