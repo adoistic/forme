@@ -2,7 +2,111 @@ import React, { useEffect, useMemo, useRef, useState } from "react";
 import { useCreateBlockNote } from "@blocknote/react";
 import { BlockNoteView } from "@blocknote/mantine";
 import type { PartialBlock } from "@blocknote/core";
+import DOMPurify from "dompurify";
 import "@blocknote/mantine/style.css";
+import { isAllowedBlockType, type AllowedBlockType } from "@shared/blocknote-schema.js";
+
+/**
+ * DOMPurify allow-list for clipboard HTML pasted into the rich editor.
+ * Strict by intent — anything not in this set is dropped silently. The
+ * editor's own block coercion (paragraphs / headings / lists / code /
+ * quote / image) is the union we accept; everything else is noise from
+ * the source app's stylesheet.
+ */
+const PASTE_ALLOWED_TAGS = [
+  "p",
+  "br",
+  "h1",
+  "h2",
+  "h3",
+  "h4",
+  "h5",
+  "h6",
+  "ul",
+  "ol",
+  "li",
+  "a",
+  "code",
+  "pre",
+  "blockquote",
+  "em",
+  "strong",
+  "i",
+  "b",
+  "u",
+  "s",
+  "img",
+] as const;
+
+const PASTE_ALLOWED_ATTR = ["href", "src", "alt", "title"] as const;
+
+/**
+ * Sanitize a fragment of HTML pulled from the clipboard. DOMPurify
+ * strips:
+ *   - script / style / iframe / object / embed elements
+ *   - inline event handlers (onclick, onerror, …)
+ *   - data: URIs (except images, which we further restrict to blob:)
+ *   - everything outside PASTE_ALLOWED_TAGS / PASTE_ALLOWED_ATTR
+ *
+ * Image src restricted to blob:/http(s):/relative — no inline data:
+ * URIs (those bypass our blob store and bloat the body).
+ */
+export function sanitizePastedHTML(dirty: string): string {
+  return DOMPurify.sanitize(dirty, {
+    ALLOWED_TAGS: [...PASTE_ALLOWED_TAGS],
+    ALLOWED_ATTR: [...PASTE_ALLOWED_ATTR],
+    ALLOWED_URI_REGEXP: /^(?:(?:https?|mailto|tel|blob):|[^a-z]|[a-z+.-]+(?:[^a-z+.\-:]|$))/i,
+    FORBID_TAGS: ["script", "style", "iframe", "object", "embed", "form"],
+    FORBID_ATTR: ["style", "onerror", "onload", "onclick"],
+    KEEP_CONTENT: true,
+  });
+}
+
+/**
+ * Defense-in-depth for block JSON read from disk. DB writes go through
+ * our IPC layer, but a malformed snapshot (or tampered file) could land
+ * here. Drops blocks without a `type` and normalizes unknown block
+ * types to a paragraph carrying whatever text we can extract.
+ */
+export function sanitizeBlocks(rawBlocks: unknown[]): PartialBlock[] {
+  return rawBlocks
+    .filter(
+      (b): b is { type: string } & Record<string, unknown> =>
+        typeof b === "object" && b !== null && "type" in (b as object)
+    )
+    .map((b): PartialBlock => {
+      if (!isAllowedBlockType(b.type)) {
+        const text = extractBlockText(b);
+        return {
+          type: "paragraph",
+          content: text ? [{ type: "text", text, styles: {} }] : [],
+        };
+      }
+      // The block's `type` is in the allow-list; trust BlockNote to
+      // validate the rest of the shape on initialContent ingestion.
+      return b as PartialBlock & { type: AllowedBlockType };
+    });
+}
+
+/**
+ * Best-effort text extraction from an unknown block shape — used when
+ * we have to coerce an unrecognized block to a paragraph.
+ */
+function extractBlockText(b: Record<string, unknown>): string {
+  const content = b.content;
+  if (typeof content === "string") return content;
+  if (!Array.isArray(content)) return "";
+  return content
+    .map((c) => {
+      if (typeof c === "string") return c;
+      if (typeof c === "object" && c !== null && "text" in c) {
+        const t = (c as { text: unknown }).text;
+        return typeof t === "string" ? t : "";
+      }
+      return "";
+    })
+    .join("");
+}
 
 /**
  * Storage format for an article body.
@@ -79,11 +183,37 @@ export function ArticleBodyEditor({
   // useCreateBlockNote requires an options object. exactOptionalPropertyTypes
   // forbids passing `initialContent: undefined` for the empty case, so split
   // the argument into a stable shape.
-  const editorOptions = useMemo(
-    () => (initialContent.length > 0 ? { initialContent } : {}),
-    [initialContent]
-  );
-  const editor = useCreateBlockNote(editorOptions);
+  //
+  // pasteHandler — DOMPurify hardening (T6). When the clipboard carries
+  // HTML, sanitize it through our allow-list and call the editor's own
+  // pasteHTML directly. Pretext export already escapes on the way out;
+  // the editor surface is paranoid on the way in.
+  const editorOptions = useMemo(() => {
+    const base: Record<string, unknown> = {
+      pasteHandler: ({
+        event,
+        editor: ed,
+        defaultPasteHandler,
+      }: {
+        event: ClipboardEvent;
+        editor: { pasteHTML: (html: string, raw?: boolean) => void };
+        defaultPasteHandler: (ctx?: {
+          prioritizeMarkdownOverHTML?: boolean;
+          plainTextAsMarkdown?: boolean;
+        }) => boolean | undefined;
+      }) => {
+        const html = event.clipboardData?.getData("text/html") ?? "";
+        if (html.trim().length > 0) {
+          ed.pasteHTML(sanitizePastedHTML(html));
+          return true;
+        }
+        return defaultPasteHandler();
+      },
+    };
+    if (initialContent.length > 0) base.initialContent = initialContent;
+    return base;
+  }, [initialContent]);
+  const editor = useCreateBlockNote(editorOptions as Parameters<typeof useCreateBlockNote>[0]);
 
   // Markdown buffer (mode === "markdown"). Initialized from value if input
   // is markdown; otherwise serialized from blocks on the first toggle.
@@ -192,10 +322,8 @@ export function ArticleBodyEditor({
       {/* Editor surface */}
       <div className="bg-bg-canvas flex-1 overflow-auto">
         {mode === "rich" ? (
-          // TODO(T6): wrap BlockNote's paste handling with DOMPurify
-          // before the editor ingests clipboard HTML. Pretext export
-          // already escapes on the way out, but the editor surface
-          // should be paranoid on the way in.
+          // Paste hardening lives on the editor instance via
+          // editorOptions.pasteHandler — see `sanitizePastedHTML` above.
           <div
             className="font-display text-body text-text-primary mx-auto max-w-[720px] px-8 py-6"
             data-testid="article-body-editor-rich"
@@ -243,7 +371,9 @@ function deserializeToBlocks(value: string, bodyFormat: BodyFormat): PartialBloc
     if (!value) return [];
     try {
       const parsed: unknown = JSON.parse(value);
-      return Array.isArray(parsed) ? (parsed as PartialBlock[]) : [];
+      // Defense-in-depth: drop blocks without a `type` and normalize
+      // unknown block types to a paragraph (CEO plan §3A / Tension5).
+      return Array.isArray(parsed) ? sanitizeBlocks(parsed) : [];
     } catch {
       return [];
     }

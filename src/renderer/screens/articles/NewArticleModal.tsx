@@ -2,6 +2,7 @@ import React, { useMemo, useState } from "react";
 import { useEditor, EditorContent } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
 import { marked } from "marked";
+import DOMPurify from "dompurify";
 import { invoke } from "../../ipc/client.js";
 import { useToast } from "../../components/Toast.js";
 import { describeError } from "../../lib/error-helpers.js";
@@ -25,6 +26,52 @@ const CONTENT_TYPES: ContentType[] = [
   "Letter",
   "Poem",
 ];
+
+/**
+ * DOMPurify allow-list for rendered markdown — covers everything the
+ * preview pane needs and nothing more. T6 hardening for the
+ * `dangerouslySetInnerHTML` surface in MarkdownEditor.
+ */
+const MD_ALLOWED_TAGS = [
+  "p",
+  "br",
+  "h1",
+  "h2",
+  "h3",
+  "h4",
+  "h5",
+  "h6",
+  "ul",
+  "ol",
+  "li",
+  "a",
+  "code",
+  "pre",
+  "blockquote",
+  "em",
+  "strong",
+  "i",
+  "b",
+  "u",
+  "s",
+  "hr",
+];
+
+const MD_ALLOWED_ATTR = ["href", "title"];
+
+/**
+ * Render markdown to HTML, then strip everything outside the allow-list.
+ * Defense for the preview pane and the rich-editor hydrate path.
+ */
+function renderMarkdownSafe(md: string): string {
+  const html = marked.parse(md, { async: false }) as string;
+  return DOMPurify.sanitize(html, {
+    ALLOWED_TAGS: MD_ALLOWED_TAGS,
+    ALLOWED_ATTR: MD_ALLOWED_ATTR,
+    FORBID_TAGS: ["script", "style", "iframe", "object", "embed", "form", "img"],
+    FORBID_ATTR: ["style", "onerror", "onload", "onclick"],
+  });
+}
 
 /**
  * Compose a new article from scratch — without leaving the app, without
@@ -69,7 +116,7 @@ export function NewArticleModal({ issueId, onClose, onSaved }: Props): React.Rea
   function switchTo(target: EditorMode): void {
     if (target === mode) return;
     if (target === "richtext" && editor) {
-      editor.commands.setContent(marked.parse(markdown, { async: false }) as string);
+      editor.commands.setContent(renderMarkdownSafe(markdown));
     }
     setMode(target);
   }
@@ -77,7 +124,7 @@ export function NewArticleModal({ issueId, onClose, onSaved }: Props): React.Rea
   // Live HTML preview for markdown mode.
   const previewHtml = useMemo(() => {
     try {
-      return marked.parse(markdown, { async: false }) as string;
+      return renderMarkdownSafe(markdown);
     } catch {
       return "";
     }
@@ -89,9 +136,7 @@ export function NewArticleModal({ issueId, onClose, onSaved }: Props): React.Rea
     // Resolve final body: in markdown mode, render to HTML then strip.
     // In richtext mode, the editor's HTML wins.
     const finalHtml =
-      mode === "richtext" && editor
-        ? editor.getHTML()
-        : (marked.parse(markdown, { async: false }) as string);
+      mode === "richtext" && editor ? editor.getHTML() : renderMarkdownSafe(markdown);
     const bodyText = htmlToParagraphs(finalHtml);
     if (!bodyText.trim()) {
       toast.push("error", "Body is empty.");

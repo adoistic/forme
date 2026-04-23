@@ -6,6 +6,7 @@ import type { Database } from "../sqlite/schema.js";
 import type { SerializedIssue } from "./types.js";
 import { describeDiff } from "./diff.js";
 import { makeError } from "@shared/errors/structured.js";
+import { BLOCKNOTE_SCHEMA_VERSION } from "@shared/blocknote-schema.js";
 
 // Snapshot store per CEO plan Section 17 + eng-plan §1.
 // Every save event (auto-save, explicit, export) writes a snapshot.
@@ -67,9 +68,10 @@ export interface SnapshotStore {
 
 // Block schema version bump signal — when the BlockNote / serialized block
 // shape changes, increment this so the next save writes a fresh fallback_full
-// instead of trying to delta against an incompatible base. Must match the SQL
-// default in migration 4.
-const BLOCK_SCHEMA_VERSION = 1;
+// instead of trying to delta against an incompatible base. Sourced from the
+// shared module so renderer + main agree; must match the SQL default in
+// migration 4.
+const BLOCK_SCHEMA_VERSION = BLOCKNOTE_SCHEMA_VERSION;
 
 // jsondiffpatch instance keyed on block.id so block reorders produce tiny
 // "moved" deltas rather than full-replace rewrites.

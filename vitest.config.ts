@@ -27,6 +27,7 @@ export default defineConfig({
     environmentMatchGlobs: [
       ["tests/integration/renderer/**", "jsdom"],
       ["tests/unit/components/**", "jsdom"],
+      ["tests/unit/security/**", "jsdom"],
     ],
   },
   resolve: {
