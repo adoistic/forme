@@ -330,6 +330,38 @@ const MIGRATIONS: Migration[] = [
       }
     },
   },
+  {
+    version: 6,
+    name: "structured_ad_placement",
+    async up(db) {
+      // v0.6 T15: replace the free-text `position_label` with a structured
+      // pair (placement_kind, placement_article_id). CEO plan 4F + the
+      // design-shotgun 7A decision. Additive only — `position_label` stays
+      // for rollback safety and continues to drive the legacy export path
+      // until the column is removed in a follow-up migration.
+      //
+      // placement_kind values:
+      //   'cover'      → full-page cover or section opener; placement_article_id NULL
+      //   'between'    → runs between two articles; placement_article_id = article it follows
+      //   'bottom-of'  → tucks under one article; placement_article_id = host article
+      await sql`ALTER TABLE ads ADD COLUMN placement_kind TEXT NOT NULL DEFAULT 'cover'`.execute(
+        db
+      );
+      // ON DELETE SET NULL keeps the ad row alive when the host article
+      // disappears; the operator then re-targets via the Ads screen. The
+      // index supports the SET NULL scan plus future "ads on this article"
+      // queries from the Issue Board.
+      await sql`ALTER TABLE ads ADD COLUMN placement_article_id TEXT NULL REFERENCES articles(id) ON DELETE SET NULL`.execute(
+        db
+      );
+      await db.schema
+        .createIndex("idx_ads_placement_article")
+        .ifNotExists()
+        .on("ads")
+        .column("placement_article_id")
+        .execute();
+    },
+  },
 ];
 
 export async function runMigrations(db: Kysely<Database>): Promise<{ applied: number[] }> {

@@ -209,10 +209,26 @@ export interface ImportClassifiedsCsvResult {
 
 // ---- Ads ----
 
+/**
+ * v0.6 T15: structured ad placement. Replaces the free-text positionLabel
+ * with an enum + optional FK to the host article. Operators pick from a
+ * radio-button list on the AdsScreen; the renderer enforces that the
+ * article picker only shows up for `between` / `bottom-of`.
+ */
+export type AdPlacementKind = "cover" | "between" | "bottom-of";
+
 export interface UploadAdInput {
   issueId: string | null;
   slotType: AdSlotType;
-  positionLabel: string;
+  /**
+   * @deprecated v0.6 T15. Still accepted on the wire for rollback safety;
+   * new callers should set placementKind + placementArticleId. Defaults to
+   * a derived label when omitted.
+   */
+  positionLabel?: string;
+  placementKind: AdPlacementKind;
+  /** Required when placementKind is 'between' or 'bottom-of'. */
+  placementArticleId: string | null;
   bwFlag: boolean;
   kind: "commercial" | "house" | "sponsor_strip";
   billingReference: string | null;
@@ -222,11 +238,24 @@ export interface UploadAdInput {
   mimeType: string;
 }
 
+export interface UpdateAdInput {
+  id: string;
+  slotType?: AdSlotType;
+  placementKind?: AdPlacementKind;
+  placementArticleId?: string | null;
+  bwFlag?: boolean;
+  kind?: "commercial" | "house" | "sponsor_strip";
+  billingReference?: string | null;
+}
+
 export interface AdSummary {
   id: string;
   issueId: string | null;
   slotType: AdSlotType;
+  /** Legacy free-text label. Derived from placementKind for new ads. */
   positionLabel: string;
+  placementKind: AdPlacementKind;
+  placementArticleId: string | null;
   kind: "commercial" | "house" | "sponsor_strip";
   bwFlag: boolean;
   creativeFilename: string;
@@ -402,6 +431,7 @@ export interface ChannelMap {
 
   "ad:list": { request: { issueId: string | null }; response: AdSummary[] };
   "ad:upload": { request: UploadAdInput; response: AdSummary };
+  "ad:update": { request: UpdateAdInput; response: AdSummary };
 
   // Hero image upload for an article (v0.6 T14). Two channels because the
   // payload shape differs: `upload-file` carries base64 bytes from a file

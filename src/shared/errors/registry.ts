@@ -24,6 +24,7 @@ export const errorMessages: Record<string, string> = {
   ad_aspect_mismatch:
     "This slot expects {expected_aspect}. Your image is {actual_aspect}. Please supply a correctly proportioned creative.",
   ad_resolution_error: "This ad is below 300 DPI at print size. Override or re-upload?",
+  ad_placement_invalid: "Pick where the ad should run. Cover ads sit alone; between/bottom ads need an article.",
   dps_gutter_warning:
     "The center of this double-page spread looks busy — faces or text may be cut by the gutter.",
   cover_strip_too_short: "This cover strip is too short — expected at least 30mm tall.",

@@ -111,6 +111,10 @@ export interface AdsTable {
   id: string;
   issue_id: string | null;
   slot_type: string; // Full Page, DPS, HPH, etc.
+  // v0.6 T15: deprecated free-text placement label. Kept for rollback
+  // safety and the legacy export-path mapping in handlers/export.ts. New
+  // writes still set it (derived from placement_kind) until a follow-up
+  // migration drops the column.
   position_label: string; // Back Cover, Inside Front, Run of Book, etc.
   bw_flag: 0 | 1;
   kind: "commercial" | "house" | "sponsor_strip";
@@ -119,6 +123,13 @@ export interface AdsTable {
   billing_reference: string | null;
   // v0.6 T13 — see ArticlesTable.display_position.
   display_position: Generated<number>;
+  // v0.6 T15: structured placement. 'cover' = standalone page; 'between' =
+  // runs after the linked article; 'bottom-of' = tucks under the linked
+  // article. SQL default 'cover' so existing inserts compile unchanged.
+  placement_kind: Generated<"cover" | "between" | "bottom-of">;
+  // FK -> articles(id) ON DELETE SET NULL. Required when placement_kind is
+  // 'between' or 'bottom-of'; NULL for 'cover' rows.
+  placement_article_id: string | null;
   created_at: string;
 }
 
