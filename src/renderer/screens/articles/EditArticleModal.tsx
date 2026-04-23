@@ -6,6 +6,7 @@ import { describeError } from "../../lib/error-helpers.js";
 import { ArticleBodyEditor } from "../../components/article-body-editor/ArticleBodyEditor.js";
 import { ArticleHistoryPanel } from "../../components/article-history-panel/ArticleHistoryPanel.js";
 import { DiffViewer } from "../../components/diff-viewer/DiffViewer.js";
+import { HeroUploadSection } from "../../components/hero-upload-section/HeroUploadSection.js";
 import { RestoreUnsavedDialog } from "../../components/restore-unsaved-dialog/RestoreUnsavedDialog.js";
 import type { BodyFormat } from "../../components/article-body-editor/ArticleBodyEditor.js";
 import type { ArticleSummary } from "@shared/ipc-contracts/channels.js";
@@ -561,7 +562,7 @@ function EditArticleModalReady({
               className="flex min-w-0 flex-1 flex-col overflow-hidden"
               data-testid="edit-article-center"
             >
-              <div className="flex-1 overflow-hidden">
+              <div className="min-h-0 flex-1 overflow-hidden">
                 <ArticleBodyEditor
                   value={body}
                   bodyFormat={bodyFormat}
@@ -572,6 +573,8 @@ function EditArticleModalReady({
               <ArticleDetailsSection
                 open={detailsOpen}
                 onToggle={() => setDetailsOpen((o) => !o)}
+                articleId={article.id}
+                onHeroUploaded={onSaved}
                 headline={headline}
                 onHeadlineChange={markMetaDirty(setHeadline)}
                 deck={deck}
@@ -761,6 +764,10 @@ function PrintPreviewPane({
 interface ArticleDetailsSectionProps {
   open: boolean;
   onToggle: () => void;
+  /** Article id — passed through to HeroUploadSection so it can fire IPC. */
+  articleId: string;
+  /** Fold the updated summary back into modal state after a hero upload. */
+  onHeroUploaded: (updated: ArticleSummary) => void;
   headline: string;
   onHeadlineChange: (v: string) => void;
   deck: string;
@@ -784,6 +791,8 @@ interface ArticleDetailsSectionProps {
 function ArticleDetailsSection({
   open,
   onToggle,
+  articleId,
+  onHeroUploaded,
   headline,
   onHeadlineChange,
   deck,
@@ -804,7 +813,7 @@ function ArticleDetailsSection({
   onHeroCreditChange,
 }: ArticleDetailsSectionProps): React.ReactElement {
   return (
-    <div className="border-border-default border-t" data-testid="edit-article-details">
+    <div className="border-border-default shrink-0 border-t" data-testid="edit-article-details">
       <button
         type="button"
         onClick={onToggle}
@@ -816,7 +825,7 @@ function ArticleDetailsSection({
         <span aria-hidden="true">{open ? "▾" : "▸"}</span>
       </button>
       {open ? (
-        <div className="bg-bg-canvas px-8 py-4">
+        <div className="bg-bg-canvas max-h-[40vh] overflow-y-auto px-8 py-4">
           <label className="mb-3 block">
             <span className="text-label-caps text-text-secondary mb-1 block">Headline</span>
             <input
@@ -901,6 +910,10 @@ function ArticleDetailsSection({
           </label>
           <fieldset className="border-border-default rounded-md border p-3">
             <legend className="text-label-caps text-text-secondary px-2">Hero image</legend>
+            <div className="mb-3">
+              <span className="text-label-caps text-text-secondary mb-1 block">Image</span>
+              <HeroUploadSection articleId={articleId} onUploaded={onHeroUploaded} />
+            </div>
             <div className="mb-3">
               <span className="text-label-caps text-text-secondary mb-1 block">Placement</span>
               <div className="grid grid-cols-3 gap-1" role="radiogroup" aria-label="Hero placement">
