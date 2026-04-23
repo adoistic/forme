@@ -22,6 +22,16 @@ declare const __dirname: string;
 
 const logger = createLogger("main");
 
+// Allow tests + dev sessions to point at a sandboxed userData dir without
+// stomping on the operator's real Forme state. Honored only when the env var
+// is set; production launches see the default ~/Library/Application Support/forme.
+// Must run BEFORE requestSingleInstanceLock so the lock attaches to the right dir.
+const formeUserDataOverride = process.env.FORME_USER_DATA;
+if (formeUserDataOverride) {
+  app.setPath("userData", formeUserDataOverride);
+  logger.info({ userData: formeUserDataOverride }, "Using FORME_USER_DATA override");
+}
+
 // Per docs/eng-plan.md §6 — wire the second-instance handler so that
 // double-clicking the app icon while it's already running raises the
 // existing window instead of silently exiting.
