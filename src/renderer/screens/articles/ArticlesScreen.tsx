@@ -200,9 +200,15 @@ export function ArticlesScreen(): React.ReactElement {
           article={editing}
           onClose={() => setEditing(null)}
           onSaved={async () => {
-            setEditing(null);
+            // Stay open after save — the operator can keep editing and
+            // see fresh snapshots in the history rail. The modal owns
+            // the "Saved" toast itself (T10).
             await refreshArticles();
-            toast.push("success", "Article updated.");
+          }}
+          onDeleted={async () => {
+            setEditing(null);
+            await Promise.all([refreshArticles(), refreshIssues()]);
+            toast.push("success", "Article deleted.");
           }}
         />
       ) : null}
