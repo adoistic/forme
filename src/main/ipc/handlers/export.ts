@@ -5,6 +5,7 @@ import { addHandler } from "../register.js";
 import { getState } from "../../app-state.js";
 import { buildPptx } from "@shared/pptx-builder/build.js";
 import { preLayoutForTemplate } from "../../pptx-prelayout/layout.js";
+import { extractPlainText } from "@shared/article-body/extract.js";
 import { makeError } from "@shared/errors/structured.js";
 import type { ExportIssueInput, ExportIssueResult } from "@shared/ipc-contracts/channels.js";
 import type { PptxAd, PptxClassified, PptxPlacement } from "@shared/pptx-builder/types.js";
@@ -480,12 +481,22 @@ export function registerExportHandlers(): void {
       // No hero → no point honoring above-headline / full-bleed.
       if (!heroImage) heroPlacement = "below-headline";
 
+      // v0.6: flatten the body to plain paragraphs before the layout
+      // pipeline sees it. New BlockNote articles store JSON in `body`;
+      // markdown articles store source-text. The pretext/PowerPoint path
+      // assumes prose, so we extract once here and reuse below.
+      const bodyFormat =
+        article.body_format === "markdown" || article.body_format === "blocks"
+          ? article.body_format
+          : "plain";
+      const bodyPlain = extractPlainText(article.body, bodyFormat);
+
       // Pre-break the body into per-page-per-column lines so PowerPoint's
       // text engine can't re-wrap and overflow the column boxes.
       let prelaidPages: string[][][] = [];
       try {
         prelaidPages = await preLayoutForTemplate({
-          body: article.body,
+          body: bodyPlain,
           headline: article.headline,
           deck: article.deck,
           language,
@@ -550,7 +561,7 @@ export function registerExportHandlers(): void {
           byline: article.byline,
           bylinePosition,
           section,
-          body: article.body,
+          body: bodyPlain,
           language,
           heroPlacement,
           ...(heroCaption ? { heroCaption } : {}),
