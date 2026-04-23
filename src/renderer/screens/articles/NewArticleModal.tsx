@@ -285,7 +285,7 @@ export function NewArticleModal({ issueId, onClose, onSaved }: Props): React.Rea
         data-testid="new-article-modal"
       >
         {/* Header strip */}
-        <div className="border-border-default border-b px-8 pt-6 pb-4">
+        <div className="border-border-default shrink-0 border-b px-8 pt-6 pb-4">
           <div className="text-label-caps text-accent mb-1">NEW ARTICLE</div>
           <input
             autoFocus
@@ -308,7 +308,7 @@ export function NewArticleModal({ issueId, onClose, onSaved }: Props): React.Rea
         </div>
 
         {/* Meta strip */}
-        <div className="border-border-default flex items-center gap-3 border-b px-8 py-3">
+        <div className="border-border-default flex shrink-0 items-center gap-3 border-b px-8 py-3">
           <div className="flex items-center gap-2">
             <span className="text-label-caps text-text-secondary">Author</span>
             <input
@@ -364,7 +364,7 @@ export function NewArticleModal({ issueId, onClose, onSaved }: Props): React.Rea
         </div>
 
         {/* Hero upload — drop zone + file picker + URL paste (T14) */}
-        <div className="border-border-default border-b px-8 py-4" data-testid="new-article-hero">
+        <div className="border-border-default shrink-0 border-b px-8 py-4" data-testid="new-article-hero">
           <HeroUploadSection
             hero={hero}
             dragOver={dragOver}
@@ -382,7 +382,7 @@ export function NewArticleModal({ issueId, onClose, onSaved }: Props): React.Rea
         </div>
 
         {/* Body */}
-        <div className="flex-1 overflow-hidden">
+        <div className="flex min-h-0 flex-1 overflow-hidden">
           {mode === "richtext" ? (
             <RichEditor editor={editor} />
           ) : (
@@ -391,7 +391,7 @@ export function NewArticleModal({ issueId, onClose, onSaved }: Props): React.Rea
         </div>
 
         {/* Footer */}
-        <div className="border-border-default flex items-center justify-end gap-3 border-t px-8 py-4">
+        <div className="border-border-default flex shrink-0 items-center justify-end gap-3 border-t px-8 py-4">
           <button
             type="button"
             onClick={onClose}
