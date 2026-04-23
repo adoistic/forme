@@ -106,6 +106,95 @@ describe("validateClassified — per-type", () => {
     expect(r.ok).toBe(true);
   });
 
+  // ─────────────────────────────────────────────────────────────────
+  // Price-style fields are intentionally z.string() so operators can
+  // write "Rs 8.5 lakh" / "Negotiable" / "₹14,00,000" / "20k". The
+  // CSV importer must NOT coerce these via Number().
+  //
+  // Regression for the silent-drop bug fixed in commit 5633965:
+  // numericKeys had stale entries for expected_price / asking_price /
+  // rent_amount, so natural-language prices became NaN and got dropped.
+  // ─────────────────────────────────────────────────────────────────
+
+  test("vehicles: expected_price accepts natural-language string 'Rs 8.5 lakh'", () => {
+    const r = validateClassified("vehicles", {
+      make: "Maruti",
+      model: "Swift",
+      year: 2018,
+      kilometers: 42500,
+      fuel_type: "petrol",
+      expected_price: "Rs 8.5 lakh",
+      location: "Pune",
+      contact_phones: ["+91 98765 43210"],
+    });
+    expect(r.ok).toBe(true);
+    if (r.ok) {
+      expect(r.data).toMatchObject({ expected_price: "Rs 8.5 lakh" });
+    }
+  });
+
+  test("vehicles: expected_price accepts pure-numeric string '850000'", () => {
+    // Pre-fix, the importer would coerce "850000" → 850000 (Number),
+    // then Zod would reject "expected string, received number".
+    // Post-fix, the importer leaves the cell as a string and Zod accepts it.
+    const r = validateClassified("vehicles", {
+      make: "Honda",
+      model: "City",
+      year: 2020,
+      location: "Mumbai",
+      contact_phones: ["+91 98765 11111"],
+      expected_price: "850000",
+    });
+    expect(r.ok).toBe(true);
+    if (r.ok) {
+      expect(r.data).toMatchObject({ expected_price: "850000" });
+    }
+  });
+
+  test("vehicles: expected_price rejects a number type (must be string)", () => {
+    // Locks the contract: even if a programmatic caller passes a number,
+    // the schema requires string. CSV import must coerce upstream.
+    const r = validateClassified("vehicles", {
+      make: "Toyota",
+      model: "Innova",
+      year: 2019,
+      location: "Bengaluru",
+      contact_phones: ["+91 98765 22222"],
+      expected_price: 1400000 as unknown as string, // intentional type lie
+    });
+    expect(r.ok).toBe(false);
+  });
+
+  test("property_rent: monthly_rent + security_deposit accept strings like 'Rs 40,000/month'", () => {
+    const r = validateClassified("property_rent", {
+      property_type: "residential",
+      location: "Indiranagar, Bengaluru",
+      contact_phones: ["+91 98765 33333"],
+      monthly_rent: "Rs 40,000/month",
+      security_deposit: "Rs 2,00,000",
+    });
+    expect(r.ok).toBe(true);
+    if (r.ok) {
+      expect(r.data).toMatchObject({
+        monthly_rent: "Rs 40,000/month",
+        security_deposit: "Rs 2,00,000",
+      });
+    }
+  });
+
+  test("property_sale: expected_price accepts label like 'Negotiable'", () => {
+    const r = validateClassified("property_sale", {
+      property_type: "commercial",
+      location: "DLF Phase 2, Gurugram",
+      contact_phones: ["+91 98765 44444"],
+      expected_price: "Negotiable",
+    });
+    expect(r.ok).toBe(true);
+    if (r.ok) {
+      expect(r.data).toMatchObject({ expected_price: "Negotiable" });
+    }
+  });
+
   test("property_sale: minimal valid", () => {
     const r = validateClassified("property_sale", {
       property_type: "residential",
