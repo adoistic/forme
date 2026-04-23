@@ -314,6 +314,12 @@ export interface ChannelMap {
   "article:update": { request: UpdateArticleInput; response: ArticleSummary };
   "article:delete": { request: { id: string }; response: { id: string; deleted: true } };
   "article:open-for-edit": { request: { id: string }; response: ArticleSummary };
+  // Lightweight body fetch for the DiffViewer "current" right-hand side.
+  // Skips the BlockNote migration that `open-for-edit` runs.
+  "article:read-body": {
+    request: { id: string };
+    response: { id: string; body: string; bodyFormat: "plain" | "markdown" | "blocks" };
+  };
 
   "snapshot:list": {
     request: { articleId: string; limit?: number };

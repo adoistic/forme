@@ -285,6 +285,27 @@ export function registerArticleHandlers(): void {
     const { db } = getState();
     return openArticleForEdit({ db }, payload);
   });
+
+  // Lightweight body fetch for the DiffViewer (T9 / v0.6) — returns just the
+  // bytes the diff overlay needs without running the BlockNote migration that
+  // `article:open-for-edit` triggers. The diff rail compares it against a
+  // snapshot body; full ArticleSummary fields aren't needed.
+  addHandler("article:read-body", async (payload: { id: string }) => {
+    const { db } = getState();
+    const row = await db
+      .selectFrom("articles")
+      .select(["id", "body", "body_format"])
+      .where("id", "=", payload.id)
+      .executeTakeFirst();
+    if (!row) {
+      throw makeError("not_found", "error", { resource: "article", id: payload.id });
+    }
+    return {
+      id: row.id,
+      body: row.body,
+      bodyFormat: normalizeBodyFormat(row.body_format),
+    };
+  });
 }
 
 export async function updateArticle(
