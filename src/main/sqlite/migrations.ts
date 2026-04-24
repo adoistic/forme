@@ -308,19 +308,21 @@ const MIGRATIONS: Migration[] = [
       // ASC order so existing lists keep the order operators saw before
       // the migration ran.
       for (const table of ["articles", "classifieds", "ads"] as const) {
-        await sql.raw(
-          `ALTER TABLE ${table} ADD COLUMN display_position REAL NOT NULL DEFAULT 0`
-        ).execute(db);
+        await sql
+          .raw(`ALTER TABLE ${table} ADD COLUMN display_position REAL NOT NULL DEFAULT 0`)
+          .execute(db);
         // Backfill: ROW_NUMBER() over created_at gives us a 1-based dense
         // ordering that matches the previous "order by created_at" UI.
-        await sql.raw(
-          `UPDATE ${table} SET display_position = (
+        await sql
+          .raw(
+            `UPDATE ${table} SET display_position = (
              SELECT rn * 1.0 FROM (
                SELECT id AS _id, ROW_NUMBER() OVER (ORDER BY created_at ASC) AS rn
                FROM ${table}
              ) WHERE _id = ${table}.id
            )`
-        ).execute(db);
+          )
+          .execute(db);
         await db.schema
           .createIndex(`idx_${table}_display_position`)
           .ifNotExists()

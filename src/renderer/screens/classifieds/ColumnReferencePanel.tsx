@@ -38,8 +38,7 @@ function describeSchema(schema: z.ZodTypeAny): FieldDescriptor[] {
 function isOptional(def: z.ZodTypeAny): boolean {
   // Zod v3+: optional/default/nullable wrap with a `_def.typeName` discriminator
   // OR (v4) a `def.type` discriminator. We just inspect both.
-  const inner =
-    (def as unknown as { _def?: { typeName?: string }; def?: { type?: string } }) ?? {};
+  const inner = (def as unknown as { _def?: { typeName?: string }; def?: { type?: string } }) ?? {};
   const typeName = inner._def?.typeName ?? inner.def?.type;
   if (typeName === "ZodOptional" || typeName === "optional") return true;
   if (typeName === "ZodDefault" || typeName === "default") return true;
@@ -143,7 +142,10 @@ export function ColumnReferencePanel({ typeLabels }: Props): React.ReactElement 
           <code>weeks_to_run</code>, <code>billing_reference</code>.
         </div>
 
-        <ul className="text-caption divide-border-default divide-y" data-testid="column-reference-fields">
+        <ul
+          className="text-caption divide-border-default divide-y"
+          data-testid="column-reference-fields"
+        >
           {fields.length === 0 ? (
             <li className="text-text-tertiary py-2">No fields registered for this type.</li>
           ) : (

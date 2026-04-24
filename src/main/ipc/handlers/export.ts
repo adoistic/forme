@@ -41,10 +41,7 @@ const LAST_EXPORT_DIR_KEY = "last_export_dir";
  * Read a value from the app_settings KV store. Returns `null` if missing.
  * v0.6 T17 uses this for `last_export_dir`; future settings can reuse it.
  */
-export async function readAppSetting(
-  db: Kysely<Database>,
-  key: string
-): Promise<string | null> {
+export async function readAppSetting(db: Kysely<Database>, key: string): Promise<string | null> {
   const row = await db
     .selectFrom("app_settings")
     .select("value")

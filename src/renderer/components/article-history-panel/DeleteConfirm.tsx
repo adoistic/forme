@@ -37,7 +37,7 @@ export function DeleteConfirm({ onCancel, onConfirm }: DeleteConfirmProps): Reac
           <button
             type="button"
             onClick={onCancel}
-            className="text-text-primary hover:bg-black/[0.04] text-title-sm rounded-md px-4 py-2 font-semibold"
+            className="text-text-primary text-title-sm rounded-md px-4 py-2 font-semibold hover:bg-black/[0.04]"
           >
             Cancel
           </button>

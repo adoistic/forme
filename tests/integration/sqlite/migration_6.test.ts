@@ -159,8 +159,9 @@ describe("migration 6 — backfill behavior", () => {
     // Insert without placement_kind / placement_article_id — the SQL
     // defaults should kick in. This mirrors the legacy v0.5 insert path
     // and proves the migration is purely additive.
-    await sql.raw(
-      `INSERT INTO ads (
+    await sql
+      .raw(
+        `INSERT INTO ads (
          id, issue_id, slot_type, position_label, bw_flag, kind,
          creative_blob_hash, creative_filename, billing_reference,
          display_position, created_at
@@ -168,7 +169,8 @@ describe("migration 6 — backfill behavior", () => {
          '${id}', '${issueId}', 'full_page', 'Run of Book', 0, 'commercial',
          '${blobHash}', 'x.jpg', NULL, 1, '${nowISO()}'
        )`
-    ).execute(db);
+      )
+      .execute(db);
 
     const row = await db
       .selectFrom("ads")
@@ -211,11 +213,7 @@ describe("migration 6 — ON DELETE SET NULL behavior", () => {
     // migration 1.
     await db.deleteFrom("articles").where("id", "=", articleId).execute();
 
-    const row = await db
-      .selectFrom("ads")
-      .selectAll()
-      .where("id", "=", adId)
-      .executeTakeFirst();
+    const row = await db.selectFrom("ads").selectAll().where("id", "=", adId).executeTakeFirst();
     expect(row).toBeDefined();
     expect(row?.placement_article_id).toBeNull();
     // placement_kind is intentionally left at 'between' so the operator

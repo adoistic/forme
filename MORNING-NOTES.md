@@ -50,28 +50,28 @@ The full edit + history + restore + diff loop works end-to-end through the UI:
 
 ## What landed (the 20 v0.6 tasks)
 
-| # | Task | Commit | Tests added |
-|---|---|---|---|
-| T1 | DB migration 4 (snapshots, body_format, app_settings) | `a82c87f` | +5 |
-| T2 | Snapshot store with article-level methods + jsondiffpatch | `3e852bd` | +17 |
-| T3 | IPC handlers: article:update/delete + snapshot CRUD + disk-usage-changed | `2ee0871` | +15 |
-| T4 | `<ArticleBodyEditor>` (BlockNote + textarea markdown) | `8a1feea` | +7 |
-| T5 | Lazy BlockNote migration + JSONL backup | `e58cec4` | +11 |
-| T6 | DOMPurify hardening + BLOCKNOTE_SCHEMA_VERSION | `88be13d` | +15 |
-| T7 | `<ArticleHistoryPanel>` (date-grouped, keyboard nav) | `682ceb1` | +15 |
-| T8 | Hover callout polish (variant A) | `3326686` | +7 |
-| T9 | `<DiffViewer>` overlay (Radix Dialog + map+detail + char diff) | `c8c5bed` | +22 |
-| T10 | EditArticleModal 3-pane refactor | `d52316b` | +11 |
-| T11 | App-shell threshold banner | `f1f4863` | +18 |
-| T12 | Settings → Storage panel | `307e321` | +15 |
-| T13 | Drag-reorder via dnd-kit + fractional positions | `b4b44fa` | +24 |
-| T14 | Hero upload + SSRF guard via ipaddr.js | `f6bd302` | +36 |
-| T15 | Manual ad placement schema + radio-buttons UI | `66db949` | +31 |
-| T16 | JSON classifieds import + sample CSV + column reference | `009aaf9` | +14 |
-| T17 | Save-as dialog on PPTX export + last-dir memory | `93d90cc` | +6 |
-| T18 | prefers-reduced-motion global CSS | `413e48d` | +5 |
-| T19 | IssueHistoryTimeline (issue-level history tab) | `451a73c` | +9 |
-| T20 | Restore-vs-unsaved-edits 3-option dialog (G3) | `413e48d` (combined w/ T18) | +9 |
+| #   | Task                                                                     | Commit                      | Tests added |
+| --- | ------------------------------------------------------------------------ | --------------------------- | ----------- |
+| T1  | DB migration 4 (snapshots, body_format, app_settings)                    | `a82c87f`                   | +5          |
+| T2  | Snapshot store with article-level methods + jsondiffpatch                | `3e852bd`                   | +17         |
+| T3  | IPC handlers: article:update/delete + snapshot CRUD + disk-usage-changed | `2ee0871`                   | +15         |
+| T4  | `<ArticleBodyEditor>` (BlockNote + textarea markdown)                    | `8a1feea`                   | +7          |
+| T5  | Lazy BlockNote migration + JSONL backup                                  | `e58cec4`                   | +11         |
+| T6  | DOMPurify hardening + BLOCKNOTE_SCHEMA_VERSION                           | `88be13d`                   | +15         |
+| T7  | `<ArticleHistoryPanel>` (date-grouped, keyboard nav)                     | `682ceb1`                   | +15         |
+| T8  | Hover callout polish (variant A)                                         | `3326686`                   | +7          |
+| T9  | `<DiffViewer>` overlay (Radix Dialog + map+detail + char diff)           | `c8c5bed`                   | +22         |
+| T10 | EditArticleModal 3-pane refactor                                         | `d52316b`                   | +11         |
+| T11 | App-shell threshold banner                                               | `f1f4863`                   | +18         |
+| T12 | Settings → Storage panel                                                 | `307e321`                   | +15         |
+| T13 | Drag-reorder via dnd-kit + fractional positions                          | `b4b44fa`                   | +24         |
+| T14 | Hero upload + SSRF guard via ipaddr.js                                   | `f6bd302`                   | +36         |
+| T15 | Manual ad placement schema + radio-buttons UI                            | `66db949`                   | +31         |
+| T16 | JSON classifieds import + sample CSV + column reference                  | `009aaf9`                   | +14         |
+| T17 | Save-as dialog on PPTX export + last-dir memory                          | `93d90cc`                   | +6          |
+| T18 | prefers-reduced-motion global CSS                                        | `413e48d`                   | +5          |
+| T19 | IssueHistoryTimeline (issue-level history tab)                           | `451a73c`                   | +9          |
+| T20 | Restore-vs-unsaved-edits 3-option dialog (G3)                            | `413e48d` (combined w/ T18) | +9          |
 
 ## What was deferred (with reasons)
 
@@ -129,6 +129,7 @@ bun run test:e2e tests/e2e/smoke.spec.ts
 ```
 
 If `bun run dev` complains about better-sqlite3 native binding, run:
+
 ```sh
 bun run rebuild:electron
 ```
@@ -154,6 +155,7 @@ I did not modify TODOS.md beyond what subagents added. T19's implementer added "
 ## Next step recommendations (your call)
 
 When you wake up:
+
 1. **`bun run dev`** — try the actual feature loop end-to-end. Edit an article, save 5 times, restore one, diff two versions.
 2. **`bun run test:e2e`** — run the full e2e suite (smoke + full-flow + big-issue). Some of those e2e tests had assertions on the old export toast wording — T17 updated them, but if anything else trips, it'll show up here.
 3. **Write the QA test cases you mentioned** — the 41 specced test files in `~/.gstack/projects/PrintCMS/siraj-main-eng-review-test-plan-20260422-200201.md` are the menu. Most of T7-T10's UI tests are missing (component tests exist; full integration tests don't). Pick the highest-risk paths first: snapshot rollback under failure, restore-during-save race, hero URL → cloud metadata.

@@ -276,16 +276,15 @@ describe("<DiffViewer>", () => {
       afterBlocks: [makeBlock("b1", "A")],
       afterSnapshotId: "snap-after",
     });
-    const removedRow = document.querySelector('[data-testid^="diff-viewer-map-row-"][data-kind="removed"]');
+    const removedRow = document.querySelector(
+      '[data-testid^="diff-viewer-map-row-"][data-kind="removed"]'
+    );
     expect(removedRow).not.toBeNull();
   });
 
   test("clicking a map row sets focused index (different paragraph in pane)", async () => {
     await renderViewer({
-      beforeBlocks: [
-        makeBlock("b1", "First paragraph."),
-        makeBlock("b2", "Second paragraph."),
-      ],
+      beforeBlocks: [makeBlock("b1", "First paragraph."), makeBlock("b2", "Second paragraph.")],
       afterBlocks: [
         makeBlock("b1", "First paragraph CHANGED."),
         makeBlock("b2", "Second paragraph also CHANGED."),

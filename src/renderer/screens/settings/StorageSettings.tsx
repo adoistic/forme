@@ -4,10 +4,7 @@ import { invoke } from "../../ipc/client.js";
 import { useToast } from "../../components/Toast.js";
 import { describeError } from "../../lib/error-helpers.js";
 import { formatBytes } from "../../components/storage-threshold-banner/StorageThresholdBanner.js";
-import type {
-  StorageOverview,
-  ArticleStorageRow,
-} from "@shared/ipc-contracts/channels.js";
+import type { StorageOverview, ArticleStorageRow } from "@shared/ipc-contracts/channels.js";
 
 // Settings → Storage panel (T12 / v0.6).
 // Operator-facing surface for the per-article disk-usage breakdown the
@@ -76,12 +73,10 @@ export function StorageSettings({ onViewArticle }: Props): React.ReactElement {
       <OverviewCard overview={overview} />
 
       <div className="border-border-default bg-bg-surface rounded-lg border p-6">
-        <h2 className="font-display text-display-md text-text-primary mb-1">
-          Articles
-        </h2>
+        <h2 className="font-display text-display-md text-text-primary mb-1">Articles</h2>
         <p className="text-caption text-text-secondary mb-4">
-          Snapshots + image blobs for each article. Open a row to review or
-          prune its version history.
+          Snapshots + image blobs for each article. Open a row to review or prune its version
+          history.
         </p>
 
         {rows === null ? (
@@ -112,20 +107,14 @@ export function StorageSettings({ onViewArticle }: Props): React.ReactElement {
   );
 }
 
-function OverviewCard({
-  overview,
-}: {
-  overview: StorageOverview | null;
-}): React.ReactElement {
+function OverviewCard({ overview }: { overview: StorageOverview | null }): React.ReactElement {
   if (!overview) {
     return (
       <div
         className="border-border-default bg-bg-surface rounded-lg border p-6"
         data-testid="storage-overview-loading"
       >
-        <h2 className="font-display text-display-md text-text-primary mb-1">
-          Disk usage
-        </h2>
+        <h2 className="font-display text-display-md text-text-primary mb-1">Disk usage</h2>
         <p className="text-caption text-text-secondary">Loading...</p>
       </div>
     );
@@ -136,22 +125,24 @@ function OverviewCard({
       className="border-border-default bg-bg-surface rounded-lg border p-6"
       data-testid="storage-overview"
     >
-      <h2 className="font-display text-display-md text-text-primary mb-1">
-        Disk usage
-      </h2>
+      <h2 className="font-display text-display-md text-text-primary mb-1">Disk usage</h2>
       <p className="text-caption text-text-secondary mb-4">
         Across snapshots + image blobs in your library.
       </p>
 
       <div
-        className="text-display-md text-text-primary mb-4 font-display"
+        className="text-display-md text-text-primary font-display mb-4"
         data-testid="storage-overview-total"
       >
         {formatBytes(overview.total)}
       </div>
 
       <dl className="grid grid-cols-2 gap-x-6 gap-y-3 sm:grid-cols-3">
-        <BreakdownItem label="Snapshots" value={overview.snapshots} testId="storage-breakdown-snapshots" />
+        <BreakdownItem
+          label="Snapshots"
+          value={overview.snapshots}
+          testId="storage-breakdown-snapshots"
+        />
         <BreakdownItem label="All blobs" value={overview.blobs} testId="storage-breakdown-blobs" />
         <BreakdownItem
           label="Hero images"
@@ -287,7 +278,7 @@ function ArticleStorageTable({
                 onClick={() => onViewArticle?.(row)}
                 disabled={!onViewArticle}
                 data-testid={`storage-view-${row.articleId}`}
-                className="text-body text-accent hover:text-accent-hover focus-visible:ring-accent/35 focus-visible:outline-none focus-visible:ring-2 disabled:opacity-40"
+                className="text-body text-accent hover:text-accent-hover focus-visible:ring-accent/35 focus-visible:ring-2 focus-visible:outline-none disabled:opacity-40"
               >
                 View versions →
               </button>
@@ -317,10 +308,9 @@ function SortableHeader({
   const isActive = current === keyName;
   return (
     <th
-      className={[
-        "py-2 pr-3 font-medium",
-        align === "right" ? "text-right" : "text-left",
-      ].join(" ")}
+      className={["py-2 pr-3 font-medium", align === "right" ? "text-right" : "text-left"].join(
+        " "
+      )}
     >
       <button
         type="button"
@@ -330,7 +320,7 @@ function SortableHeader({
         className={[
           "text-label-caps inline-flex items-center gap-1",
           isActive ? "text-text-primary" : "text-text-tertiary hover:text-text-primary",
-          "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/35 rounded-sm",
+          "focus-visible:ring-accent/35 rounded-sm focus-visible:ring-2 focus-visible:outline-none",
         ].join(" ")}
       >
         {label}

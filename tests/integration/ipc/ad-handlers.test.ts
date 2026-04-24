@@ -3,10 +3,7 @@ import { randomUUID } from "node:crypto";
 import type { Kysely } from "kysely";
 import { createDb } from "../../../src/main/sqlite/db.js";
 import type { Database } from "../../../src/main/sqlite/schema.js";
-import {
-  updateAd,
-  validatePlacement,
-} from "../../../src/main/ipc/handlers/ad.js";
+import { updateAd, validatePlacement } from "../../../src/main/ipc/handlers/ad.js";
 
 // IPC ad handlers — placement validation cases (v0.6 T15).
 //
@@ -73,11 +70,13 @@ async function seedArticle(): Promise<string> {
   return id;
 }
 
-async function seedAd(opts: {
-  placementKind?: "cover" | "between" | "bottom-of";
-  placementArticleId?: string | null;
-  positionLabel?: string;
-} = {}): Promise<string> {
+async function seedAd(
+  opts: {
+    placementKind?: "cover" | "between" | "bottom-of";
+    placementArticleId?: string | null;
+    positionLabel?: string;
+  } = {}
+): Promise<string> {
   const id = randomUUID();
   const blobHash = "f".repeat(64);
   // Image row needs to exist before the FK insert.
@@ -233,9 +232,9 @@ describe("updateAd", () => {
       placementArticleId: articleId,
       positionLabel: "Between articles",
     });
-    await expect(
-      updateAd({ db }, { id: id2, placementArticleId: null })
-    ).rejects.toMatchObject({ code: "ad_placement_invalid" });
+    await expect(updateAd({ db }, { id: id2, placementArticleId: null })).rejects.toMatchObject({
+      code: "ad_placement_invalid",
+    });
   });
 
   test("returns not_found when the ad doesn't exist", async () => {

@@ -3,10 +3,7 @@ import type { Kysely } from "kysely";
 import { randomUUID } from "node:crypto";
 import { createDb } from "../../../src/main/sqlite/db.js";
 import type { Database } from "../../../src/main/sqlite/schema.js";
-import {
-  reorderRow,
-  _resetTableLocksForTesting,
-} from "../../../src/main/ipc/handlers/reorder.js";
+import { reorderRow, _resetTableLocksForTesting } from "../../../src/main/ipc/handlers/reorder.js";
 import { REBALANCE_THRESHOLD } from "../../../src/main/reorder/fractional-position.js";
 
 let db: Kysely<Database>;
@@ -70,7 +67,10 @@ async function seedArticle(
   return id;
 }
 
-async function readPositions(db: Kysely<Database>, issueId: string): Promise<{ id: string; pos: number }[]> {
+async function readPositions(
+  db: Kysely<Database>,
+  issueId: string
+): Promise<{ id: string; pos: number }[]> {
   const rows = await db
     .selectFrom("articles")
     .select(["id", "display_position"])

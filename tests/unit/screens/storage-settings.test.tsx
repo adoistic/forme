@@ -23,7 +23,10 @@ vi.mock("../../../src/renderer/ipc/client.js", () => ({
 }));
 
 import { invoke } from "../../../src/renderer/ipc/client.js";
-import { StorageSettings, sortRows } from "../../../src/renderer/screens/settings/StorageSettings.js";
+import {
+  StorageSettings,
+  sortRows,
+} from "../../../src/renderer/screens/settings/StorageSettings.js";
 import { ToastProvider } from "../../../src/renderer/components/Toast.js";
 
 const mockedInvoke = invoke as unknown as ReturnType<typeof vi.fn>;
@@ -113,16 +116,38 @@ async function renderPanel(props: {
 }
 
 describe("sortRows (pure helper)", () => {
-  const a = makeRow({ articleId: "a", headline: "Apple", snapshotBytes: 100, blobBytes: 200, totalBytes: 300 });
-  const b = makeRow({ articleId: "b", headline: "Banana", snapshotBytes: 50, blobBytes: 500, totalBytes: 550 });
-  const c = makeRow({ articleId: "c", headline: "Cherry", snapshotBytes: 300, blobBytes: 0, totalBytes: 300 });
+  const a = makeRow({
+    articleId: "a",
+    headline: "Apple",
+    snapshotBytes: 100,
+    blobBytes: 200,
+    totalBytes: 300,
+  });
+  const b = makeRow({
+    articleId: "b",
+    headline: "Banana",
+    snapshotBytes: 50,
+    blobBytes: 500,
+    totalBytes: 550,
+  });
+  const c = makeRow({
+    articleId: "c",
+    headline: "Cherry",
+    snapshotBytes: 300,
+    blobBytes: 0,
+    totalBytes: 300,
+  });
 
   test("by total descending (default)", () => {
     expect(sortRows([a, b, c], "total", "desc").map((r) => r.articleId)).toEqual(["b", "a", "c"]);
   });
 
   test("by snapshots ascending", () => {
-    expect(sortRows([a, b, c], "snapshots", "asc").map((r) => r.articleId)).toEqual(["b", "a", "c"]);
+    expect(sortRows([a, b, c], "snapshots", "asc").map((r) => r.articleId)).toEqual([
+      "b",
+      "a",
+      "c",
+    ]);
   });
 
   test("by blobs descending", () => {
@@ -141,7 +166,12 @@ describe("<StorageSettings>", () => {
         total: 1_500_000_000,
         snapshots: 500_000_000,
         blobs: 1_000_000_000,
-        blobsByKind: { hero: 600_000_000, ad: 200_000_000, classifieds: 100_000_000, other: 100_000_000 },
+        blobsByKind: {
+          hero: 600_000_000,
+          ad: 200_000_000,
+          classifieds: 100_000_000,
+          other: 100_000_000,
+        },
       }),
     });
 

@@ -364,7 +364,10 @@ export function NewArticleModal({ issueId, onClose, onSaved }: Props): React.Rea
         </div>
 
         {/* Hero upload — drop zone + file picker + URL paste (T14) */}
-        <div className="border-border-default shrink-0 border-b px-8 py-4" data-testid="new-article-hero">
+        <div
+          className="border-border-default shrink-0 border-b px-8 py-4"
+          data-testid="new-article-hero"
+        >
           <HeroUploadSection
             hero={hero}
             dragOver={dragOver}

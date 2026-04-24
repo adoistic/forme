@@ -42,10 +42,7 @@ const tableLocks: Record<ReorderableTable, Promise<unknown>> = {
   ads: Promise.resolve(),
 };
 
-async function withTableLock<T>(
-  table: ReorderableTable,
-  fn: () => Promise<T>
-): Promise<T> {
+async function withTableLock<T>(table: ReorderableTable, fn: () => Promise<T>): Promise<T> {
   const previous = tableLocks[table];
   let release: () => void = () => {};
   const next = new Promise<void>((resolve) => {
@@ -99,25 +96,21 @@ export async function reorderRow(
 
     const before = neighbors
       .filter((n) => n.display_position < payload.newPosition)
-      .reduce<number | null>(
-        (acc, n) => (acc === null || n.display_position > acc ? n.display_position : acc),
-        null
-      );
+      .reduce<
+        number | null
+      >((acc, n) => (acc === null || n.display_position > acc ? n.display_position : acc), null);
     const after = neighbors
       .filter((n) => n.display_position > payload.newPosition)
-      .reduce<number | null>(
-        (acc, n) => (acc === null || n.display_position < acc ? n.display_position : acc),
-        null
-      );
+      .reduce<
+        number | null
+      >((acc, n) => (acc === null || n.display_position < acc ? n.display_position : acc), null);
 
     // If the renderer-supplied midpoint coincides with a neighbor, or the
     // gap to either side is below the threshold, rebalance and pick a
     // fresh midpoint at the same logical insert location.
     const tooCloseBelow = before !== null && payload.newPosition - before < REBALANCE_THRESHOLD;
     const tooCloseAbove = after !== null && after - payload.newPosition < REBALANCE_THRESHOLD;
-    const collidesWithExisting = neighbors.some(
-      (n) => n.display_position === payload.newPosition
-    );
+    const collidesWithExisting = neighbors.some((n) => n.display_position === payload.newPosition);
 
     if (tooCloseBelow || tooCloseAbove || collidesWithExisting) {
       needsRebalance = true;
@@ -158,10 +151,7 @@ async function rebalanceTable(
     // operator's intended target — the rendered drop location already
     // reflects what they want, even if its float representation collides
     // with a neighbor.
-    const rows = await trx
-      .selectFrom(table)
-      .select(["id", "display_position"])
-      .execute();
+    const rows = await trx.selectFrom(table).select(["id", "display_position"]).execute();
 
     const others = rows.filter((r) => r.id !== movedId);
     others.sort((a, b) => {
@@ -195,11 +185,7 @@ async function rebalanceTable(
       const id = ordered[i];
       const pos = newPositions[i];
       if (id === undefined || pos === undefined) continue;
-      await trx
-        .updateTable(table)
-        .set({ display_position: pos })
-        .where("id", "=", id)
-        .execute();
+      await trx.updateTable(table).set({ display_position: pos }).where("id", "=", id).execute();
     }
 
     const movedPos = newPositions[insertIdx];
@@ -225,7 +211,10 @@ export function registerReorderHandlers(): void {
     "articles:reorder",
     async (payload: { articleId: string; newPosition: number }): Promise<ReorderResult> => {
       const { db } = getState();
-      return reorderRow({ db }, "articles", { id: payload.articleId, newPosition: payload.newPosition });
+      return reorderRow({ db }, "articles", {
+        id: payload.articleId,
+        newPosition: payload.newPosition,
+      });
     }
   );
   addHandler(

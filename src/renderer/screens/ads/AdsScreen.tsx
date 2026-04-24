@@ -20,11 +20,7 @@ import { useToast } from "../../components/Toast.js";
 import { invoke } from "../../ipc/client.js";
 import { describeError } from "../../lib/error-helpers.js";
 import type { AdSlotType } from "@shared/schemas/ad.js";
-import type {
-  AdPlacementKind,
-  AdSummary,
-  ArticleSummary,
-} from "@shared/ipc-contracts/channels.js";
+import type { AdPlacementKind, AdSummary, ArticleSummary } from "@shared/ipc-contracts/channels.js";
 
 const SLOT_LABELS: Record<AdSlotType, string> = {
   full_page: "Full page (A4 portrait)",

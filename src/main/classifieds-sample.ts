@@ -8,12 +8,7 @@ import type { ClassifiedType } from "@shared/schemas/classified.js";
 
 // Per-type column reference. The order matches the cells emitted in
 // SAMPLE_ROWS below; the union becomes the CSV header.
-const STANDARD_COLUMNS = [
-  "type",
-  "language",
-  "weeks_to_run",
-  "billing_reference",
-] as const;
+const STANDARD_COLUMNS = ["type", "language", "weeks_to_run", "billing_reference"] as const;
 
 // Per-type field column lists — kept in lockstep with src/shared/schemas/
 // classified.ts. When a new field is added there, mirror it here.
@@ -110,12 +105,7 @@ export const COLUMNS_BY_TYPE: Record<ClassifiedType, readonly string[]> = {
     "contact_for_condolences",
   ],
   public_notice: ["notice_type", "notice_text", "published_by", "date"],
-  announcement: [
-    "occasion_type",
-    "recipient_name",
-    "message_text",
-    "sender_names",
-  ],
+  announcement: ["occasion_type", "recipient_name", "message_text", "sender_names"],
   tender_notice: [
     "tender_title",
     "issuing_authority",
@@ -125,13 +115,7 @@ export const COLUMNS_BY_TYPE: Record<ClassifiedType, readonly string[]> = {
     "submission_deadline",
     "contact",
   ],
-  education: [
-    "institution_name",
-    "courses_offered",
-    "batch_start",
-    "contact_phones",
-    "location",
-  ],
+  education: ["institution_name", "courses_offered", "batch_start", "contact_phones", "location"],
   vehicles: [
     "make",
     "model",
@@ -226,8 +210,7 @@ const SAMPLE_FIELDS: Record<ClassifiedType, Record<string, string>> = {
   announcement: {
     occasion_type: "birthday",
     recipient_name: "Riya",
-    message_text:
-      "Wishing you a joyous 30th birthday and a year filled with love.",
+    message_text: "Wishing you a joyous 30th birthday and a year filled with love.",
     sender_names: "Mom; Dad; Aanya",
   },
   tender_notice: {

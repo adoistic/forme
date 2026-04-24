@@ -65,9 +65,7 @@ describe("<RestoreUnsavedDialog>", () => {
         onCancel={() => {}}
       />
     );
-    expect(screen.getByTestId("restore-unsaved-dialog").textContent).toContain(
-      "Apr 22, 12:00 PM"
-    );
+    expect(screen.getByTestId("restore-unsaved-dialog").textContent).toContain("Apr 22, 12:00 PM");
   });
 
   test('"Save first" calls onSaveFirst', async () => {

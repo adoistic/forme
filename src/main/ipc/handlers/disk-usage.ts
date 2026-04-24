@@ -17,9 +17,7 @@ export interface DiskUsageHandlerDeps {
   snapshots: SnapshotStore;
 }
 
-export async function currentDiskUsage(
-  deps: DiskUsageHandlerDeps
-): Promise<DiskUsageSnapshot> {
+export async function currentDiskUsage(deps: DiskUsageHandlerDeps): Promise<DiskUsageSnapshot> {
   return computeDiskUsage(deps.db, deps.snapshots);
 }
 

@@ -84,8 +84,8 @@ export function RestoreUnsavedDialog({
           You have unsaved changes
         </h3>
         <p className="text-body text-text-secondary mb-6">
-          Restoring the version from {snapshotTimestamp} will replace the editor body.
-          Save your current draft as a new version first, or discard it and restore.
+          Restoring the version from {snapshotTimestamp} will replace the editor body. Save your
+          current draft as a new version first, or discard it and restore.
         </p>
         <div className="flex flex-col gap-2">
           <button
@@ -110,7 +110,7 @@ export function RestoreUnsavedDialog({
             type="button"
             onClick={onCancel}
             disabled={busy !== null}
-            className="text-text-secondary hover:bg-black/[0.04] text-title-sm rounded-md px-4 py-2 disabled:opacity-40"
+            className="text-text-secondary text-title-sm rounded-md px-4 py-2 hover:bg-black/[0.04] disabled:opacity-40"
             data-testid="restore-unsaved-cancel"
           >
             Cancel

@@ -86,7 +86,5 @@ function renderSegments(segments: DiffSegment[], side: "before" | "after"): Reac
 
 function renderFallback(text: string, emptyLabel?: string): React.ReactNode {
   if (text.trim().length > 0) return text;
-  return (
-    <span className="text-text-tertiary italic">{emptyLabel ?? "(empty paragraph)"}</span>
-  );
+  return <span className="text-text-tertiary italic">{emptyLabel ?? "(empty paragraph)"}</span>;
 }

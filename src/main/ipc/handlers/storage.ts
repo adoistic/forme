@@ -2,10 +2,7 @@ import type { Kysely } from "kysely";
 import { addHandler } from "../register.js";
 import { getState } from "../../app-state.js";
 import { computeDiskUsage } from "../../disk-usage-events.js";
-import type {
-  StorageOverview,
-  ArticleStorageRow,
-} from "@shared/ipc-contracts/channels.js";
+import type { StorageOverview, ArticleStorageRow } from "@shared/ipc-contracts/channels.js";
 import type { Database } from "../../sqlite/schema.js";
 import type { SnapshotStore } from "../../snapshot-store/store.js";
 
@@ -26,9 +23,7 @@ export interface StorageHandlerDeps {
   snapshots: SnapshotStore;
 }
 
-export async function storageOverview(
-  deps: StorageHandlerDeps
-): Promise<StorageOverview> {
+export async function storageOverview(deps: StorageHandlerDeps): Promise<StorageOverview> {
   const { snapshots, blobs, total } = await computeDiskUsage(deps.db, deps.snapshots);
 
   // Hero blob bytes: images referenced by article_images with role='hero'.
@@ -76,9 +71,7 @@ export async function storagePerArticle(
   // Pull every article (optionally filtered by issue), then left-join the
   // aggregates. Doing the aggregate sums in two separate queries and
   // merging in JS keeps the SQL readable and dialect-portable.
-  let articlesQuery = deps.db
-    .selectFrom("articles")
-    .select(["id", "issue_id", "headline"]);
+  let articlesQuery = deps.db.selectFrom("articles").select(["id", "issue_id", "headline"]);
   if (payload.issueId) {
     articlesQuery = articlesQuery.where("issue_id", "=", payload.issueId);
   }

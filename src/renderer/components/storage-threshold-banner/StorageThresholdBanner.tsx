@@ -89,7 +89,7 @@ export function StorageThresholdBanner(): React.ReactElement | null {
       className={[
         "border-l-[1.5px] px-6 py-3 motion-reduce:transition-none",
         "flex w-full items-center justify-between gap-4",
-        "transition-transform duration-base ease-decelerate",
+        "duration-base ease-decelerate transition-transform",
         isCritical
           ? "bg-error-bg border-error text-error"
           : "bg-warning-bg border-warning text-warning",
@@ -101,7 +101,7 @@ export function StorageThresholdBanner(): React.ReactElement | null {
           type="button"
           onClick={handleManage}
           data-testid="storage-threshold-banner-manage"
-          className="text-body text-accent hover:text-accent-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/35 rounded-sm"
+          className="text-body text-accent hover:text-accent-hover focus-visible:ring-accent/35 rounded-sm focus-visible:ring-2 focus-visible:outline-none"
         >
           Manage →
         </button>
@@ -111,7 +111,7 @@ export function StorageThresholdBanner(): React.ReactElement | null {
             onClick={handleDismiss}
             data-testid="storage-threshold-banner-dismiss"
             aria-label="Dismiss"
-            className="text-text-secondary hover:text-text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/35 rounded-sm p-1"
+            className="text-text-secondary hover:text-text-primary focus-visible:ring-accent/35 rounded-sm p-1 focus-visible:ring-2 focus-visible:outline-none"
           >
             <X size={14} weight="bold" />
           </button>

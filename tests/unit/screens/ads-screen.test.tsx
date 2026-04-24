@@ -26,7 +26,10 @@ vi.mock("../../../src/renderer/ipc/client.js", () => ({
 }));
 
 import { invoke } from "../../../src/renderer/ipc/client.js";
-import { AdsScreen, placementValidationMessage } from "../../../src/renderer/screens/ads/AdsScreen.js";
+import {
+  AdsScreen,
+  placementValidationMessage,
+} from "../../../src/renderer/screens/ads/AdsScreen.js";
 import { ToastProvider } from "../../../src/renderer/components/Toast.js";
 import { useIssueStore } from "../../../src/renderer/stores/issue.js";
 
@@ -73,7 +76,11 @@ function makeArticle(overrides: Partial<ArticleSummary> = {}): ArticleSummary {
   };
 }
 
-function seedStore(opts: { issue: IssueSummary; articles: ArticleSummary[]; ads?: AdSummary[] }): void {
+function seedStore(opts: {
+  issue: IssueSummary;
+  articles: ArticleSummary[];
+  ads?: AdSummary[];
+}): void {
   useIssueStore.setState({
     currentIssue: opts.issue,
     issues: [opts.issue],
@@ -143,7 +150,10 @@ describe("AdsScreen radio + article picker", () => {
   });
 
   test("selecting Between articles reveals the article picker", () => {
-    seedStore({ issue: makeIssue(), articles: [makeArticle(), makeArticle({ id: "art-2", headline: "Second piece" })] });
+    seedStore({
+      issue: makeIssue(),
+      articles: [makeArticle(), makeArticle({ id: "art-2", headline: "Second piece" })],
+    });
     renderScreen();
 
     fireEvent.click(screen.getByTestId("ad-placement-between"));

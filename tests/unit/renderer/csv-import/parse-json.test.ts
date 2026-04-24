@@ -136,7 +136,10 @@ describe("parseClassifiedsJson — per-row errors", () => {
   });
 
   test("missing required envelope key reported", () => {
-    const bad = { type: "obituary", fields: { name_of_deceased: "X", date_of_death: "2026-01-01" } };
+    const bad = {
+      type: "obituary",
+      fields: { name_of_deceased: "X", date_of_death: "2026-01-01" },
+    };
     const result = parseClassifiedsJson({ json: JSON.stringify([bad]) });
     expect(result.invalidRows).toBe(1);
     // Either language or weeksToRun should surface in issues.

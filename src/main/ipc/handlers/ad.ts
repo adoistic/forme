@@ -21,9 +21,7 @@ function nowISO(): string {
 
 // New ads land at the tail of the operator's list. v0.6 T13.
 async function nextAdPosition(db: Kysely<Database>, issueId: string | null): Promise<number> {
-  let q = db
-    .selectFrom("ads")
-    .select((eb) => eb.fn.max<number>("display_position").as("max"));
+  let q = db.selectFrom("ads").select((eb) => eb.fn.max<number>("display_position").as("max"));
   q = issueId === null ? q.where("issue_id", "is", null) : q.where("issue_id", "=", issueId);
   const row = await q.executeTakeFirst();
   return Number(row?.max ?? 0) + 1;
@@ -137,10 +135,7 @@ export interface AdHandlerDeps {
   db: Kysely<Database>;
 }
 
-export async function updateAd(
-  deps: AdHandlerDeps,
-  payload: UpdateAdInput
-): Promise<AdSummary> {
+export async function updateAd(deps: AdHandlerDeps, payload: UpdateAdInput): Promise<AdSummary> {
   const { db } = deps;
   // If the caller is changing placement, validate end-to-end. We need both
   // sides of the (kind, article_id) pair to do the check, so read the
@@ -161,10 +156,7 @@ export async function updateAd(
       ? payload.placementArticleId
       : existing.placement_article_id;
 
-  if (
-    payload.placementKind !== undefined ||
-    payload.placementArticleId !== undefined
-  ) {
+  if (payload.placementKind !== undefined || payload.placementArticleId !== undefined) {
     await validatePlacement(db, {
       placementKind: nextKind,
       placementArticleId: nextArticleId,
@@ -176,10 +168,7 @@ export async function updateAd(
   if (payload.bwFlag !== undefined) patch["bw_flag"] = payload.bwFlag ? 1 : 0;
   if (payload.kind !== undefined) patch["kind"] = payload.kind;
   if (payload.billingReference !== undefined) patch["billing_reference"] = payload.billingReference;
-  if (
-    payload.placementKind !== undefined ||
-    payload.placementArticleId !== undefined
-  ) {
+  if (payload.placementKind !== undefined || payload.placementArticleId !== undefined) {
     patch["placement_kind"] = nextKind;
     patch["placement_article_id"] = nextArticleId;
     // Keep the legacy label in sync with structured placement so the

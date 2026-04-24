@@ -2,10 +2,7 @@ import React, { useState } from "react";
 import { invoke } from "../../ipc/client.js";
 import { useToast } from "../../components/Toast.js";
 import { describeError } from "../../lib/error-helpers.js";
-import {
-  parseClassifiedsJson,
-  type JsonImportResult,
-} from "../../csv-import/parse-json.js";
+import { parseClassifiedsJson, type JsonImportResult } from "../../csv-import/parse-json.js";
 
 // JSON import modal (T16). Two intake paths share one parser:
 //   - file picker (.json) — content is read into the textarea so the
@@ -85,10 +82,7 @@ export function JsonImportModal({ issueId, onClose, onImported }: Props): React.
       }
       await onImported(added);
       if (failed > 0) {
-        toast.push(
-          "info",
-          `${added} imported, ${failed} failed mid-import. See errors above.`
-        );
+        toast.push("info", `${added} imported, ${failed} failed mid-import. See errors above.`);
       }
     } finally {
       setImporting(false);
@@ -171,7 +165,7 @@ export function JsonImportModal({ issueId, onClose, onImported }: Props): React.
             </div>
             {result.invalidRows > 0 ? (
               <ul
-                className="border-border-default bg-bg-canvas text-caption text-text-primary mb-2 max-h-[200px] divide-y divide-border-default overflow-y-auto rounded-md border"
+                className="border-border-default bg-bg-canvas text-caption text-text-primary divide-border-default mb-2 max-h-[200px] divide-y overflow-y-auto rounded-md border"
                 data-testid="json-import-error-list"
               >
                 {result.rows
@@ -179,9 +173,7 @@ export function JsonImportModal({ issueId, onClose, onImported }: Props): React.
                   .map((r) => (
                     <li key={r.rowNumber} className="px-3 py-2">
                       <span className="text-text-secondary">Row {r.rowNumber}:</span>{" "}
-                      {r.issues
-                        .map((i) => `${i.field} — ${i.message}`)
-                        .join("; ")}
+                      {r.issues.map((i) => `${i.field} — ${i.message}`).join("; ")}
                     </li>
                   ))}
               </ul>

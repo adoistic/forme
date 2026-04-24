@@ -69,9 +69,7 @@ function DiffMapRow({ entry, focused, onClick }: DiffMapRowProps): React.ReactEl
         <span className="text-text-tertiary w-5 shrink-0 text-[10px] font-semibold tabular-nums">
           {entry.index + 1}
         </span>
-        <span className="text-text-secondary flex-1 truncate text-[11px]">
-          {labelFor(entry)}
-        </span>
+        <span className="text-text-secondary flex-1 truncate text-[11px]">{labelFor(entry)}</span>
         {marker && (
           <span
             className="text-text-inverse w-3 shrink-0 text-center text-[11px] leading-none font-bold"

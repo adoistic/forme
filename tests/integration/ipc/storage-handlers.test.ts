@@ -3,14 +3,8 @@ import type { Kysely } from "kysely";
 import { randomUUID } from "node:crypto";
 import { createDb } from "../../../src/main/sqlite/db.js";
 import type { Database } from "../../../src/main/sqlite/schema.js";
-import {
-  createSnapshotStore,
-  type SnapshotStore,
-} from "../../../src/main/snapshot-store/store.js";
-import {
-  storageOverview,
-  storagePerArticle,
-} from "../../../src/main/ipc/handlers/storage.js";
+import { createSnapshotStore, type SnapshotStore } from "../../../src/main/snapshot-store/store.js";
+import { storageOverview, storagePerArticle } from "../../../src/main/ipc/handlers/storage.js";
 
 // Storage panel handlers (T12). Verifies the overview totals + breakdown,
 // the per-article join (with zero-usage articles still listed), and the
@@ -211,18 +205,9 @@ describe("storage:per-article", () => {
     const a1 = await seedArticle(issueId, "Article one");
     const a2 = await seedArticle(issueId, "Article two");
 
-    await snapshots.saveArticleSnapshot(
-      a1,
-      bodyJson([{ id: "b1", type: "p", content: "v1" }])
-    );
-    await snapshots.saveArticleSnapshot(
-      a1,
-      bodyJson([{ id: "b1", type: "p", content: "v2" }])
-    );
-    await snapshots.saveArticleSnapshot(
-      a2,
-      bodyJson([{ id: "b1", type: "p", content: "x" }])
-    );
+    await snapshots.saveArticleSnapshot(a1, bodyJson([{ id: "b1", type: "p", content: "v1" }]));
+    await snapshots.saveArticleSnapshot(a1, bodyJson([{ id: "b1", type: "p", content: "v2" }]));
+    await snapshots.saveArticleSnapshot(a2, bodyJson([{ id: "b1", type: "p", content: "x" }]));
 
     const heroA1 = "1".repeat(64);
     await seedImage(heroA1, 5000);

@@ -15,10 +15,7 @@ export interface IdenticalEmptyProps {
 export function IdenticalEmpty({ variant }: IdenticalEmptyProps): React.ReactElement {
   const message = messageFor(variant);
   return (
-    <div
-      className="flex flex-1 items-center justify-center"
-      data-testid={`diff-viewer-${variant}`}
-    >
+    <div className="flex flex-1 items-center justify-center" data-testid={`diff-viewer-${variant}`}>
       <p className="font-display text-display-md text-text-secondary italic">{message}</p>
     </div>
   );

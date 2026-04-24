@@ -192,7 +192,8 @@ export function DiffViewer({
 
   const beforeLabel = beforeVersionLabel ?? formatFallbackLabel(fetched.before);
   const afterLabel =
-    afterVersionLabel ?? (afterSnapshotId === null ? "current" : formatFallbackLabel(fetched.after));
+    afterVersionLabel ??
+    (afterSnapshotId === null ? "current" : formatFallbackLabel(fetched.after));
 
   return (
     <Dialog.Root
@@ -228,9 +229,7 @@ export function DiffViewer({
             diff={diff}
             onStepUp={() => setFocusedIndex((i) => Math.max(0, i - 1))}
             onStepDown={() =>
-              setFocusedIndex((i) =>
-                diff ? Math.min(diff.entries.length - 1, i + 1) : i
-              )
+              setFocusedIndex((i) => (diff ? Math.min(diff.entries.length - 1, i + 1) : i))
             }
             disabled={!diff || diff.entries.length === 0}
           />
@@ -244,16 +243,15 @@ export function DiffViewer({
             )}
 
             {fetched.error && (
-              <p
-                className="text-error px-10 py-10"
-                role="alert"
-                data-testid="diff-viewer-error"
-              >
+              <p className="text-error px-10 py-10" role="alert" data-testid="diff-viewer-error">
                 {fetched.error}
               </p>
             )}
 
-            {!fetched.loading && !fetched.error && diff && renderDiffArea(diff, focusedEntry, beforeLabel, afterLabel, setFocusedIndex)}
+            {!fetched.loading &&
+              !fetched.error &&
+              diff &&
+              renderDiffArea(diff, focusedEntry, beforeLabel, afterLabel, setFocusedIndex)}
           </div>
 
           <Footer
@@ -320,7 +318,7 @@ function Header({
           type="button"
           aria-label="Close compare versions"
           data-testid="diff-viewer-close"
-          className="text-text-secondary hover:bg-black/[0.04] flex flex-col items-center rounded-md px-2 py-1"
+          className="text-text-secondary flex flex-col items-center rounded-md px-2 py-1 hover:bg-black/[0.04]"
         >
           <span className="text-lg leading-none">×</span>
           <span className="text-text-tertiary mt-1 text-[11px]">ESC</span>
@@ -347,10 +345,7 @@ function SubHeader({
 
   return (
     <div className="bg-bg-canvas border-border-default flex h-10 items-center justify-between border-b px-8">
-      <span
-        className="text-caption text-text-secondary"
-        data-testid="diff-viewer-summary"
-      >
+      <span className="text-caption text-text-secondary" data-testid="diff-viewer-summary">
         {summary}
       </span>
       <div className="flex items-center gap-2">
@@ -361,7 +356,7 @@ function SubHeader({
             onClick={onStepUp}
             aria-label="Previous paragraph"
             data-testid="diff-viewer-step-up"
-            className="text-text-secondary hover:bg-black/[0.04] disabled:opacity-40 rounded-md px-2 py-0.5 text-sm"
+            className="text-text-secondary rounded-md px-2 py-0.5 text-sm hover:bg-black/[0.04] disabled:opacity-40"
           >
             ↑
           </button>
@@ -371,7 +366,7 @@ function SubHeader({
             onClick={onStepDown}
             aria-label="Next paragraph"
             data-testid="diff-viewer-step-down"
-            className="text-text-secondary hover:bg-black/[0.04] disabled:opacity-40 rounded-md px-2 py-0.5 text-sm"
+            className="text-text-secondary rounded-md px-2 py-0.5 text-sm hover:bg-black/[0.04] disabled:opacity-40"
           >
             ↓
           </button>
@@ -432,11 +427,7 @@ function renderDiffArea(
 
   return (
     <>
-      <DiffMap
-        entries={diff.entries}
-        focusedIndex={focusedEntry?.index ?? 0}
-        onFocus={onFocus}
-      />
+      <DiffMap entries={diff.entries} focusedIndex={focusedEntry?.index ?? 0} onFocus={onFocus} />
       {focusedEntry ? (
         <DiffPane entry={focusedEntry} beforeLabel={beforeLabel} afterLabel={afterLabel} />
       ) : (
@@ -470,9 +461,7 @@ function parseBlocks(body: string): BlockLike[] {
   try {
     const parsed: unknown = JSON.parse(body);
     if (!Array.isArray(parsed)) return [];
-    return parsed.filter(
-      (b): b is BlockLike => typeof b === "object" && b !== null
-    );
+    return parsed.filter((b): b is BlockLike => typeof b === "object" && b !== null);
   } catch {
     return [];
   }

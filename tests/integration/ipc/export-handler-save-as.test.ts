@@ -53,7 +53,7 @@ describe("chooseExportPath — cancel", () => {
   });
 
   test("treats a missing filePath the same as canceled", async () => {
-    const stub: ShowSaveDialog = async () => ({ canceled: false } as SaveDialogResult);
+    const stub: ShowSaveDialog = async () => ({ canceled: false }) as SaveDialogResult;
     const result = await chooseExportPath(db, "x.pptx", stub);
     expect(result).toBeNull();
     expect(await readAppSetting(db, "last_export_dir")).toBeNull();

@@ -427,16 +427,26 @@ describe("issue-snapshot:read", () => {
       primary_language: "en",
       bw_mode: false,
       articles: [
-        { id: "a1", headline: "Modi visits Delhi", language: "en", word_count: 500, content_type: "Article" },
-        { id: "a2", headline: "India's future", language: "en", word_count: 700, content_type: "Article" },
+        {
+          id: "a1",
+          headline: "Modi visits Delhi",
+          language: "en",
+          word_count: 500,
+          content_type: "Article",
+        },
+        {
+          id: "a2",
+          headline: "India's future",
+          language: "en",
+          word_count: 700,
+          content_type: "Article",
+        },
       ],
       classifieds: [
         { id: "c1", type: "matrimonial", language: "en", weeks_to_run: 1 },
         { id: "c2", type: "obituary", language: "en", weeks_to_run: 2 },
       ],
-      ads: [
-        { id: "ad1", slot_type: "quarter", position_label: "p3", creative_filename: "x.jpg" },
-      ],
+      ads: [{ id: "ad1", slot_type: "quarter", position_label: "p3", creative_filename: "x.jpg" }],
       placements: [],
       updated_at: nowISO(),
     });

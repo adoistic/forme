@@ -137,16 +137,21 @@ export function EditArticleModal({
             className="bg-bg-surface fixed inset-x-1/2 top-1/2 z-40 w-[400px] -translate-x-1/2 -translate-y-1/2 rounded-xl p-6 text-center shadow-lg"
             data-testid="edit-article-modal-loading"
           >
-            <Dialog.Title className="text-text-secondary text-body">
-              Opening article…
-            </Dialog.Title>
+            <Dialog.Title className="text-text-secondary text-body">Opening article…</Dialog.Title>
           </Dialog.Content>
         </Dialog.Portal>
       </Dialog.Root>
     );
   }
 
-  return <EditArticleModalReady article={loaded} onClose={onClose} onSaved={onSaved} onDeleted={onDeleted} />;
+  return (
+    <EditArticleModalReady
+      article={loaded}
+      onClose={onClose}
+      onSaved={onSaved}
+      onDeleted={onDeleted}
+    />
+  );
 }
 
 // ---- Inner ready component: drives state once article is loaded ----------
@@ -509,7 +514,10 @@ function EditArticleModalReady({
                 {headerCaption}
                 {savedCaption ? <span className="ml-2 italic">· {savedCaption}</span> : null}
                 {dirty ? (
-                  <span className="text-warning ml-2 font-semibold" data-testid="edit-article-dirty-indicator">
+                  <span
+                    className="text-warning ml-2 font-semibold"
+                    data-testid="edit-article-dirty-indicator"
+                  >
                     · Unsaved changes
                   </span>
                 ) : null}
@@ -529,7 +537,7 @@ function EditArticleModalReady({
                 type="button"
                 onClick={onClose}
                 disabled={saving}
-                className="text-text-secondary hover:bg-black/[0.04] text-title-sm rounded-md px-4 py-2 disabled:opacity-40"
+                className="text-text-secondary text-title-sm rounded-md px-4 py-2 hover:bg-black/[0.04] disabled:opacity-40"
                 data-testid="edit-article-cancel"
               >
                 Cancel
@@ -624,9 +632,7 @@ function EditArticleModalReady({
             className="border-border-default text-caption text-text-tertiary flex shrink-0 items-center justify-between border-t px-8 py-2"
             data-testid="edit-article-footer"
           >
-            <span>
-              {dirty ? "Unsaved changes" : savedCaption ?? "All changes saved"}
-            </span>
+            <span>{dirty ? "Unsaved changes" : (savedCaption ?? "All changes saved")}</span>
             <span className="italic">⌘S to save · ESC to close</span>
           </footer>
         </Dialog.Content>
@@ -665,10 +671,10 @@ function EditArticleModalReady({
       ) : null}
 
       {/* Restore confirm dialogs.
-        * - Clean editor: simple "Restore version from <timestamp>?" confirm.
-        * - Dirty editor: 3-option dialog (CEO plan G3) — Save first, Discard,
-        *   Cancel. Both paths route through their respective handlers and
-        *   close on success. */}
+       * - Clean editor: simple "Restore version from <timestamp>?" confirm.
+       * - Dirty editor: 3-option dialog (CEO plan G3) — Save first, Discard,
+       *   Cancel. Both paths route through their respective handlers and
+       *   close on success. */}
       {restoreConfirmId && !dirty ? (
         <ConfirmDialog
           testid="edit-article-restore-confirm"
@@ -725,7 +731,9 @@ function PrintPreviewPane({
       <div className="border-border-default flex items-baseline justify-between border-b px-4 pt-4 pb-2">
         <span className="text-label-caps text-text-secondary">PREVIEW</span>
         <span className="text-caption text-text-tertiary">
-          {isCurrent ? "current draft" : snapshotLabel ?? formatPreviewTimestamp(snapshotCreatedAt)}
+          {isCurrent
+            ? "current draft"
+            : (snapshotLabel ?? formatPreviewTimestamp(snapshotCreatedAt))}
         </span>
       </div>
       <div
@@ -1011,7 +1019,7 @@ function ConfirmDialog({
             type="button"
             onClick={onCancel}
             disabled={confirming}
-            className="text-text-primary hover:bg-black/[0.04] text-title-sm rounded-md px-4 py-2 font-semibold disabled:opacity-40"
+            className="text-text-primary text-title-sm rounded-md px-4 py-2 font-semibold hover:bg-black/[0.04] disabled:opacity-40"
             data-testid={`${testid}-cancel`}
           >
             Cancel
@@ -1054,9 +1062,7 @@ function extractPlainText(body: string, bodyFormat: BodyFormat): string[] {
     try {
       const parsed: unknown = JSON.parse(body);
       if (!Array.isArray(parsed)) return [];
-      return parsed
-        .map((b) => extractBlockText(b))
-        .filter((t) => t.length > 0);
+      return parsed.map((b) => extractBlockText(b)).filter((t) => t.length > 0);
     } catch {
       return [];
     }
@@ -1066,7 +1072,12 @@ function extractPlainText(body: string, bodyFormat: BodyFormat): string[] {
   // preview reads as prose, not source text.
   return body
     .split(/\n{2,}/)
-    .map((p) => p.replace(/^#+\s+/, "").replace(/^[-*]\s+/, "").trim())
+    .map((p) =>
+      p
+        .replace(/^#+\s+/, "")
+        .replace(/^[-*]\s+/, "")
+        .trim()
+    )
     .filter((p) => p.length > 0);
 }
 

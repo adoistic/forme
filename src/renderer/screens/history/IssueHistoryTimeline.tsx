@@ -8,10 +8,7 @@ import {
   formatRowTime,
   type DateBucket,
 } from "../../components/article-history-panel/bucket.js";
-import type {
-  IssueSnapshotSummary,
-  IssueSnapshotPreview,
-} from "@shared/ipc-contracts/channels.js";
+import type { IssueSnapshotSummary, IssueSnapshotPreview } from "@shared/ipc-contracts/channels.js";
 
 /**
  * `<IssueHistoryTimeline>` — populates the History tab in Canvas
@@ -189,9 +186,7 @@ export function IssueHistoryTimeline(): React.ReactElement {
               Select a snapshot from the timeline to preview it.
             </p>
           )}
-          {previewLoading && (
-            <p className="text-caption text-text-tertiary">Loading preview…</p>
-          )}
+          {previewLoading && <p className="text-caption text-text-tertiary">Loading preview…</p>}
           {previewError && (
             <p className="text-caption text-error" role="alert">
               {previewError}
@@ -266,7 +261,7 @@ function PreviewPane({ preview }: { preview: IssueSnapshotPreview }): React.Reac
         <p className="text-caption text-text-tertiary">{preview.description}</p>
       </header>
 
-      <dl className="border-border-default mb-8 grid grid-cols-3 gap-px border bg-border-default text-center">
+      <dl className="border-border-default bg-border-default mb-8 grid grid-cols-3 gap-px border text-center">
         <Stat label="Articles" value={preview.articleCount} />
         <Stat label="Classifieds" value={preview.classifiedCount} />
         <Stat label="Ads" value={preview.adCount} />
@@ -311,9 +306,7 @@ function EmptyTimeline(): React.ReactElement {
       data-testid="issue-history-empty"
     >
       <div className="text-label-caps text-text-tertiary mb-3">NO HISTORY YET</div>
-      <p className="font-display text-text-primary mb-2 text-[16px]">
-        Snapshots show up here.
-      </p>
+      <p className="font-display text-text-primary mb-2 text-[16px]">Snapshots show up here.</p>
       <p className="text-caption text-text-tertiary">
         Forme writes a snapshot every time the issue changes — drop an article, edit a classified,
         change a setting. Save once and the timeline begins.

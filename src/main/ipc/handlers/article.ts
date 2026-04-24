@@ -35,10 +35,7 @@ function nowISO(): string {
 // max(display_position) + 1 within the issue so the row appears below the
 // last existing article. The SQL default of 0 applies if the query somehow
 // returns no max (empty list — first article in the issue).
-async function nextArticlePosition(
-  db: Kysely<Database>,
-  issueId: string
-): Promise<number> {
+async function nextArticlePosition(db: Kysely<Database>, issueId: string): Promise<number> {
   const row = await db
     .selectFrom("articles")
     .select((eb) => eb.fn.max<number>("display_position").as("max"))

@@ -269,21 +269,24 @@ export function registerClassifiedHandlers(): void {
   // Sample CSV download (T16). Opens a save dialog, writes the bundled
   // sample to the chosen location. Returns null when the operator cancels
   // so the renderer can suppress the success toast.
-  addHandler("classifieds:download-sample-csv", async (): Promise<{ outputPath: string } | null> => {
-    const win = BrowserWindow.getFocusedWindow() ?? BrowserWindow.getAllWindows()[0];
-    const result = win
-      ? await dialog.showSaveDialog(win, {
-          title: "Save sample classifieds CSV",
-          defaultPath: "classifieds-sample.csv",
-          filters: [{ name: "CSV", extensions: ["csv"] }],
-        })
-      : await dialog.showSaveDialog({
-          title: "Save sample classifieds CSV",
-          defaultPath: "classifieds-sample.csv",
-          filters: [{ name: "CSV", extensions: ["csv"] }],
-        });
-    if (result.canceled || !result.filePath) return null;
-    await fs.writeFile(result.filePath, SAMPLE_CLASSIFIEDS_CSV, "utf8");
-    return { outputPath: result.filePath };
-  });
+  addHandler(
+    "classifieds:download-sample-csv",
+    async (): Promise<{ outputPath: string } | null> => {
+      const win = BrowserWindow.getFocusedWindow() ?? BrowserWindow.getAllWindows()[0];
+      const result = win
+        ? await dialog.showSaveDialog(win, {
+            title: "Save sample classifieds CSV",
+            defaultPath: "classifieds-sample.csv",
+            filters: [{ name: "CSV", extensions: ["csv"] }],
+          })
+        : await dialog.showSaveDialog({
+            title: "Save sample classifieds CSV",
+            defaultPath: "classifieds-sample.csv",
+            filters: [{ name: "CSV", extensions: ["csv"] }],
+          });
+      if (result.canceled || !result.filePath) return null;
+      await fs.writeFile(result.filePath, SAMPLE_CLASSIFIEDS_CSV, "utf8");
+      return { outputPath: result.filePath };
+    }
+  );
 }

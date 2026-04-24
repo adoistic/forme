@@ -105,14 +105,16 @@ describe("migration 5 backfill on existing rows", () => {
     }
 
     // Re-run the backfill query (same shape as migration 5).
-    await sql.raw(
-      `UPDATE articles SET display_position = (
+    await sql
+      .raw(
+        `UPDATE articles SET display_position = (
          SELECT rn * 1.0 FROM (
            SELECT id AS _id, ROW_NUMBER() OVER (ORDER BY created_at ASC) AS rn
            FROM articles
          ) WHERE _id = articles.id
        )`
-    ).execute(db);
+      )
+      .execute(db);
 
     const rows = await db
       .selectFrom("articles")

@@ -41,9 +41,7 @@ export function SettingsScreen(): React.ReactElement {
       <header className="border-border-default flex h-16 shrink-0 items-center justify-between border-b px-8">
         <div>
           <h1 className="font-display text-display-md text-text-primary">Settings</h1>
-          <div className="text-caption text-text-tertiary">
-            Publisher Profile + storage usage.
-          </div>
+          <div className="text-caption text-text-tertiary">Publisher Profile + storage usage.</div>
         </div>
         <Tabs.List
           aria-label="Settings sections"
@@ -56,10 +54,7 @@ export function SettingsScreen(): React.ReactElement {
 
       <div className="flex-1 overflow-auto p-8">
         <Tabs.Content value="profile" className="mx-auto max-w-[720px]">
-          <ProfileForm
-            profile={profile}
-            refreshProfile={refreshProfile}
-          />
+          <ProfileForm profile={profile} refreshProfile={refreshProfile} />
         </Tabs.Content>
         <Tabs.Content value="storage" className="mx-auto max-w-[920px]">
           <StorageSettings />
@@ -84,7 +79,7 @@ function SettingsTabTrigger({
         "text-title-sm rounded px-3 py-1.5 transition-colors",
         "text-text-secondary hover:text-text-primary",
         "data-[state=active]:bg-bg-surface data-[state=active]:text-text-primary",
-        "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/35",
+        "focus-visible:ring-accent/35 focus-visible:ring-2 focus-visible:outline-none",
       ].join(" ")}
     >
       {label}

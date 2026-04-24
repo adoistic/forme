@@ -38,14 +38,14 @@ export function RestoreConfirm({
           Restore version {versionLabel}?
         </h3>
         <p className="text-body text-text-secondary mb-6">
-          This will replace the current body. The current draft is auto-saved as a new
-          version first, so you can come back.
+          This will replace the current body. The current draft is auto-saved as a new version
+          first, so you can come back.
         </p>
         <div className="flex justify-end gap-2">
           <button
             type="button"
             onClick={onCancel}
-            className="text-text-primary hover:bg-black/[0.04] text-title-sm rounded-md px-4 py-2 font-semibold"
+            className="text-text-primary text-title-sm rounded-md px-4 py-2 font-semibold hover:bg-black/[0.04]"
           >
             Cancel
           </button>

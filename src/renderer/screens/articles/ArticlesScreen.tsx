@@ -272,11 +272,7 @@ function ArticleList({
    * Called after a successful drag. Receives the new article order, the
    * id of the moved article, and the fractional position to persist.
    */
-  onReorder: (
-    next: ArticleSummary[],
-    movedId: string,
-    newPosition: number
-  ) => Promise<void> | void;
+  onReorder: (next: ArticleSummary[], movedId: string, newPosition: number) => Promise<void> | void;
 }): React.ReactElement {
   // Require ~6px of pointer movement before treating it as a drag. Without
   // a distance threshold dnd-kit captures plain clicks as drags and the
