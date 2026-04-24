@@ -4,47 +4,48 @@
 
 Forme is a desktop app (macOS, Electron) that produces print-ready magazine issues (PowerPoint `.pptx` → PDF) for a single non-technical operator. English, Hindi, and bilingual content are first-class. Ads, classifieds, covers, and auto-versioned history are all built in. No cloud, no accounts, no billing — just typography, layout, and the operator's work.
 
-**Status:** v0.5 — end-to-end export is working. A 73-page demo magazine ([download PDF](https://github.com/adoistic/forme/releases/tag/v0.5)) is built entirely through the in-app UI: 20 articles, 120 classifieds, 5 ad placements covering every position. Honest list of what's working vs. what isn't is below.
+**Status:** v0.6 — end-to-end export is working, and the daily-friction gaps from v0.5 (hero upload, drag-reorder, manual ad placement, save-as dialog, CSV format docs) are closed. Article-level edit history with a diff viewer and restore is in. Honest list of what's working vs. what isn't is below.
 
 ---
 
-## v0.5 — what's working, what isn't
+## v0.6 — what's working, what isn't
 
-**Run it yourself:** [download the unsigned macOS DMG](https://github.com/adoistic/forme/releases/tag/v0.5) from the v0.5 release. macOS Gatekeeper will block first launch (no Apple Developer ID yet — that's part of v0.6). Right-click → Open → Open. The unsigned warning is intentional for the preview.
+**Run it yourself:** [download the unsigned macOS DMG](https://github.com/adoistic/forme/releases/tag/v0.6.0) from the v0.6.0 release. macOS Gatekeeper will block first launch (no Apple Developer ID yet — that's part of v0.8). Right-click → Open → Open. The unsigned warning is intentional for the preview.
 
 ### ✅ Working today
 
 - **Issues** — create with title, number, date, A4/A5 page size, English / Hindi / bilingual language, four typography pairings.
-- **Articles via in-app editor** — `NewArticleModal` has a Tiptap rich-text editor and a markdown tab. Paste body text, set headline + deck + byline + content type, save. Auto-detects language from the body (35% Devanagari → Hindi, 5% → bilingual).
+- **Articles via in-app editor** — `NewArticleModal` + `EditArticleModal` host a BlockNote rich-text editor (with a markdown source tab). Paste body, set headline + deck + byline + content type, save. Auto-detects language from the body (35% Devanagari → Hindi, 5% → bilingual). Paste is sanitised through DOMPurify.
 - **Articles via .docx upload** — drag a Word file in. Mammoth parses it; Hindi byline / deck patterns recognised; duplicate-headline rows stripped automatically.
+- **Hero image upload (new in v0.6)** — file picker, URL paste, and drag-drop in the article modals. URL fetches pass through an SSRF guard (private / link-local / metadata IPs rejected) and re-encode via sharp.
+- **Article edit history (new in v0.6)** — per-article snapshot store using jsondiffpatch deltas, a date-grouped history panel with keyboard navigation, a side-by-side diff viewer (block-level map + intra-block char diff), and one-click restore. Unsaved-edits restore dialog fires on next open after a crash.
+- **Issue history timeline (new in v0.6)** — issue-level activity tab aggregating article, classified, and ad changes for the current issue.
 - **Layout pipeline** — pretext + Skia canvas measurement + per-paragraph hyphenation (English + Hindi Knuth–Liang patterns), per-script line counting, balanced column packer with sentence-boundary splits, first-page geometry shared between layout planner and PPTX renderer (so they can't drift). 78 % average body fill across the demo magazine, no overflow into footers (audited per-page; see `scripts/audit-all-pages.ts`).
-- **Classifieds** — 12 types (matrimonial with/without photo, obituary, public notice, announcement, vehicles, property, jobs, etc.). Two intake paths: (1) bulk CSV import — proven against a 120-row file in the E2E suite, (2) single-classified form (`AddClassifiedModal`) with a type picker and per-type fields (JSON fallback for the rarer types).
-- **Ads** — 11 slot types (`full_page`, `double_page_spread`, `half_page_horizontal/vertical`, `quarter_page`, `strip`, `vertical_strip`, `eighth_page`, `cover_strip`, `corner_bookmark`, `section_sponsor_strip`). Aspect ratio + DPI validated on upload (sub-150 DPI rejected). Position label drives placement: inside-front-cover, inside-back-cover, back-cover, run-of-book (between articles), bottom-strip.
-- **PPTX export** — produces cover → IFC ad → TOC → articles (interleaved with between-ads every 3) → classifieds → IBC → BC. Per-article folios (recto/verso), running headers, body justification + 4 pt paragraph spacing, embedded Fraunces / Inter / Mukta fonts.
-- **PDF rendering** — LibreOffice headless converts the `.pptx` to PDF for the operator's printer. `scripts/audit-all-pages.ts` rasterises every page and reports body fill %, overflow, column unevenness — the v0.5 release PDF was verified through this.
-- **Tests** — Vitest unit + integration suite; Playwright E2E spec (`tests/e2e/big-issue.spec.ts`) drives the actual UI to build a 20-article + 120-classified + 5-ad-position issue and asserts the export. Runs in 2.1 minutes on a Mac.
+- **Classifieds** — 12 types (matrimonial with/without photo, obituary, public notice, announcement, vehicles, property, jobs, etc.). Three intake paths: bulk CSV import (proven against a 120-row file in the E2E suite), **JSON import with per-type column reference panel (new in v0.6)**, and single-classified form (`AddClassifiedModal`).
+- **Ads with structured placement (updated in v0.6)** — 11 slot types (`full_page`, `double_page_spread`, `half_page_horizontal/vertical`, `quarter_page`, `strip`, `vertical_strip`, `eighth_page`, `cover_strip`, `corner_bookmark`, `section_sponsor_strip`). Aspect ratio + DPI validated on upload (sub-150 DPI rejected). Placement is now a typed schema with radio-button UI: inside-front-cover, inside-back-cover, back-cover, between-articles, bottom-of-article.
+- **Drag-reorder (new in v0.6)** — articles, classifieds, and ads all reorderable via `dnd-kit` using fractional positions (no cascading rewrites on reorder).
+- **Save-as dialog on export (new in v0.6)** — `dialog.showSaveDialog` with last-directory memory and reveal-in-Finder after write. No more fixed export path.
+- **Storage settings (new in v0.6)** — per-article disk usage panel in Settings; app-shell threshold banner warns at configurable levels and re-arms at +100 MB, with a critical tier at 1 GB.
+- **PPTX export** — produces cover → IFC ad → TOC → articles (interleaved with between-ads) → classifieds → IBC → BC. Per-article folios (recto/verso), running headers, body justification + 4 pt paragraph spacing, embedded Fraunces / Inter / Mukta fonts.
+- **PDF rendering** — LibreOffice headless converts the `.pptx` to PDF for the operator's printer. `scripts/audit-all-pages.ts` rasterises every page and reports body fill %, overflow, column unevenness.
+- **Tests** — Vitest unit + integration suite (557 tests at v0.6); Playwright E2E spec (`tests/e2e/big-issue.spec.ts`) drives the actual UI to build a 20-article + 120-classified + 5-ad-position issue and asserts the export. Runs in 2.1 minutes on a Mac.
+- **Accessibility + motion** — global `prefers-reduced-motion` respected in CSS; focus rings preserved on keyboard nav through history panels and modals.
 - **Crash + diagnostics** — pino structured logging, single-instance lock, snapshot/recovery store.
 - **Window behaves on small screens** — capped to the macOS work area (won't push the bottom of the window behind the Dock).
 
-### 🚧 Known gaps (deferred to v0.6 / v0.7)
+### 🚧 Known gaps (deferred to v0.7 / v0.8)
 
-These are real, the operator will hit them; they're listed honestly so v0.5 isn't oversold:
+These are real, the operator will hit them; they're listed honestly so v0.6 isn't oversold:
 
-| #   | Gap                                                      | What's missing                                                                                                                                                                                                                                                  |
-| --- | -------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| 1   | **Hero image upload from the app**                       | No file picker / URL paste / drag-drop in `NewArticleModal` or `EditArticleModal`. Hero images today only enter the system through `.docx` import. The hero-placement / caption / credit editor in `EditArticleModal` is wired but has no source-image control. |
-| 2   | **CSV format documentation for non-technical operators** | Sample CSV exists at `tests/fixtures/classifieds/sample.csv` and the column list lives in `src/main/ipc/handlers/classified.ts`, but neither is accessible from the import UI. Need an in-UI "download sample CSV" + per-type column reference.                 |
-| 3   | **Reorder articles / classifieds / ads**                 | Read-only lists. Ordering today is implicit (created-at ASC for articles, type-then-created-at for classifieds). `dnd-kit` is in the locked stack but not wired. The operator can't say "ad X goes between article 5 and 6".                                    |
-| 4   | **Manual ad placement**                                  | Ad position is a free-text label (`positionLabel`) that `derivePosition` substring-matches. No UI for "between article 3 and 4" or "bottom of article 5 page 2".                                                                                                |
-| 5   | **"Save as…" dialog on export**                          | Export writes to a fixed `~/Documents/Forme/{slug}-{date}.pptx` with no `dialog.showSaveDialog` call. Operator can't choose location or filename at export time.                                                                                                |
-| 6   | **Side-image article layouts**                           | Only three image placements exist (`below-headline`, `above-headline`, `full-bleed`). No inline figure with text wrapping around it. Pretext's `layoutNextLineRange(width)` supports the variable-width line stepping needed; not yet wired.                    |
-| 7   | **Poetry templates**                                     | `Poem` is a valid `contentType` and `poetry` is in the template-family enum, but no `poetry.json` template exists yet. Poems route to the default feature template today. Quatrain / short / long / multi-poem-per-page packing is the v0.6 brainstorm.         |
-| 8   | **Code-signed + notarized DMG**                          | v0.5 DMG ships unsigned. Apple Developer ID + notarization is v0.6.                                                                                                                                                                                             |
+| #   | Gap                             | What's missing                                                                                                                                                                                                                                          |
+| --- | ------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 1   | **Side-image article layouts**  | Only three image placements exist (`below-headline`, `above-headline`, `full-bleed`). No inline figure with text wrapping around it. Pretext's `layoutNextLineRange(width)` supports the variable-width line stepping needed; not yet wired.            |
+| 2   | **Poetry templates**            | `Poem` is a valid `contentType` and `poetry` is in the template-family enum, but no `poetry.json` template exists yet. Poems route to the default feature template today. Quatrain / short / long / multi-poem-per-page packing is the v0.7 brainstorm. |
+| 3   | **Code-signed + notarized DMG** | v0.6 DMG ships unsigned. Apple Developer ID + notarization is v0.8, shipped together with App Sandbox + Hardened Runtime (sandbox issues only surface in signed builds).                                                                                |
 
 ### 🗺️ What's next
 
-- **v0.6** — close gaps 1–5 above (hero upload, CSV docs, drag-reorder, manual ad placement, save-as dialog). These are the operator's daily friction.
-- **v0.7** — poetry layouts (3+ templates) and side-image article layouts. This is the brainstorm in flight.
+- **v0.7** — poetry layouts (3+ templates) and side-image article layouts using pretext's `layoutNextLineRange`.
 - **v0.8** — distribution hardening: code-signed + notarized macOS DMG, plus App Sandbox + Hardened Runtime + entitlements (shipped together — sandbox issues only surface in signed builds). Windows is in `TODOS.md` for v1.x.
 
 ---
@@ -157,13 +158,13 @@ The 13 approved mockups in `designs/` are **directional** references for composi
 
 ## Roadmap
 
-**Shipped (v0.5):** Foundation, layout pipeline, PPTX export, PDF render verification, classifieds CSV import, ad upload + position routing, in-app rich-text/markdown article composition, per-paragraph hyphenation, three templates (feature, photo-essay, long-form). See "v0.5 — what's working, what isn't" above.
+**Shipped (v0.5):** Foundation, layout pipeline, PPTX export, PDF render verification, classifieds CSV import, ad upload + position routing, in-app rich-text/markdown article composition, per-paragraph hyphenation, three templates (feature, photo-essay, long-form).
 
-**v0.6 — operator daily friction:** in-app hero image upload (file/URL/paste), CSV format docs in UI, drag-reorder for articles + classifieds + ads (`dnd-kit`), manual ad placement (between which articles), `dialog.showSaveDialog` on export.
+**Shipped (v0.6):** Article edit history (snapshots + diff viewer + restore), issue history timeline, BlockNote editor with lazy migration, hero image upload (file/URL/drag-drop with SSRF guard), JSON classifieds import + per-type column reference, drag-reorder for articles + classifieds + ads (fractional positions via `dnd-kit`), structured ad placement schema, save-as dialog with last-directory memory, storage settings + threshold banner, DOMPurify paste hardening, `prefers-reduced-motion` support. See "v0.6 — what's working, what isn't" above.
 
 **v0.7 — typography expansion:** poetry templates (quatrain, short, long, multi-poem-per-page), side-image article layouts using pretext's `layoutNextLineRange`.
 
-**v0.8 — distribution:** code-signed + notarized macOS DMG (Apple Developer ID), auto-update channel.
+**v0.8 — distribution:** code-signed + notarized macOS DMG (Apple Developer ID) + App Sandbox + Hardened Runtime + entitlements, auto-update channel.
 
 **v1.x (in [TODOS.md](TODOS.md)):**
 
