@@ -139,6 +139,30 @@ See [docs/eng-plan.md](docs/eng-plan.md) for the full rationale.
 
 ---
 
+## Pretext in Node, for print
+
+[Pretext](https://github.com/chenglou/pretext) is a browser-first text measurement library by Cheng Lou. It exists to skip DOM reflow in web apps: measure how tall a paragraph will be at a given width without mounting it, by running `OffscreenCanvas.getContext('2d').measureText` over segmented, shaped runs. Its normal home is in-browser virtualization, masonry, JS-driven flex layouts, and development-time overflow checks.
+
+Forme uses Pretext in Node — inside the Electron main process — to plan **print pages** for a PowerPoint export. As far as we know, this is the first shipping use of Pretext outside a browser and outside a web UI.
+
+**The problem.** PowerPoint wraps and justifies body text itself, but we need to know _before_ we write a single shape how many visual lines each paragraph will occupy at the column width and typography of the chosen template. Get the count wrong and the column spills past the body trim into the running footer. The old heuristic (chars-per-line × lines-per-column) drifted 4–12%; columns that looked full in the planner ended up 20–40% empty after PowerPoint actually rendered.
+
+**How the bridge works** ([src/main/pptx-prelayout](src/main/pptx-prelayout/)):
+
+- **`OffscreenCanvas` shim over Skia.** Pretext grabs `new OffscreenCanvas(1,1).getContext('2d')` at module load. Node doesn't have it; we install a ~30-line shim over [`@napi-rs/canvas`](https://github.com/Brooooooklyn/canvas) (Skia) before importing Pretext. See [measure.ts](src/main/pptx-prelayout/measure.ts).
+- **The exact print fonts, registered in Skia.** Bundled Fraunces (display), Inter (UI), and Mukta (Devanagari) TTFs are loaded into `GlobalFonts` before the first `measureText`. Without this, Skia picks whatever it can find and widths drift by a few pixels per run — enough to widow a last line or re-wrap a column in the .pptx.
+- **Measure, don't wrap.** Only `prepareWithSegments` + `measureLineStats(prepared, colWidthPx).lineCount` are used. The returned visual-line count at the exact column width is the input to our column packer. PowerPoint does the actual wrap + justify on its side; both engines agree because they're measuring the same text in the same font at the same size.
+- **Soft-hyphen densification.** Body paragraphs are pre-processed through Knuth–Liang patterns (English + Hindi) so U+00AD soft hyphens land inside long words. Pretext treats them as discretionary break candidates; PowerPoint renders the hyphen glyph only at the line end where a break actually happens — invisible everywhere else. Net result: 10–20% denser justified columns, the same trick every print magazine uses.
+- **Devanagari correction.** Skia's Mukta shaper under-counts because it doesn't expand stacked matras + conjuncts the way LibreOffice's HarfBuzz does at render time. For Hindi paragraphs we take `max(pretext_count, char_width_fallback)` so the planner overshoots slightly rather than overflows.
+
+**The output** is `pages[pageIdx][colIdx] = paragraphs[]` — one PPTX paragraph per entry, spillover sentence-split at the column break (Latin `.!?`, Devanagari `।`, CJK `。`, Arabic `؟` all recognised) so no paragraph gets orphaned. First-page geometry is shared between planner and renderer via [first-page-geometry.ts](src/shared/pptx-builder/first-page-geometry.ts) so they can't drift.
+
+**Why this is unusual.** Pretext's whole design case is "don't hit the DOM in the browser." Forme is already Electron; a hidden DOM would be cheap. We reach for Pretext anyway because measurement has to happen _in the main process_ where the PPTX is assembled, outside the renderer, and it has to match what PowerPoint will draw on the other side. Pretext + Skia + the same TTFs PowerPoint embeds gets us that agreement without shipping a PowerPoint-compatible text shaper of our own.
+
+**Audit proof.** `scripts/audit-all-pages.ts` rasterises every page of the exported PDF and reports body fill %, overflow into footers, and column unevenness. The v0.6 demo magazine averages 78% fill across 73 pages with zero footer overflow.
+
+---
+
 ## Design system
 
 [DESIGN.md](DESIGN.md) is the single source of truth for:
